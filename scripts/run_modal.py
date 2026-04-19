@@ -9,7 +9,9 @@ Setup (one-time):
     modal volume create flashinfer-trace
     modal volume put flashinfer-trace /path/to/flashinfer-trace/
 
-Smoke (default): 17 random workloads, light timing.
+Smoke (default): **2** random workloads, minimal timing, **num_trials=1** (no repeated
+correctness trials). Override count with ``--smoke-workloads`` (use 1–3 while debugging).
+
 Full suite: ``modal run scripts/run_modal.py --no-smoke`` — all workloads, saves JSON under artifacts/.
 """
 
@@ -28,6 +30,10 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 import modal
 from flashinfer_bench import Benchmark, BenchmarkConfig, Solution, TraceSet
+from flashinfer_bench.data import EvaluationStatus
+
+# Cap embedded log size in JSON; full text still printed for first failure on stdout.
+_MAX_LOG_JSON_CHARS = 50_000
 
 app = modal.App("flashinfer-bench")
 
@@ -51,13 +57,14 @@ image = (
     )
 )
 
-# Smoke: fewer timing iterations and a fixed random subset of workloads.
-SMOKE_WORKLOAD_COUNT = 17
+# Smoke / debug: 1–3 workloads by default (see main(smoke_workloads)); fast timing;
+# num_trials=1 so correctness is checked once per workload (no benchmark retries).
+SMOKE_WORKLOAD_COUNT_DEFAULT = 2
 SMOKE_RANDOM_SEED = 42
 SMOKE_BENCHMARK_CONFIG = BenchmarkConfig(
     warmup_runs=1,
-    iterations=5,
-    num_trials=2,
+    iterations=3,
+    num_trials=1,
     use_isolated_runner=True,
     timeout_seconds=600,
     profile_baseline=True,
@@ -106,7 +113,7 @@ def _subsample_workloads(
 def run_benchmark(
     solution: Solution,
     smoke: bool = True,
-    smoke_workloads: int = SMOKE_WORKLOAD_COUNT,
+    smoke_workloads: int = SMOKE_WORKLOAD_COUNT_DEFAULT,
     smoke_seed: int = SMOKE_RANDOM_SEED,
 ) -> dict:
     """Run benchmark on Modal B200 and return results.
@@ -115,6 +122,9 @@ def run_benchmark(
     the Modal image may use a different flashinfer-bench than your local venv.
     """
     config = SMOKE_BENCHMARK_CONFIG if smoke else FULL_BENCHMARK_CONFIG
+
+    if smoke:
+        smoke_workloads = max(1, int(smoke_workloads))
 
     trace_set = TraceSet.from_path(TRACE_SET_PATH)
 
@@ -148,17 +158,21 @@ def run_benchmark(
 
     for trace in traces:
         if trace.evaluation:
+            ev = trace.evaluation
             entry = {
-                "status": trace.evaluation.status.value,
+                "status": ev.status.value,
                 "solution": trace.solution,
             }
-            if trace.evaluation.performance:
-                entry["latency_ms"] = trace.evaluation.performance.latency_ms
-                entry["reference_latency_ms"] = trace.evaluation.performance.reference_latency_ms
-                entry["speedup_factor"] = trace.evaluation.performance.speedup_factor
-            if trace.evaluation.correctness:
-                entry["max_abs_error"] = trace.evaluation.correctness.max_absolute_error
-                entry["max_rel_error"] = trace.evaluation.correctness.max_relative_error
+            if ev.performance:
+                entry["latency_ms"] = ev.performance.latency_ms
+                entry["reference_latency_ms"] = ev.performance.reference_latency_ms
+                entry["speedup_factor"] = ev.performance.speedup_factor
+            if ev.correctness:
+                entry["max_abs_error"] = ev.correctness.max_absolute_error
+                entry["max_rel_error"] = ev.correctness.max_relative_error
+            # Isolated runner embeds worker stderr + traceback here (see flashinfer_bench make_eval).
+            if ev.status != EvaluationStatus.PASSED and ev.log:
+                entry["log"] = ev.log
             results[definition.name][trace.workload.uuid] = entry
 
     return results
@@ -184,6 +198,43 @@ def print_results(results: dict) -> None:
                 print(f" | abs_err={abs_err:.2e}, rel_err={rel_err:.2e}", end="")
 
             print()
+
+
+def print_first_failure_log(results: dict, max_chars: int = 24_000) -> None:
+    """Print embedded evaluation log for the first non-PASSED workload (stderr + traceback)."""
+    for def_name, traces in results.items():
+        for workload_uuid, result in traces.items():
+            if result.get("status") == "PASSED":
+                continue
+            log = result.get("log")
+            if not log:
+                print(
+                    f"\n--- No embedded log for {workload_uuid[:8]}... "
+                    f"(status={result.get('status')}) ---\n"
+                )
+                return
+            print(f"\n{'=' * 72}")
+            print(
+                f"First failure log (workload {workload_uuid}, status={result.get('status')})"
+            )
+            print(f"{'=' * 72}\n")
+            text = log if len(log) <= max_chars else log[:max_chars] + "\n\n[log truncated for stdout]\n"
+            print(text)
+            return
+    print("\n(No failed workloads with logs to show.)")
+
+
+def _truncate_logs_for_json(results: dict) -> dict:
+    """Avoid multi‑MB JSON if every workload embeds the same traceback."""
+    out = {}
+    for def_name, entries in results.items():
+        out[def_name] = {}
+        for uid, entry in entries.items():
+            e = dict(entry)
+            if "log" in e and len(e["log"]) > _MAX_LOG_JSON_CHARS:
+                e["log"] = e["log"][:_MAX_LOG_JSON_CHARS] + "\n\n[log truncated for JSON]\n"
+            out[def_name][uid] = e
+    return out
 
 
 def save_results_json(
@@ -224,7 +275,7 @@ def save_results_json(
             "mean_latency_ms": sum(latencies) / len(latencies) if latencies else None,
             "mean_speedup_factor": sum(speedups) / len(speedups) if speedups else None,
         },
-        "results": results,
+        "results": _truncate_logs_for_json(results),
     }
     output_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(f"\nSaved results to {output_path}")
@@ -233,6 +284,7 @@ def save_results_json(
 @app.local_entrypoint()
 def main(
     smoke: bool = True,
+    smoke_workloads: int = SMOKE_WORKLOAD_COUNT_DEFAULT,
     save: str | None = None,
 ):
     """Pack solution and run benchmark on Modal.
@@ -240,8 +292,11 @@ def main(
     Parameters
     ----------
     smoke
-        If True (default), run 17 random workloads with light timing.
-        Pass ``--no-smoke`` to run every workload in the trace set and save a baseline JSON.
+        If True (default), subsample workloads (see ``smoke_workloads``) with light timing
+        and ``num_trials=1``. Pass ``--no-smoke`` to run every workload and optionally save JSON.
+    smoke_workloads
+        When ``smoke`` is True, number of random workloads to run (default **2**). Use **1–3**
+        for fast debugging; larger values are allowed for broader smoke coverage.
     save
         Optional path for JSON output. If ``--no-smoke`` and omitted, writes
         ``artifacts/modal_baseline_full_<UTC time>.json``.
@@ -260,10 +315,10 @@ def main(
     print("\nRunning benchmark on Modal B200...")
     if smoke:
         print(
-            f"  Smoke mode: {SMOKE_WORKLOAD_COUNT} workloads (seed={SMOKE_RANDOM_SEED}), "
+            f"  Smoke mode: {smoke_workloads} workloads (seed={SMOKE_RANDOM_SEED}), "
             f"warmup={SMOKE_BENCHMARK_CONFIG.warmup_runs}, "
             f"iterations={SMOKE_BENCHMARK_CONFIG.iterations}, "
-            f"trials={SMOKE_BENCHMARK_CONFIG.num_trials}"
+            f"num_trials={SMOKE_BENCHMARK_CONFIG.num_trials} (single correctness pass per workload)"
         )
     else:
         print(
@@ -273,7 +328,11 @@ def main(
             f"trials={FULL_BENCHMARK_CONFIG.num_trials}"
         )
 
-    results = run_benchmark.remote(solution, smoke=smoke)
+    results = run_benchmark.remote(
+        solution,
+        smoke=smoke,
+        smoke_workloads=smoke_workloads,
+    )
 
     if not results:
         print("No results returned!")
@@ -285,6 +344,9 @@ def main(
     n = len(results[def_name])
     passed = sum(1 for e in results[def_name].values() if e.get("status") == "PASSED")
     print(f"\nSummary: {passed}/{n} workloads PASSED")
+
+    if passed < n:
+        print_first_failure_log(results)
 
     if not smoke:
         out = Path(save) if save else ARTIFACTS_DIR / (
