@@ -1,0 +1,14 @@
+# Optional: batched PyTorch MLA baseline (same as experiment/batched-pytorch-mla branch root config).
+# Pack or Modal: FIB_CONFIG_TOML=config.batched_pytorch.toml
+
+[solution]
+name = "baseline_dsa_sparse_batched_pytorch_mla_v1"
+definition = "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64"
+author = "Wombat"
+description = "Implementation baseline #1: batched PyTorch MLA (QK^T, masked softmax, logsumexp base-2, cKV projection). Submission category: agent-assisted."
+
+[build]
+language = "python"
+entry_point = "kernel.py::run"
+destination_passing_style = false
+source_dir = "python"
