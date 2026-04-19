@@ -63,6 +63,8 @@ def pack_solution(output_path: Path = None) -> Path:
         destination_passing_style=dps,
     )
 
+    description = solution_config.get("description", "")
+
     # Pack the solution
     solution = pack_solution_from_files(
         path=str(source_dir),
@@ -70,6 +72,7 @@ def pack_solution(output_path: Path = None) -> Path:
         name=solution_config["name"],
         definition=solution_config["definition"],
         author=solution_config["author"],
+        description=description,
     )
 
     # Write to output file

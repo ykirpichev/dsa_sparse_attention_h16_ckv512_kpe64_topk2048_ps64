@@ -1,10 +1,10 @@
 [solution]
-# Official Triton reference baseline for DSA sparse MLA (FlashInfer trace definition).
-name = "triton_baseline_dsa_sparse_mla_v1"
+name = "baseline_dsa_sparse_batched_pytorch_mla_v1"
 definition = "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64"
 author = "baseline"
+description = "Implementation baseline: batched PyTorch MLA (QK^T, masked softmax, logsumexp base-2, cKV projection). Evaluated on Modal B200 full trace set (23 workloads): mean solution latency ~0.96 ms, mean speedup ~2.15x vs the definition reference. Submission category: agent-assisted (per MLSys 2026 FlashInfer contest FAQ)."
 
 [build]
-language = "triton"
+language = "python"
 entry_point = "kernel.py::run"
 destination_passing_style = false
