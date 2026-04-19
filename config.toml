@@ -2,10 +2,10 @@
 name = "baseline_dsa_sparse_mla_cuda_v1"
 definition = "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64"
 author = "Wombat"
-description = "Implementation baseline #2 (CUDA): custom MLA in solution/cuda/mla_cuda.cu via PyTorch cpp_extension (binding=torch). Fused kernel: one block per (token, head); bf16 tensors, fp32 softmax and log-sum-exp base 2, bf16 output; NVIDIA B200 / capability 10.0 only. Self-contained sources, no external MLA decode library. Modal B200 full suite (23 workloads): mean solution latency ~0.52 ms, mean speedup ~6.1x vs definition reference. Submission category: agent-assisted (MLSys 2026 FlashInfer contest FAQ). Compare branch experiment/batched-pytorch-mla for the batched-PyTorch baseline."
+description = "Implementation baseline #2 (CUDA): fused MLA in solution/cuda/mla_cuda.cu, loaded from solution/cuda/binding.py via torch cpp_extension per flashinfer-bench-starter-kit; @register_func('flashinfer.kernel') (TVM FFI). One block per (token, head); bf16 I/O, fp32 softmax/LSE base-2; B200/capability 10.0 only. Modal B200 full suite ~0.52 ms mean, ~6.1x vs definition reference (23/23). Agent-assisted. Compare experiment/batched-pytorch-mla or config.batched_pytorch.toml."
 
 [build]
-language = "cuda"
-binding = "torch"
-entry_point = "mla_cuda.cu::run"
+language = "python"
+entry_point = "binding.py::run"
 destination_passing_style = false
+source_dir = "cuda"

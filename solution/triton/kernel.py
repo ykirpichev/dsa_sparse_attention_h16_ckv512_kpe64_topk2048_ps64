@@ -1,5 +1,16 @@
 """
-DSA sparse MLA: Triton logits (one program per top-k slot), PyTorch softmax / LSE / value.
+DSA sparse MLA: Triton logits over (token, head, top-k slot); PyTorch stable softmax, LSE, cKV projection.
+
+FlashAttention-style ideas (substract max before exp; one softmax pass over logits) are applied in the PyTorch
+tail: `masked_fill(-inf)` on padding, then `logsumexp` / `softmax` in float32, then `einsum` against gathered
+cKV rows. A literal single Triton launch per (token, head) that walks all TOPK=2048 slots with
+`tl.static_range(0, TOPK)` was attempted: Triton fully unrolls that loop, producing very large kernels that
+timed out under flashinfer-bench (600s) on Modal. Keeping a wide logits grid `(T, H, K)` preserves parallelism;
+the tail stays in PyTorch where these ops map to well-optimized library kernels.
+
+The post-logits path can be wrapped in ``torch.compile`` (``dynamic=True``) for fused graphs; disable with
+``DSA_DISABLE_TORCH_COMPILE=1``. Optional ``DSA_TORCH_COMPILE_MODE`` (e.g. ``reduce-overhead``, ``max-autotune``)
+is passed through to ``torch.compile``.
 
 Semantics: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64 (FlashInfer trace definition).
 """
@@ -7,10 +18,60 @@ Semantics: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64 (FlashInfer trace
 from __future__ import annotations
 
 import math
+import os
 
 import torch
 import triton
 import triton.language as tl
+
+_compiled_attention_tail = None
+
+
+def _attention_tail_use_torch_compile() -> bool:
+    """Read at call time so benchmark workers can toggle via DSA_DISABLE_TORCH_COMPILE."""
+    return os.environ.get("DSA_DISABLE_TORCH_COMPILE", "").strip() not in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _attention_tail(
+    logits: torch.Tensor,
+    sparse_indices: torch.Tensor,
+    kc_flat: torch.Tensor,
+    sm: float,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Pure tensor ops after Triton logits: scale, masked softmax, LSE (base 2), weighted cKV."""
+    logits_scaled = logits * sm
+    valid_2d = sparse_indices >= 0
+    valid_h = valid_2d.unsqueeze(1)
+    logits_masked = logits_scaled.masked_fill(~valid_h, float("-inf"))
+    lse = torch.logsumexp(logits_masked, dim=-1) / math.log(2)
+    attn = torch.softmax(logits_masked, dim=-1)
+    attn = torch.nan_to_num(attn, 0.0)
+
+    idx_safe = sparse_indices.clamp(min=0)
+    kc_g = kc_flat[idx_safe]
+    output = torch.einsum("thk,tkd->thd", attn, kc_g.float())
+    output = output.to(torch.bfloat16)
+
+    empty = ~valid_2d.any(dim=-1)
+    output = torch.where(empty[:, None, None], torch.zeros_like(output), output)
+    lse = torch.where(empty[:, None], torch.full_like(lse, float("-inf")), lse)
+    return output, lse
+
+
+def _get_compiled_attention_tail():
+    global _compiled_attention_tail
+    if _compiled_attention_tail is None:
+        compile_mode = (os.environ.get("DSA_TORCH_COMPILE_MODE") or "default").strip() or "default"
+        _compiled_attention_tail = torch.compile(
+            _attention_tail,
+            dynamic=True,
+            mode=compile_mode,
+        )
+    return _compiled_attention_tail
 
 # Triton 3.x: use `tl.constexpr(...)` assignment; annotated globals are not visible in @jit.
 D_CKV = tl.constexpr(512)
@@ -123,22 +184,10 @@ def run(
         logits.stride(2),
     )
 
-    logits_scaled = logits * sm
-    # [T, K] mask must broadcast to [T, H, K] (head count is workload-dependent, e.g. 8 or 16).
-    valid_2d = sparse_indices >= 0
-    valid_h = valid_2d.unsqueeze(1)
-    logits_masked = logits_scaled.masked_fill(~valid_h, float("-inf"))
-    lse = torch.logsumexp(logits_masked, dim=-1) / math.log(2)
-    attn = torch.softmax(logits_masked, dim=-1)
-    attn = torch.nan_to_num(attn, 0.0)
-
-    idx_safe = sparse_indices.clamp(min=0)
-    kc_g = kc_flat[idx_safe]
-    output = torch.einsum("thk,tkd->thd", attn, kc_g.float())
-    output = output.to(torch.bfloat16)
-
-    empty = ~valid_2d.any(dim=-1)
-    output[empty] = 0
-    lse[empty] = float("-inf")
+    if _attention_tail_use_torch_compile():
+        tail = _get_compiled_attention_tail()
+        output, lse = tail(logits, sparse_indices, kc_flat, sm)
+    else:
+        output, lse = _attention_tail(logits, sparse_indices, kc_flat, sm)
 
     return (output, lse)
