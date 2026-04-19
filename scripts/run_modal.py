@@ -105,14 +105,16 @@ def _subsample_workloads(
 )
 def run_benchmark(
     solution: Solution,
-    config: BenchmarkConfig | None = None,
     smoke: bool = True,
     smoke_workloads: int = SMOKE_WORKLOAD_COUNT,
     smoke_seed: int = SMOKE_RANDOM_SEED,
 ) -> dict:
-    """Run benchmark on Modal B200 and return results."""
-    if config is None:
-        config = SMOKE_BENCHMARK_CONFIG if smoke else FULL_BENCHMARK_CONFIG
+    """Run benchmark on Modal B200 and return results.
+
+    BenchmarkConfig is constructed here so we do not pickle it from the client:
+    the Modal image may use a different flashinfer-bench than your local venv.
+    """
+    config = SMOKE_BENCHMARK_CONFIG if smoke else FULL_BENCHMARK_CONFIG
 
     trace_set = TraceSet.from_path(TRACE_SET_PATH)
 
@@ -271,11 +273,7 @@ def main(
             f"trials={FULL_BENCHMARK_CONFIG.num_trials}"
         )
 
-    results = run_benchmark.remote(
-        solution,
-        config=bench_config,
-        smoke=smoke,
-    )
+    results = run_benchmark.remote(solution, smoke=smoke)
 
     if not results:
         print("No results returned!")
