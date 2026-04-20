@@ -1,6 +1,13 @@
 /*
  * DSA sparse MLA — custom CUDA (B200 / sm_100, capability 10.0).
  * One CUDA block per (token, head): gather K rows, logits, stable softmax, LSE base-2, weighted cKV.
+ *
+ * Stage-1 optimizations (batched):
+ *   - Packed BF16 loads: __nv_bfloat162 (2 bf16 per 32-bit load) via __bfloat1622float2.
+ *   - Cached sparse_idx per block in shared memory (avoid re-reading in value projection).
+ *   - Warp + block parallel softmax (max / sum) instead of serial thread-0 loops.
+ *   - exp2f with pre-fused sm_scale * log2e so LSE is base-2 without a final /log(2).
+ *   - Minor cleanups: single return, FLT-style constants, __launch_bounds__ hint.
  */
 
 #include <ATen/cuda/CUDAContext.h>
@@ -10,10 +17,19 @@
 #include <torch/extension.h>
 
 #include <cmath>
+#include <mutex>
 
 namespace py = pybind11;
 
 namespace {
+
+constexpr int D_CK = 512;
+constexpr int D_KP = 64;
+constexpr int TOPK = 2048;
+constexpr int THREADS = 256;
+constexpr int WARP = 32;
+constexpr int NUM_WARPS = THREADS / WARP;  // 8
+constexpr float LOG2E_F = 1.4426950408889634f;
 
 float sm_scale_to_float(py::object o) {
   try {
@@ -24,22 +40,83 @@ float sm_scale_to_float(py::object o) {
   }
 }
 
-constexpr int D_CK = 512;
-constexpr int D_KP = 64;
-constexpr int TOPK = 2048;
-constexpr int THREADS = 256;
-
 __device__ __forceinline__ float bf16_to_f(__nv_bfloat16 x) { return __bfloat162float(x); }
-
 __device__ __forceinline__ __nv_bfloat16 f_to_bf16(float x) { return __float2bfloat16_rn(x); }
 
-__global__ void mla_sparse_attn_kernel(
+// Packed dot(fp32 Q in smem, bf16 K in gmem) over D elements using nv_bfloat162.
+template <int D>
+__device__ __forceinline__ float packed_dot_bf16_f32(const float* __restrict__ q_f, const __nv_bfloat16* __restrict__ k_bf) {
+  static_assert(D % 2 == 0, "D must be even for packed bf16 load");
+  const __nv_bfloat162* k2 = reinterpret_cast<const __nv_bfloat162*>(k_bf);
+  float acc = 0.f;
+  #pragma unroll
+  for (int i = 0; i < D / 2; ++i) {
+    float2 kf = __bfloat1622float2(k2[i]);
+    const int d = i * 2;
+    acc += q_f[d] * kf.x + q_f[d + 1] * kf.y;
+  }
+  return acc;
+}
+
+__device__ __forceinline__ float warp_reduce_max(float v) {
+  #pragma unroll
+  for (int off = WARP / 2; off > 0; off >>= 1) {
+    v = fmaxf(v, __shfl_xor_sync(0xffffffff, v, off));
+  }
+  return v;
+}
+
+__device__ __forceinline__ float warp_reduce_sum(float v) {
+  #pragma unroll
+  for (int off = WARP / 2; off > 0; off >>= 1) {
+    v += __shfl_xor_sync(0xffffffff, v, off);
+  }
+  return v;
+}
+
+__device__ __forceinline__ float block_reduce_max(float v, float* smem) {
+  v = warp_reduce_max(v);
+  const int lane = threadIdx.x & (WARP - 1);
+  const int wid = threadIdx.x / WARP;
+  if (lane == 0) smem[wid] = v;
+  __syncthreads();
+  float r = -INFINITY;
+  if (wid == 0) {
+    float x = (lane < NUM_WARPS) ? smem[lane] : -INFINITY;
+    x = warp_reduce_max(x);
+    if (lane == 0) smem[0] = x;
+  }
+  __syncthreads();
+  r = smem[0];
+  __syncthreads();
+  return r;
+}
+
+__device__ __forceinline__ float block_reduce_sum(float v, float* smem) {
+  v = warp_reduce_sum(v);
+  const int lane = threadIdx.x & (WARP - 1);
+  const int wid = threadIdx.x / WARP;
+  if (lane == 0) smem[wid] = v;
+  __syncthreads();
+  float r = 0.f;
+  if (wid == 0) {
+    float x = (lane < NUM_WARPS) ? smem[lane] : 0.f;
+    x = warp_reduce_sum(x);
+    if (lane == 0) smem[0] = x;
+  }
+  __syncthreads();
+  r = smem[0];
+  __syncthreads();
+  return r;
+}
+
+__global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     const __nv_bfloat16* __restrict__ q_nope,
     const __nv_bfloat16* __restrict__ q_pe,
     const __nv_bfloat16* __restrict__ ckv_flat,
     const __nv_bfloat16* __restrict__ kpe_flat,
     const int32_t* __restrict__ sparse_idx,
-    float sm_scale,
+    float sm_scale_log2e,  // = sm_scale * log2(e); logits live in base-2 from the start
     __nv_bfloat16* __restrict__ out,
     float* __restrict__ lse_out,
     int64_t H,
@@ -55,96 +132,84 @@ __global__ void mla_sparse_attn_kernel(
   const int64_t lse_i = t * H + h;
 
   extern __shared__ unsigned char raw[];
-  float* s_logits = reinterpret_cast<float*>(raw);
-  float* s_qn = s_logits + TOPK;
-  float* s_qp = s_qn + D_CK;
-  __shared__ int s_empty;
+  float* s_logits = reinterpret_cast<float*>(raw);           // TOPK   floats
+  float* s_qn = s_logits + TOPK;                              // D_CK   floats
+  float* s_qp = s_qn + D_CK;                                  // D_KP   floats
+  int* s_gidx = reinterpret_cast<int*>(s_qp + D_KP);          // TOPK   ints
+  float* s_reduce = reinterpret_cast<float*>(s_gidx + TOPK);  // NUM_WARPS floats
 
+  // Load Q into shared as fp32 (reused by every logit).
   for (int d = tid; d < D_CK; d += THREADS) {
     s_qn[d] = bf16_to_f(q_nope[qh_off + d]);
   }
   for (int d = tid; d < D_KP; d += THREADS) {
     s_qp[d] = bf16_to_f(q_pe[qp_off + d]);
   }
-  __syncthreads();
-
-  if (tid == 0) {
-    bool empty = true;
-    for (int k = 0; k < TOPK; ++k) {
-      if (sparse_idx[si_off + k] >= 0) {
-        empty = false;
-        break;
-      }
-    }
-    s_empty = empty ? 1 : 0;
+  // Cache sparse_idx (clamped to valid range) so the value-projection pass does not re-read global.
+  for (int k = tid; k < TOPK; k += THREADS) {
+    int32_t g = sparse_idx[si_off + k];
+    s_gidx[k] = (g >= 0 && static_cast<int64_t>(g) < num_kv_rows) ? g : -1;
   }
   __syncthreads();
 
-  if (s_empty) {
-    if (tid == 0) {
-      lse_out[lse_i] = -INFINITY;
+  // Logits: each thread handles a subset of k, full D_CK+D_KP dot per k.
+  for (int k = tid; k < TOPK; k += THREADS) {
+    const int g = s_gidx[k];
+    if (g < 0) {
+      s_logits[k] = -INFINITY;
+      continue;
     }
+    const __nv_bfloat16* kc = ckv_flat + static_cast<int64_t>(g) * D_CK;
+    const __nv_bfloat16* kp = kpe_flat + static_cast<int64_t>(g) * D_KP;
+    float acc = packed_dot_bf16_f32<D_CK>(s_qn, kc)
+              + packed_dot_bf16_f32<D_KP>(s_qp, kp);
+    s_logits[k] = acc * sm_scale_log2e;  // base-2 logits
+  }
+  __syncthreads();
+
+  // Block-parallel max.
+  float local_max = -INFINITY;
+  for (int k = tid; k < TOPK; k += THREADS) {
+    local_max = fmaxf(local_max, s_logits[k]);
+  }
+  const float mx = block_reduce_max(local_max, s_reduce);
+
+  // All-masked row handling: write zeros and LSE=-inf, nothing else to compute.
+  if (mx == -INFINITY) {
+    if (tid == 0) lse_out[lse_i] = -INFINITY;
     for (int d = tid; d < D_CK; d += THREADS) {
       out[out_off + d] = f_to_bf16(0.f);
     }
-  } else {
+    return;
+  }
+
+  // Block-parallel normalized softmax (base-2 exp).
+  float local_sum = 0.f;
   for (int k = tid; k < TOPK; k += THREADS) {
-    int32_t gidx = sparse_idx[si_off + k];
-    if (gidx < 0) {
-      s_logits[k] = -INFINITY;
-      continue;
-    }
-    if (gidx >= num_kv_rows) {
-      s_logits[k] = -INFINITY;
-      continue;
-    }
-    const __nv_bfloat16* kc = ckv_flat + static_cast<int64_t>(gidx) * D_CK;
-    const __nv_bfloat16* kp = kpe_flat + static_cast<int64_t>(gidx) * D_KP;
-    float acc = 0.f;
-#pragma unroll 4
-    for (int d = 0; d < D_CK; ++d) {
-      acc += s_qn[d] * bf16_to_f(kc[d]);
-    }
-#pragma unroll 4
-    for (int d = 0; d < D_KP; ++d) {
-      acc += s_qp[d] * bf16_to_f(kp[d]);
-    }
-    s_logits[k] = acc * sm_scale;
+    const float e = exp2f(s_logits[k] - mx);
+    s_logits[k] = e;
+    local_sum += e;
+  }
+  const float sum = block_reduce_sum(local_sum, s_reduce);
+  const float inv = 1.f / sum;
+
+  if (tid == 0) lse_out[lse_i] = mx + log2f(sum);
+
+  for (int k = tid; k < TOPK; k += THREADS) {
+    s_logits[k] *= inv;
   }
   __syncthreads();
 
-  if (tid == 0) {
-    float mx = -INFINITY;
-    for (int k = 0; k < TOPK; ++k) {
-      mx = fmaxf(mx, s_logits[k]);
-    }
-    float sum = 0.f;
-    for (int k = 0; k < TOPK; ++k) {
-      float e = expf(s_logits[k] - mx);
-      s_logits[k] = e;
-      sum += e;
-    }
-    const float inv = 1.f / sum;
-    for (int k = 0; k < TOPK; ++k) {
-      s_logits[k] *= inv;
-    }
-    const float lse = (mx + logf(sum)) / logf(2.f);
-    lse_out[lse_i] = lse;
-  }
-  __syncthreads();
-
+  // Weighted cKV projection. Each thread accumulates a different d across all k.
   for (int d = tid; d < D_CK; d += THREADS) {
     float acc = 0.f;
     for (int k = 0; k < TOPK; ++k) {
-      int32_t gidx = sparse_idx[si_off + k];
-      if (gidx < 0) {
-        continue;
-      }
-      const __nv_bfloat16* kc = ckv_flat + static_cast<int64_t>(gidx) * D_CK;
+      const int g = s_gidx[k];
+      if (g < 0) continue;
+      const __nv_bfloat16* kc = ckv_flat + static_cast<int64_t>(g) * D_CK;
       acc += s_logits[k] * bf16_to_f(kc[d]);
     }
     out[out_off + d] = f_to_bf16(acc);
-  }
   }
 }
 
@@ -158,6 +223,18 @@ void require_b200() {
   }
 }
 
+// Opt into the large per-CTA dynamic SMEM budget on sm_100 (up to ~228 KiB).
+// Stage-1 kernel only uses ~18.5 KiB but we set a 100 KiB cap now so Stage-2/3
+// tile sizes don't require touching this again.
+void configure_kernel_attrs_once() {
+  static std::once_flag once;
+  std::call_once(once, []() {
+    cudaFuncSetAttribute(mla_sparse_attn_kernel,
+                         cudaFuncAttributeMaxDynamicSharedMemorySize,
+                         100 * 1024);
+  });
+}
+
 }  // namespace
 
 std::tuple<torch::Tensor, torch::Tensor> run(
@@ -168,6 +245,7 @@ std::tuple<torch::Tensor, torch::Tensor> run(
     const torch::Tensor& sparse_indices,
     const py::object& sm_scale_obj) {
   require_b200();
+  configure_kernel_attrs_once();
 
   TORCH_CHECK(q_nope.is_cuda() && q_nope.is_contiguous(), "q_nope must be contiguous CUDA");
   TORCH_CHECK(q_pe.is_cuda() && q_pe.is_contiguous(), "q_pe must be contiguous CUDA");
@@ -190,6 +268,7 @@ std::tuple<torch::Tensor, torch::Tensor> run(
   TORCH_CHECK(idx.is_contiguous());
 
   const float sm = sm_scale_to_float(sm_scale_obj);
+  const float sm_log2e = sm * LOG2E_F;
 
   auto ckv = ckv_cache.reshape({-1, D_CK}).contiguous();
   auto kpe = kpe_cache.reshape({-1, D_KP}).contiguous();
@@ -203,7 +282,11 @@ std::tuple<torch::Tensor, torch::Tensor> run(
 
   const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
   const dim3 block(THREADS);
-  const size_t shmem = (static_cast<size_t>(TOPK) + D_CK + D_KP) * sizeof(float);
+  // s_logits + s_qn + s_qp + s_gidx + s_reduce
+  const size_t shmem =
+      (static_cast<size_t>(TOPK) + D_CK + D_KP) * sizeof(float)
+      + static_cast<size_t>(TOPK) * sizeof(int)
+      + static_cast<size_t>(NUM_WARPS) * sizeof(float);
 
   const auto stream = at::cuda::getCurrentCUDAStream(q_nope.device().index());
 
@@ -213,7 +296,7 @@ std::tuple<torch::Tensor, torch::Tensor> run(
       reinterpret_cast<const __nv_bfloat16*>(ckv.data_ptr()),
       reinterpret_cast<const __nv_bfloat16*>(kpe.data_ptr()),
       idx.data_ptr<int32_t>(),
-      sm,
+      sm_log2e,
       reinterpret_cast<__nv_bfloat16*>(out.data_ptr()),
       lse.data_ptr<float>(),
       H,

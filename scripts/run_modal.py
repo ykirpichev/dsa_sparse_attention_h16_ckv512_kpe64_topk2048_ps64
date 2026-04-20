@@ -68,13 +68,14 @@ image = (
     )
 )
 
-# Smoke / debug: 1–3 workloads by default (see main(smoke_workloads)); fast timing;
+# Smoke / debug: broad subsample by default so we catch correctness / perf surprises
+# that wouldn't show up in 2 random workloads (see auto-campaign lesson in Stage 1).
 # num_trials=1 so correctness is checked once per workload (no benchmark retries).
-SMOKE_WORKLOAD_COUNT_DEFAULT = 2
+SMOKE_WORKLOAD_COUNT_DEFAULT = 10
 SMOKE_RANDOM_SEED = 42
 SMOKE_BENCHMARK_CONFIG = BenchmarkConfig(
     warmup_runs=1,
-    iterations=3,
+    iterations=5,
     num_trials=1,
     use_isolated_runner=True,
     timeout_seconds=600,
