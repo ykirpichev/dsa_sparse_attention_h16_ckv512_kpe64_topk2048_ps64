@@ -1,0 +1,16 @@
+# TEMPORARY reference point (not a submission): run the FlashInfer TRT-LLM MLA
+# decode path on the DSA sparse attention traces to measure a strong library baseline.
+# Pack: FIB_CONFIG_TOML=config.flashinfer_trtllm.toml python scripts/pack_solution.py
+# Modal: FIB_CONFIG_TOML=config.flashinfer_trtllm.toml modal run scripts/run_modal.py::main --no-smoke
+
+[solution]
+name = "reference_flashinfer_trtllm_mla_decode_v1"
+definition = "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64"
+author = "Wombat"
+description = "Temporary reference: wraps flashinfer.decode.trtllm_batch_decode_with_kv_cache_mla (TRT-LLM-gen path on B200) for DSA sparse MLA. Used only to measure and compare against our custom CUDA kernel."
+
+[build]
+language = "python"
+entry_point = "kernel.py::run"
+destination_passing_style = false
+source_dir = "flashinfer_trtllm"

@@ -1,0 +1,242 @@
+{
+  "meta": {
+    "saved_at_utc": "2026-04-19T19:45:53.213478+00:00",
+    "runner": "modal",
+    "solution_name": "dsa_sparse_batched_pytorch_mla_v1",
+    "solution_hash": "65f24276f1c298df81089747b80b32f4f0124d65",
+    "definition": "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64",
+    "smoke": false,
+    "benchmark_config": {
+      "warmup_runs": 3,
+      "iterations": 50,
+      "num_trials": 5,
+      "rtol": 0.01,
+      "atol": 0.01,
+      "log_dir": "/home/ykirpichev/.cache/flashinfer_bench/cache/logs",
+      "use_isolated_runner": true,
+      "required_matched_ratio": null,
+      "sampling_validation_trials": 100,
+      "sampling_tvd_threshold": 0.2,
+      "definitions": null,
+      "solutions": null,
+      "timeout_seconds": 600,
+      "profile_baseline": true
+    },
+    "workload_count": 23,
+    "passed_count": 23,
+    "failed_count": 0,
+    "mean_latency_ms": 0.9565303657365882,
+    "mean_speedup_factor": 2.150737210999399
+  },
+  "results": {
+    "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64": {
+      "0c23b10c7b7645719517828c12eaa1d2": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9207583963871002,
+        "reference_latency_ms": 1.1001344084739686,
+        "speedup_factor": 1.1948133329988728,
+        "max_abs_error": 0.0,
+        "max_rel_error": 0.0
+      },
+      "9d4a5f21268e484ea05a2f2af91d9fa7": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9390367925167084,
+        "reference_latency_ms": 1.3306656002998352,
+        "speedup_factor": 1.4170537415616316,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.007575757801532745
+      },
+      "b7668cfd194c4b95ab600feb205ebac6": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9391007900238038,
+        "reference_latency_ms": 1.3986239910125733,
+        "speedup_factor": 1.4893225582071141,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.015149109065532684
+      },
+      "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9389087975025177,
+        "reference_latency_ms": 1.3706496000289916,
+        "speedup_factor": 1.459832524388841,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.00724636809900403
+      },
+      "05f6de657db543ae9e4c46796522843a": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9393984019756317,
+        "reference_latency_ms": 1.4128960132598878,
+        "speedup_factor": 1.504043449816874,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.016028400510549545
+      },
+      "fc85411e250c41879b6d6a1edb80f0a7": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9392255902290344,
+        "reference_latency_ms": 1.3708896040916443,
+        "speedup_factor": 1.4595956694039254,
+        "max_abs_error": 0.001953125,
+        "max_rel_error": 0.7460389137268066
+      },
+      "e6b849f2900446148c01d81152efae23": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9388287961483002,
+        "reference_latency_ms": 1.402294385433197,
+        "speedup_factor": 1.493663585082116,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.10477813333272934
+      },
+      "9f3f891bfbe24776adfcd5a579d093dd": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9388320088386536,
+        "reference_latency_ms": 1.3366751790046691,
+        "speedup_factor": 1.4237639603470191,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.04883645847439766
+      },
+      "f77df5ce21634f7ca0586af7e3c13434": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9391584038734436,
+        "reference_latency_ms": 1.336844789981842,
+        "speedup_factor": 1.4234497444394787,
+        "max_abs_error": 0.001953125,
+        "max_rel_error": 0.1518157720565796
+      },
+      "385742b2717e4f02b918c7349dde23d8": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9711583971977233,
+        "reference_latency_ms": 2.621561574935913,
+        "speedup_factor": 2.6994170904565378,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.3907127380371094
+      },
+      "4c46a94ba2364dc7ab476286dee8dce3": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9715295970439911,
+        "reference_latency_ms": 2.6367968320846558,
+        "speedup_factor": 2.7140674253336834,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.2111106663942337
+      },
+      "3838996164a94d728710f913477feba8": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9681984007358551,
+        "reference_latency_ms": 2.456614375114441,
+        "speedup_factor": 2.537304723130458,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.03161531314253807
+      },
+      "02d6ae9c64ab42ff93f05c23c53bcb7d": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9713919997215271,
+        "reference_latency_ms": 2.7184832096099854,
+        "speedup_factor": 2.798543955879093,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.14344322681427002
+      },
+      "ddfa9e340b264f76abe7418692faa876": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9635872185230255,
+        "reference_latency_ms": 2.264038395881653,
+        "speedup_factor": 2.349593635490457,
+        "max_abs_error": 0.001953125,
+        "max_rel_error": 0.06696031987667084
+      },
+      "78b2e11c30004cceb84355722a7c6b0a": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.971673595905304,
+        "reference_latency_ms": 2.725603199005127,
+        "speedup_factor": 2.805060475545489,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.051758233457803726
+      },
+      "68d6817dcfd1433aa8d2ddeefd54b6ea": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9634432196617126,
+        "reference_latency_ms": 2.098428797721863,
+        "speedup_factor": 2.178051342204339,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.16807392239570618
+      },
+      "564007ac354e4662a62cc4d6352dc494": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9717440009117126,
+        "reference_latency_ms": 2.6120895862579347,
+        "speedup_factor": 2.688042924687173,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.27347463369369507
+      },
+      "ae4219a95f044f45bd10e17ab63c6e8f": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9679391920566559,
+        "reference_latency_ms": 2.4466752290725706,
+        "speedup_factor": 2.5277158411923883,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.09426871687173843
+      },
+      "232ed014bafc4835b9881bb308c659b0": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9716223955154419,
+        "reference_latency_ms": 2.735971212387085,
+        "speedup_factor": 2.815879116223605,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.8101837635040283
+      },
+      "7a389715dcc3479e9b0512309f9d1d56": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9717216074466706,
+        "reference_latency_ms": 2.7076735973358153,
+        "speedup_factor": 2.7864705040887094,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.12681348621845245
+      },
+      "5096e459ce3f4cdf82773ce1a0c73c8a": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9719104051589966,
+        "reference_latency_ms": 2.7516032218933106,
+        "speedup_factor": 2.8311284736612845,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.03785449266433716
+      },
+      "d57eb9e19f0642e8af9bd76ad0823303": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9633727967739105,
+        "reference_latency_ms": 2.2280352115631104,
+        "speedup_factor": 2.3127445772023365,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.08450605720281601
+      },
+      "2207f0fdc96347c59d106e4976cfad57": {
+        "status": "PASSED",
+        "solution": "dsa_sparse_batched_pytorch_mla_v1",
+        "latency_ms": 0.9676576077938079,
+        "reference_latency_ms": 2.4746848583221435,
+        "speedup_factor": 2.5573972016447564,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.6534309983253479
+      }
+    }
+  }
+}

@@ -1,0 +1,242 @@
+{
+  "meta": {
+    "saved_at_utc": "2026-04-19T21:49:08.655910+00:00",
+    "runner": "modal",
+    "solution_name": "baseline_dsa_sparse_mla_cuda_v1",
+    "solution_hash": "345c404bb927423ed7c2971ac761420f62989e84",
+    "definition": "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64",
+    "smoke": false,
+    "benchmark_config": {
+      "warmup_runs": 3,
+      "iterations": 50,
+      "num_trials": 5,
+      "rtol": 0.01,
+      "atol": 0.01,
+      "log_dir": "/home/ykirpichev/.cache/flashinfer_bench/cache/logs",
+      "use_isolated_runner": true,
+      "required_matched_ratio": null,
+      "sampling_validation_trials": 100,
+      "sampling_tvd_threshold": 0.2,
+      "definitions": null,
+      "solutions": null,
+      "timeout_seconds": 600,
+      "profile_baseline": true
+    },
+    "workload_count": 23,
+    "passed_count": 23,
+    "failed_count": 0,
+    "mean_latency_ms": 0.5030534962921039,
+    "mean_speedup_factor": 5.133579384349939
+  },
+  "results": {
+    "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64": {
+      "0c23b10c7b7645719517828c12eaa1d2": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.09830400347709656,
+        "reference_latency_ms": 0.9437759995460511,
+        "speedup_factor": 9.600585593301268,
+        "max_abs_error": 0.0001220703125,
+        "max_rel_error": 0.004184098914265633
+      },
+      "9d4a5f21268e484ea05a2f2af91d9fa7": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.10882240161299706,
+        "reference_latency_ms": 1.0595743775367736,
+        "speedup_factor": 9.736730322355106,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.010864611715078354
+      },
+      "b7668cfd194c4b95ab600feb205ebac6": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.11677440255880356,
+        "reference_latency_ms": 1.0740447998046876,
+        "speedup_factor": 9.197604751296721,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.013694695197045803
+      },
+      "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.11806080266833305,
+        "reference_latency_ms": 1.0556160092353821,
+        "speedup_factor": 8.941291143013087,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.00908398162573576
+      },
+      "05f6de657db543ae9e4c46796522843a": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.2834208011627197,
+        "reference_latency_ms": 1.0624800086021424,
+        "speedup_factor": 3.748772158724311,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.04433983936905861
+      },
+      "fc85411e250c41879b6d6a1edb80f0a7": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.1084383986890316,
+        "reference_latency_ms": 1.0577791929244995,
+        "speedup_factor": 9.754655230181783,
+        "max_abs_error": 0.001953125,
+        "max_rel_error": 0.015226805582642555
+      },
+      "e6b849f2900446148c01d81152efae23": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.12131199985742569,
+        "reference_latency_ms": 1.0562879920005799,
+        "speedup_factor": 8.707201210449115,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.07809948921203613
+      },
+      "9f3f891bfbe24776adfcd5a579d093dd": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.26050240695476534,
+        "reference_latency_ms": 1.0655904054641723,
+        "speedup_factor": 4.0905203829813575,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.038791995495557785
+      },
+      "f77df5ce21634f7ca0586af7e3c13434": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.10860159993171692,
+        "reference_latency_ms": 1.0544352173805236,
+        "speedup_factor": 9.709205187064445,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.009884570725262165
+      },
+      "385742b2717e4f02b918c7349dde23d8": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.5556543886661529,
+        "reference_latency_ms": 1.9323295950889587,
+        "speedup_factor": 3.477574612030891,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 1.3057804107666016
+      },
+      "4c46a94ba2364dc7ab476286dee8dce3": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.5251744031906128,
+        "reference_latency_ms": 1.8973376035690308,
+        "speedup_factor": 3.612776235936216,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.1993797868490219
+      },
+      "3838996164a94d728710f913477feba8": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.5670752227306366,
+        "reference_latency_ms": 1.7758303999900817,
+        "speedup_factor": 3.1315605563560474,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.3022014796733856
+      },
+      "02d6ae9c64ab42ff93f05c23c53bcb7d": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.9152159929275513,
+        "reference_latency_ms": 1.7987391829490662,
+        "speedup_factor": 1.9653712313257783,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.11915519088506699
+      },
+      "ddfa9e340b264f76abe7418692faa876": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.7665695965290069,
+        "reference_latency_ms": 1.5823807835578918,
+        "speedup_factor": 2.064236294685886,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.10816963016986847
+      },
+      "78b2e11c30004cceb84355722a7c6b0a": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.9132895946502686,
+        "reference_latency_ms": 1.8066496014595033,
+        "speedup_factor": 1.9781782383618793,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.14128582179546356
+      },
+      "68d6817dcfd1433aa8d2ddeefd54b6ea": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.11673600226640701,
+        "reference_latency_ms": 1.5594751834869385,
+        "speedup_factor": 13.358990827251473,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.025843380019068718
+      },
+      "564007ac354e4662a62cc4d6352dc494": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.9230208039283753,
+        "reference_latency_ms": 1.823583996295929,
+        "speedup_factor": 1.9756694416147047,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 5.476520538330078
+      },
+      "ae4219a95f044f45bd10e17ab63c6e8f": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.9159008085727691,
+        "reference_latency_ms": 1.6834912061691285,
+        "speedup_factor": 1.8380715361442699,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.5158563852310181
+      },
+      "232ed014bafc4835b9881bb308c659b0": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.5688959836959839,
+        "reference_latency_ms": 1.8127295970916748,
+        "speedup_factor": 3.1863990062204257,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.1483057588338852
+      },
+      "7a389715dcc3479e9b0512309f9d1d56": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.7707359969615937,
+        "reference_latency_ms": 1.8097919940948486,
+        "speedup_factor": 2.34813477147744,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.10650469362735748
+      },
+      "5096e459ce3f4cdf82773ce1a0c73c8a": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.8988672018051147,
+        "reference_latency_ms": 1.8178335785865785,
+        "speedup_factor": 2.0223605610884294,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 2.3911333084106445
+      },
+      "d57eb9e19f0642e8af9bd76ad0823303": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.9035776019096374,
+        "reference_latency_ms": 1.574284815788269,
+        "speedup_factor": 1.7422795922133822,
+        "max_abs_error": 0.0078125,
+        "max_rel_error": 0.13466939330101013
+      },
+      "2207f0fdc96347c59d106e4976cfad57": {
+        "status": "PASSED",
+        "solution": "baseline_dsa_sparse_mla_cuda_v1",
+        "latency_ms": 0.9052799999713897,
+        "reference_latency_ms": 1.7056896090507507,
+        "speedup_factor": 1.8841569559745681,
+        "max_abs_error": 0.00390625,
+        "max_rel_error": 0.07594845443964005
+      }
+    }
+  }
+}
