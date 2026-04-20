@@ -2,10 +2,8 @@
 name = "wombat_dsa_sparse_mla_cuda_v4"
 definition = "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64"
 author = "Wombat"
-description = "DSA sparse MLA custom CUDA kernel (B200 / sm_100a only). solution/cuda/binding.py::run loads mla_cuda.cu via torch.utils.cpp_extension.load; TVM FFI @register_func('flashinfer.kernel'). Fused single-block-per-(token, head) pipeline with cp.async double-buffered tile prefetch for BOTH the logit pass and the weighted cKV projection (Stage 3c). Modal B200 full trace (Apr 2026, 23/23 workloads, flashinfer-bench defaults warmup=10 iter=50 trials=3): mean latency 0.083 ms, mean per-workload speedup 41.45x vs PyTorch reference, 6.08x vs original CUDA baseline, 3.13x vs flashinfer.decode.trtllm_batch_decode_with_kv_cache_mla. Team Wombat. Submission category: agent-assisted (MLSys 2026 FlashInfer FAQ)."
 
 [build]
-language = "python"
-entry_point = "binding.py::run"
-destination_passing_style = false
-source_dir = "cuda"
+language = "cuda"
+entry_point = "kernel.cu::kernel"
+destination_passing_style = true

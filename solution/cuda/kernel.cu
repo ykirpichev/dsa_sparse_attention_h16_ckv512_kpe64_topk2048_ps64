@@ -57,16 +57,16 @@
  *     masked for the downstream softmax.
  */
 
-#include <ATen/cuda/CUDAContext.h>
 #include <cuda_bf16.h>
 #include <cuda_runtime.h>
-#include <pybind11/pybind11.h>
-#include <torch/extension.h>
+#include <tvm/ffi/container/tensor.h>
+#include <tvm/ffi/error.h>
+#include <tvm/ffi/extra/c_env_api.h>
+#include <tvm/ffi/function.h>
 
 #include <cmath>
+#include <cstdint>
 #include <mutex>
-
-namespace py = pybind11;
 
 namespace {
 
@@ -90,15 +90,6 @@ static_assert(BK * D_CK % (THREADS * 16 / 2) == 0,
 constexpr int NUM_V_TILES = TOPK / BK;                               // 128
 constexpr int TILE_CHUNKS_16B = BK * D_CK * sizeof(__nv_bfloat16) / 16;  // 1024
 constexpr int CHUNKS_PER_THREAD = TILE_CHUNKS_16B / THREADS;         // 4
-
-float sm_scale_to_float(py::object o) {
-  try {
-    const torch::Tensor t = o.cast<torch::Tensor>();
-    return static_cast<float>(t.item<double>());
-  } catch (const py::cast_error&) {
-    return static_cast<float>(py::cast<double>(o));
-  }
-}
 
 __device__ __forceinline__ float bf16_to_f(__nv_bfloat16 x) { return __bfloat162float(x); }
 __device__ __forceinline__ __nv_bfloat16 f_to_bf16(float x) { return __float2bfloat16_rn(x); }
@@ -500,9 +491,10 @@ void require_b200() {
   cudaGetDevice(&dev);
   cudaDeviceProp prop{};
   cudaGetDeviceProperties(&prop, dev);
-  if (prop.major != 10 || prop.minor != 0) {
-    TORCH_CHECK(false, "mla_cuda: requires B200-class GPU (compute capability 10.0), got ", prop.major, ".", prop.minor);
-  }
+  TVM_FFI_ICHECK_EQ(prop.major, 10) << "mla_cuda: requires B200-class GPU (compute capability 10.0), got "
+                                    << prop.major << "." << prop.minor;
+  TVM_FFI_ICHECK_EQ(prop.minor, 0) << "mla_cuda: requires B200-class GPU (compute capability 10.0), got "
+                                   << prop.major << "." << prop.minor;
 }
 
 // Opt into the large per-CTA dynamic SMEM budget on sm_100 (up to ~228 KiB).
@@ -519,48 +511,85 @@ void configure_kernel_attrs_once() {
 
 }  // namespace
 
-std::tuple<torch::Tensor, torch::Tensor> run(
-    const torch::Tensor& q_nope,
-    const torch::Tensor& q_pe,
-    const torch::Tensor& ckv_cache,
-    const torch::Tensor& kpe_cache,
-    const torch::Tensor& sparse_indices,
-    const py::object& sm_scale_obj) {
+// TVM-FFI entry point. The exported symbol name is `kernel`, matching
+// `entry_point = "kernel.cu::kernel"` in config.toml.
+//
+// Destination-passing style: output tensors (`out`, `lse`) are pre-allocated
+// by the flashinfer-bench Runnable from the definition's output spec and
+// passed in after the inputs. See `flashinfer_bench/compile/runnable.py`.
+void kernel_fn(
+    tvm::ffi::TensorView q_nope,
+    tvm::ffi::TensorView q_pe,
+    tvm::ffi::TensorView ckv_cache,
+    tvm::ffi::TensorView kpe_cache,
+    tvm::ffi::TensorView sparse_indices,
+    double sm_scale,
+    tvm::ffi::TensorView out,
+    tvm::ffi::TensorView lse) {
   require_b200();
   configure_kernel_attrs_once();
 
-  TORCH_CHECK(q_nope.is_cuda() && q_nope.is_contiguous(), "q_nope must be contiguous CUDA");
-  TORCH_CHECK(q_pe.is_cuda() && q_pe.is_contiguous(), "q_pe must be contiguous CUDA");
-  TORCH_CHECK(ckv_cache.is_cuda() && ckv_cache.is_contiguous(), "ckv_cache must be contiguous CUDA");
-  TORCH_CHECK(kpe_cache.is_cuda() && kpe_cache.is_contiguous(), "kpe_cache must be contiguous CUDA");
-  TORCH_CHECK(sparse_indices.is_cuda() && sparse_indices.is_contiguous(), "sparse_indices must be contiguous CUDA");
+  // Device checks.
+  TVM_FFI_ICHECK_EQ(q_nope.device().device_type, kDLCUDA) << "q_nope must be CUDA";
+  TVM_FFI_ICHECK_EQ(q_pe.device().device_type, kDLCUDA) << "q_pe must be CUDA";
+  TVM_FFI_ICHECK_EQ(ckv_cache.device().device_type, kDLCUDA) << "ckv_cache must be CUDA";
+  TVM_FFI_ICHECK_EQ(kpe_cache.device().device_type, kDLCUDA) << "kpe_cache must be CUDA";
+  TVM_FFI_ICHECK_EQ(sparse_indices.device().device_type, kDLCUDA) << "sparse_indices must be CUDA";
+  TVM_FFI_ICHECK_EQ(out.device().device_type, kDLCUDA) << "out must be CUDA";
+  TVM_FFI_ICHECK_EQ(lse.device().device_type, kDLCUDA) << "lse must be CUDA";
 
-  TORCH_CHECK(q_nope.scalar_type() == at::ScalarType::BFloat16, "q_nope must be bf16");
-  TORCH_CHECK(q_pe.scalar_type() == at::ScalarType::BFloat16, "q_pe must be bf16");
-  TORCH_CHECK(ckv_cache.scalar_type() == at::ScalarType::BFloat16, "ckv_cache must be bf16");
-  TORCH_CHECK(kpe_cache.scalar_type() == at::ScalarType::BFloat16, "kpe_cache must be bf16");
+  // Dtype checks (bf16 for tensors, int32 for indices, fp32 for lse).
+  TVM_FFI_ICHECK_EQ(q_nope.dtype().code, kDLBfloat) << "q_nope must be bfloat16";
+  TVM_FFI_ICHECK_EQ(q_nope.dtype().bits, 16);
+  TVM_FFI_ICHECK_EQ(q_pe.dtype().code, kDLBfloat) << "q_pe must be bfloat16";
+  TVM_FFI_ICHECK_EQ(q_pe.dtype().bits, 16);
+  TVM_FFI_ICHECK_EQ(ckv_cache.dtype().code, kDLBfloat) << "ckv_cache must be bfloat16";
+  TVM_FFI_ICHECK_EQ(ckv_cache.dtype().bits, 16);
+  TVM_FFI_ICHECK_EQ(kpe_cache.dtype().code, kDLBfloat) << "kpe_cache must be bfloat16";
+  TVM_FFI_ICHECK_EQ(kpe_cache.dtype().bits, 16);
+  TVM_FFI_ICHECK_EQ(sparse_indices.dtype().code, kDLInt) << "sparse_indices must be int32";
+  TVM_FFI_ICHECK_EQ(sparse_indices.dtype().bits, 32);
+  TVM_FFI_ICHECK_EQ(out.dtype().code, kDLBfloat) << "out must be bfloat16";
+  TVM_FFI_ICHECK_EQ(out.dtype().bits, 16);
+  TVM_FFI_ICHECK_EQ(lse.dtype().code, kDLFloat) << "lse must be float32";
+  TVM_FFI_ICHECK_EQ(lse.dtype().bits, 32);
 
+  // Shape checks: q_nope[T,H,D_CK], q_pe[T,H,D_KP], sparse_indices[T,TOPK].
+  TVM_FFI_ICHECK_EQ(q_nope.ndim(), 3);
+  TVM_FFI_ICHECK_EQ(q_pe.ndim(), 3);
+  TVM_FFI_ICHECK_EQ(sparse_indices.ndim(), 2);
   const int64_t T = q_nope.size(0);
   const int64_t H = q_nope.size(1);
-  TORCH_CHECK(q_pe.size(0) == T && q_pe.size(1) == H, "q_pe batch/heads must match q_nope");
-  TORCH_CHECK(q_nope.size(2) == D_CK && q_pe.size(2) == D_KP, "head dims mismatch");
-  TORCH_CHECK(sparse_indices.size(0) == T && sparse_indices.size(1) == TOPK, "sparse_indices shape");
+  TVM_FFI_ICHECK_EQ(q_nope.size(2), D_CK);
+  TVM_FFI_ICHECK_EQ(q_pe.size(0), T);
+  TVM_FFI_ICHECK_EQ(q_pe.size(1), H);
+  TVM_FFI_ICHECK_EQ(q_pe.size(2), D_KP);
+  TVM_FFI_ICHECK_EQ(sparse_indices.size(0), T);
+  TVM_FFI_ICHECK_EQ(sparse_indices.size(1), TOPK);
+  TVM_FFI_ICHECK_EQ(out.ndim(), 3);
+  TVM_FFI_ICHECK_EQ(out.size(0), T);
+  TVM_FFI_ICHECK_EQ(out.size(1), H);
+  TVM_FFI_ICHECK_EQ(out.size(2), D_CK);
+  TVM_FFI_ICHECK_EQ(lse.ndim(), 2);
+  TVM_FFI_ICHECK_EQ(lse.size(0), T);
+  TVM_FFI_ICHECK_EQ(lse.size(1), H);
 
-  auto idx = sparse_indices.scalar_type() == at::ScalarType::Int ? sparse_indices : sparse_indices.to(at::ScalarType::Int);
-  TORCH_CHECK(idx.is_contiguous());
+  // Flat row count for the caches. We require the trailing dim to be D_CK
+  // (resp. D_KP) so a flat [num_kv_rows, D_last] view of contiguous memory
+  // is valid without an explicit reshape.
+  TVM_FFI_ICHECK_GE(ckv_cache.ndim(), 1);
+  TVM_FFI_ICHECK_EQ(ckv_cache.size(ckv_cache.ndim() - 1), D_CK);
+  TVM_FFI_ICHECK_GE(kpe_cache.ndim(), 1);
+  TVM_FFI_ICHECK_EQ(kpe_cache.size(kpe_cache.ndim() - 1), D_KP);
+  int64_t ckv_numel = 1;
+  for (int i = 0; i < ckv_cache.ndim(); ++i) ckv_numel *= ckv_cache.size(i);
+  int64_t kpe_numel = 1;
+  for (int i = 0; i < kpe_cache.ndim(); ++i) kpe_numel *= kpe_cache.size(i);
+  const int64_t num_kv_rows = ckv_numel / D_CK;
+  TVM_FFI_ICHECK_EQ(kpe_numel / D_KP, num_kv_rows) << "ckv/kpe row counts must match";
 
-  const float sm = sm_scale_to_float(sm_scale_obj);
+  const float sm = static_cast<float>(sm_scale);
   const float sm_log2e = sm * LOG2E_F;
-
-  auto ckv = ckv_cache.reshape({-1, D_CK}).contiguous();
-  auto kpe = kpe_cache.reshape({-1, D_KP}).contiguous();
-  const int64_t num_kv_rows = ckv.size(0);
-  TORCH_CHECK(num_kv_rows == kpe.size(0), "ckv/kpe flat mismatch");
-
-  auto opts_bf16 = torch::TensorOptions().dtype(torch::kBFloat16).device(q_nope.device());
-  auto opts_f32 = torch::TensorOptions().dtype(torch::kFloat32).device(q_nope.device());
-  auto out = torch::empty({T, H, D_CK}, opts_bf16);
-  auto lse = torch::empty({T, H}, opts_f32);
 
   const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
   const dim3 block(THREADS);
@@ -574,28 +603,24 @@ std::tuple<torch::Tensor, torch::Tensor> run(
       + static_cast<size_t>(V_PIPE) * BK * D_CK * sizeof(__nv_bfloat16)
       + static_cast<size_t>(V_PIPE) * BK * D_KP * sizeof(__nv_bfloat16);
 
-  const auto stream = at::cuda::getCurrentCUDAStream(q_nope.device().index());
+  const DLDevice dev = q_nope.device();
+  cudaStream_t stream = static_cast<cudaStream_t>(
+      TVMFFIEnvGetStream(dev.device_type, dev.device_id));
 
   mla_sparse_attn_kernel<<<grid, block, shmem, stream>>>(
-      reinterpret_cast<const __nv_bfloat16*>(q_nope.data_ptr()),
-      reinterpret_cast<const __nv_bfloat16*>(q_pe.data_ptr()),
-      reinterpret_cast<const __nv_bfloat16*>(ckv.data_ptr()),
-      reinterpret_cast<const __nv_bfloat16*>(kpe.data_ptr()),
-      idx.data_ptr<int32_t>(),
+      static_cast<const __nv_bfloat16*>(q_nope.data_ptr()),
+      static_cast<const __nv_bfloat16*>(q_pe.data_ptr()),
+      static_cast<const __nv_bfloat16*>(ckv_cache.data_ptr()),
+      static_cast<const __nv_bfloat16*>(kpe_cache.data_ptr()),
+      static_cast<const int32_t*>(sparse_indices.data_ptr()),
       sm_log2e,
-      reinterpret_cast<__nv_bfloat16*>(out.data_ptr()),
-      lse.data_ptr<float>(),
+      static_cast<__nv_bfloat16*>(out.data_ptr()),
+      static_cast<float*>(lse.data_ptr()),
       H,
       num_kv_rows);
 
-  {
-    cudaError_t err = cudaGetLastError();
-    TORCH_CHECK(err == cudaSuccess, "mla_sparse_attn_kernel: ", cudaGetErrorString(err));
-  }
-
-  return {out, lse};
+  const cudaError_t err = cudaGetLastError();
+  TVM_FFI_ICHECK_EQ(err, cudaSuccess) << "mla_sparse_attn_kernel: " << cudaGetErrorString(err);
 }
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("run", &run, "DSA sparse MLA (CUDA)");
-}
+TVM_FFI_DLL_EXPORT_TYPED_FUNC(kernel, kernel_fn);
