@@ -7,7 +7,19 @@
  *   - Cached sparse_idx per block in shared memory (avoid re-reading in value projection).
  *   - Warp + block parallel softmax (max / sum) instead of serial thread-0 loops.
  *   - exp2f with pre-fused sm_scale * log2e so LSE is base-2 without a final /log(2).
- *   - Minor cleanups: single return, FLT-style constants, __launch_bounds__ hint.
+ *
+ * Stage-2 (additive, keeps the high-MLP structure of Stage 1):
+ *   - Packed bf162 loads AND stores in the value projection: each thread owns
+ *     exactly one packed output slot (d = 2*tid, 2*tid+1), so every k in the
+ *     inner loop becomes 1 packed GMEM load + 2 FMAs instead of 2 scalar
+ *     loads + 2 FMAs. Halves the number of memory instructions in the hot loop
+ *     and eliminates the outer d-stride.
+ *   - Fold the softmax normalization (division by sum) into the final bf16 write,
+ *     so we skip the `s_logits[k] *= inv` pass entirely.
+ *   - Earlier tiled-SMEM fusion (Stage-2 v1) regressed ~2x: the per-tile
+ *     __syncthreads chopped up the memory pipeline that Stage 1 kept fully
+ *     parallelized. Kept the sync-light single-pass design and optimized the
+ *     instruction mix instead.
  */
 
 #include <ATen/cuda/CUDAContext.h>
@@ -177,13 +189,14 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   // All-masked row handling: write zeros and LSE=-inf, nothing else to compute.
   if (mx == -INFINITY) {
     if (tid == 0) lse_out[lse_i] = -INFINITY;
-    for (int d = tid; d < D_CK; d += THREADS) {
-      out[out_off + d] = f_to_bf16(0.f);
-    }
+    const __nv_bfloat162 zero =
+        __halves2bfloat162(f_to_bf16(0.f), f_to_bf16(0.f));
+    reinterpret_cast<__nv_bfloat162*>(out + out_off)[tid] = zero;
     return;
   }
 
-  // Block-parallel normalized softmax (base-2 exp).
+  // Block-parallel unnormalized softmax (base-2 exp). We keep s_logits as
+  // unnormalized probs and divide by sum at output write time.
   float local_sum = 0.f;
   for (int k = tid; k < TOPK; k += THREADS) {
     const float e = exp2f(s_logits[k] - mx);
@@ -191,26 +204,30 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     local_sum += e;
   }
   const float sum = block_reduce_sum(local_sum, s_reduce);
-  const float inv = 1.f / sum;
 
   if (tid == 0) lse_out[lse_i] = mx + log2f(sum);
 
-  for (int k = tid; k < TOPK; k += THREADS) {
-    s_logits[k] *= inv;
+  // Weighted cKV projection with packed bf162 loads and stores.
+  // D_CK = 2*THREADS so every thread owns exactly one packed output slot
+  // (d = 2*tid, 2*tid+1). The inner k loop becomes 1 packed GMEM read + 2 FMAs
+  // per k, halving the load instruction count vs the scalar variant.
+  static_assert(D_CK == 2 * THREADS, "packed output path requires D_CK == 2*THREADS");
+  const int i = tid;
+  const float inv_sum = 1.f / sum;
+  float o0 = 0.f, o1 = 0.f;
+  for (int k = 0; k < TOPK; ++k) {
+    const int g = s_gidx[k];
+    if (g < 0) continue;
+    const __nv_bfloat162* kc2 =
+        reinterpret_cast<const __nv_bfloat162*>(ckv_flat + static_cast<int64_t>(g) * D_CK);
+    const float2 kf = __bfloat1622float2(kc2[i]);
+    const float p = s_logits[k];
+    o0 += p * kf.x;
+    o1 += p * kf.y;
   }
-  __syncthreads();
-
-  // Weighted cKV projection. Each thread accumulates a different d across all k.
-  for (int d = tid; d < D_CK; d += THREADS) {
-    float acc = 0.f;
-    for (int k = 0; k < TOPK; ++k) {
-      const int g = s_gidx[k];
-      if (g < 0) continue;
-      const __nv_bfloat16* kc = ckv_flat + static_cast<int64_t>(g) * D_CK;
-      acc += s_logits[k] * bf16_to_f(kc[d]);
-    }
-    out[out_off + d] = f_to_bf16(acc);
-  }
+  const __nv_bfloat162 packed =
+      __halves2bfloat162(f_to_bf16(o0 * inv_sum), f_to_bf16(o1 * inv_sum));
+  reinterpret_cast<__nv_bfloat162*>(out + out_off)[i] = packed;
 }
 
 void require_b200() {
