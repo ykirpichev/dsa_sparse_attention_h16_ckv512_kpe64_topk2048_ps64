@@ -18,6 +18,14 @@ Alternate config for packing (e.g. batched PyTorch baseline on the CUDA branch):
 
     FIB_CONFIG_TOML=config.batched_pytorch.toml modal run scripts/run_modal.py::main --no-smoke
 
+BenchmarkConfig overrides (full mode only; smoke is always warmup=1, iter=1, trials=1)::
+
+    FIB_WARMUP_RUNS / FIB_ITERATIONS / FIB_NUM_TRIALS / FIB_RTOL / FIB_ATOL
+
+When unset, flashinfer_bench defaults are used. We deliberately DO NOT set
+``use_isolated_runner`` / ``timeout_seconds`` / ``profile_baseline`` because those
+are expensive on small workloads (see run_modal refactor notes).
+
 Torch-compile A/B (same container)::
 
     modal run scripts/run_modal.py::compare_torch_compile --smoke-workloads 5
@@ -30,7 +38,7 @@ import json
 import os
 import random
 import sys
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from typing import Literal
 from datetime import datetime, timezone
 from pathlib import Path
@@ -70,27 +78,55 @@ image = (
 
 # Smoke / debug: broad subsample by default so we catch correctness / perf surprises
 # that wouldn't show up in 2 random workloads (see auto-campaign lesson in Stage 1).
-# num_trials=1 so correctness is checked once per workload (no benchmark retries).
 SMOKE_WORKLOAD_COUNT_DEFAULT = 10
 SMOKE_RANDOM_SEED = 42
-SMOKE_BENCHMARK_CONFIG = BenchmarkConfig(
-    warmup_runs=1,
-    iterations=5,
-    num_trials=1,
-    use_isolated_runner=True,
-    timeout_seconds=600,
-    profile_baseline=True,
-)
 
-# Full dataset: closer to flashinfer-bench defaults / contest-style timing (see EVALUATION.md).
-FULL_BENCHMARK_CONFIG = BenchmarkConfig(
-    warmup_runs=3,
-    iterations=50,
-    num_trials=5,
-    use_isolated_runner=True,
-    timeout_seconds=600,
-    profile_baseline=True,
-)
+
+def _worker_benchmark_config(smoke: bool = False) -> BenchmarkConfig:
+    """Build a BenchmarkConfig from flashinfer_bench defaults + FIB_* env overrides.
+
+    Smoke mode forces the minimal warmup=1 / iterations=1 / num_trials=1 and keeps
+    the library's default tolerances. Full mode takes ``FIB_WARMUP_RUNS``,
+    ``FIB_ITERATIONS``, ``FIB_NUM_TRIALS``, ``FIB_RTOL``, ``FIB_ATOL`` (each falling
+    back to ``BenchmarkConfig()`` defaults).
+
+    We deliberately omit ``use_isolated_runner`` / ``timeout_seconds`` /
+    ``profile_baseline`` — each one adds per-workload overhead that dominates the
+    measured times on the small / medium DSA sparse traces.
+    """
+    defaults = BenchmarkConfig()
+
+    if smoke:
+        return BenchmarkConfig(
+            warmup_runs=1,
+            iterations=1,
+            num_trials=1,
+            rtol=defaults.rtol,
+            atol=defaults.atol,
+        )
+
+    return BenchmarkConfig(
+        warmup_runs=int(os.environ.get("FIB_WARMUP_RUNS", str(defaults.warmup_runs))),
+        iterations=int(os.environ.get("FIB_ITERATIONS",   str(defaults.iterations))),
+        num_trials=int(os.environ.get("FIB_NUM_TRIALS",   str(defaults.num_trials))),
+        rtol=float(os.environ.get("FIB_RTOL", str(defaults.rtol))),
+        atol=float(os.environ.get("FIB_ATOL", str(defaults.atol))),
+    )
+
+
+def _config_to_dict(config) -> dict:
+    """Serialize BenchmarkConfig, robust across dataclass / pydantic versions."""
+    if is_dataclass(config):
+        return asdict(config)
+    if hasattr(config, "model_dump"):
+        return config.model_dump()
+    if hasattr(config, "dict") and callable(config.dict):
+        return config.dict()
+    return {
+        k: getattr(config, k)
+        for k in ("warmup_runs", "iterations", "num_trials", "rtol", "atol")
+        if hasattr(config, k)
+    }
 
 
 def _subsample_workloads(
@@ -132,7 +168,9 @@ def _run_benchmark_core(
     smoke_seed: int,
 ) -> dict:
     """Run flashinfer-bench (caller sets ``DSA_DISABLE_TORCH_COMPILE`` for A/B)."""
-    config = SMOKE_BENCHMARK_CONFIG if smoke else FULL_BENCHMARK_CONFIG
+    # Built on the worker so we inherit flashinfer_bench defaults from whatever
+    # version the Modal image has, independent of the local venv.
+    config = _worker_benchmark_config(smoke)
 
     if smoke:
         smoke_workloads = max(1, int(smoke_workloads))
@@ -342,7 +380,7 @@ def save_results_json(
             "solution_hash": solution.hash(),
             "definition": solution.definition,
             "smoke": smoke,
-            "benchmark_config": asdict(config),
+            "benchmark_config": _config_to_dict(config),
             "workload_count": len(entries),
             "passed_count": passed,
             "failed_count": len(entries) - passed,
@@ -363,7 +401,7 @@ def save_compare_torch_compile_json(
 ) -> None:
     """Write compile vs eager benchmark results (``compile`` / ``eager`` definition blocks)."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    cfg = SMOKE_BENCHMARK_CONFIG if smoke else FULL_BENCHMARK_CONFIG
+    cfg = _worker_benchmark_config(smoke)
     rc = merged["compile"]
     re = merged["eager"]
     def_name = next(iter(rc))
@@ -380,7 +418,7 @@ def save_compare_torch_compile_json(
             "solution_hash": solution.hash(),
             "definition": solution.definition,
             "smoke": smoke,
-            "benchmark_config": asdict(cfg),
+            "benchmark_config": _config_to_dict(cfg),
             "workload_count": n,
             "passed_compile": nc,
             "passed_eager": ne,
@@ -426,22 +464,25 @@ def main(
     solution = Solution.model_validate_json(solution_path.read_text())
     print(f"Loaded: {solution.name} ({solution.definition})")
 
-    bench_config = SMOKE_BENCHMARK_CONFIG if smoke else FULL_BENCHMARK_CONFIG
+    # Client-side view of the config (same rules as the worker: defaults + FIB_* env).
+    # The worker rebuilds this itself on the B200 container.
+    bench_config = _worker_benchmark_config(smoke)
 
     print("\nRunning benchmark on Modal B200...")
     if smoke:
         print(
             f"  Smoke mode: {smoke_workloads} workloads (seed={SMOKE_RANDOM_SEED}), "
-            f"warmup={SMOKE_BENCHMARK_CONFIG.warmup_runs}, "
-            f"iterations={SMOKE_BENCHMARK_CONFIG.iterations}, "
-            f"num_trials={SMOKE_BENCHMARK_CONFIG.num_trials} (single correctness pass per workload)"
+            f"warmup={bench_config.warmup_runs}, "
+            f"iterations={bench_config.iterations}, "
+            f"num_trials={bench_config.num_trials} (single correctness pass per workload)"
         )
     else:
         print(
             f"  Full suite: all workloads, "
-            f"warmup={FULL_BENCHMARK_CONFIG.warmup_runs}, "
-            f"iterations={FULL_BENCHMARK_CONFIG.iterations}, "
-            f"trials={FULL_BENCHMARK_CONFIG.num_trials}"
+            f"warmup={bench_config.warmup_runs}, "
+            f"iterations={bench_config.iterations}, "
+            f"trials={bench_config.num_trials}, "
+            f"rtol={bench_config.rtol}, atol={bench_config.atol}"
         )
 
     results = run_benchmark.remote(
@@ -494,6 +535,7 @@ def compare_torch_compile(
     print(f"Loaded: {solution.name} ({solution.definition})")
 
     sw = max(1, int(smoke_workloads))
+    bench_config = _worker_benchmark_config(smoke)
     if smoke:
         print(
             f"\nComparing attention tail: torch.compile vs eager "
@@ -502,8 +544,8 @@ def compare_torch_compile(
     else:
         print(
             "\nComparing attention tail: torch.compile vs eager "
-            f"(full suite: all workloads, warmup={FULL_BENCHMARK_CONFIG.warmup_runs}, "
-            f"iterations={FULL_BENCHMARK_CONFIG.iterations}, trials={FULL_BENCHMARK_CONFIG.num_trials})"
+            f"(full suite: all workloads, warmup={bench_config.warmup_runs}, "
+            f"iterations={bench_config.iterations}, trials={bench_config.num_trials})"
         )
 
     merged = compare_torch_compile_benchmark.remote(solution, smoke, sw, SMOKE_RANDOM_SEED)

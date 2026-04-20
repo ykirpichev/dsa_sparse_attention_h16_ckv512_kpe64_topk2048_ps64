@@ -40,6 +40,21 @@
  *   - Short-sequence traces: rows with `g < 0` are issued from `ckv_flat[0]`
  *     (safe fallback) and then masked at compute time by `continue`. The
  *     wasted HBM is cached in L2 and does not dominate.
+ *
+ * Stage-3c: cp.async double-buffered LOGIT tile prefetch.
+ *   - The Stage-3b value projection is now ~186 us/trace mean. The remaining
+ *     time is dominated by the logit pass (each thread streams its own 8 K
+ *     rows from HBM in a serial unrolled dot). We apply the same tile-based
+ *     async pipeline: load BK=16 rows of (ckv, kpe) into SMEM with cp.async,
+ *     double-buffered, and have 8 warps each compute 2 logits per tile via
+ *     warp-reduce over D_CK+D_KP = 576 packed elements from SMEM.
+ *   - `s_v_tile` is idle during the logit phase, so we alias it as the
+ *     per-tile ckv buffer (same 32 KiB, same layout). Only +4 KiB extra
+ *     SMEM for a dedicated kpe tile (2 buffers × 16 rows × 64 bf16).
+ *   - The same `n_valid_tiles` truncation as Stage 3b avoids doing cp.async
+ *     for all-invalid tiles on short-sequence traces. s_logits is
+ *     pre-initialised to -INFINITY so skipped tiles/rows remain correctly
+ *     masked for the downstream softmax.
  */
 
 #include <ATen/cuda/CUDAContext.h>
@@ -146,6 +161,15 @@ __device__ __forceinline__ void cp_async_16(unsigned smem_int, const void* gmem_
                : "r"(smem_int), "l"(gmem_src));
 }
 
+// 8-byte variant: used by the Stage-3c logit pass to stream D_KP=64 bf16 rows
+// (128 B / row) in a single issue per thread across 256 threads (16 rows × 16
+// 8-byte chunks = 256 chunks per tile).
+__device__ __forceinline__ void cp_async_8(unsigned smem_int, const void* gmem_src) {
+  asm volatile("cp.async.ca.shared.global [%0], [%1], 8;\n"
+               :
+               : "r"(smem_int), "l"(gmem_src));
+}
+
 __device__ __forceinline__ void cp_async_commit_group() {
   asm volatile("cp.async.commit_group;\n" ::);
 }
@@ -196,22 +220,27 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   const int64_t lse_i = t * H + h;
 
   // SMEM layout:
-  //   s_logits [TOPK]            float      8 KiB
-  //   s_qn     [D_CK]            float      2 KiB
-  //   s_qp     [D_KP]            float    256 B
-  //   s_gidx   [TOPK]            int        8 KiB
-  //   s_reduce [NUM_WARPS]       float     32 B
-  //   s_v_tile [V_PIPE][BK][D_CK] bf16     32 KiB  (Stage 3b: cp.async tiles)
-  // Total: ~50.6 KiB (well under the 100 KiB attribute cap).
+  //   s_logits  [TOPK]              float   8 KiB
+  //   s_qn      [D_CK]              float   2 KiB
+  //   s_qp      [D_KP]              float 256 B
+  //   s_gidx    [TOPK]              int     8 KiB
+  //   s_reduce  [NUM_WARPS]         float  32 B
+  //   s_v_tile  [V_PIPE][BK][D_CK]  bf16   32 KiB   (Stage 3b value tile)
+  //   s_kpe_tile[V_PIPE][BK][D_KP]  bf16    4 KiB   (Stage 3c logit tile, kpe part)
+  //
+  // s_v_tile is aliased as the ckv-row buffer during the Stage-3c logit pass
+  // (s_v_tile sits idle before the value projection). Total ~54.6 KiB, still
+  // under the 100 KiB cudaFuncAttribute cap.
   extern __shared__ unsigned char raw[];
   float* s_logits = reinterpret_cast<float*>(raw);
   float* s_qn = s_logits + TOPK;
   float* s_qp = s_qn + D_CK;
   int* s_gidx = reinterpret_cast<int*>(s_qp + D_KP);
   float* s_reduce = reinterpret_cast<float*>(s_gidx + TOPK);
-  // V tiles are bf16; align them on 16 B so cp.async 16 B stores are well-aligned.
-  // s_reduce is NUM_WARPS floats = 32 B, which is already 16 B aligned.
+  // s_reduce is NUM_WARPS floats = 32 B, already 16 B aligned, so the bf16
+  // tile region is 16 B aligned for cp.async.
   __nv_bfloat16* s_v_tile = reinterpret_cast<__nv_bfloat16*>(s_reduce + NUM_WARPS);
+  __nv_bfloat16* s_kpe_tile = s_v_tile + V_PIPE * BK * D_CK;
 
   // Load Q into shared as fp32 (reused by every logit).
   for (int d = tid; d < D_CK; d += THREADS) {
@@ -237,20 +266,118 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   int n_valid_tiles = (n_valid_rows + BK - 1) / BK;
   if (n_valid_tiles > NUM_V_TILES) n_valid_tiles = NUM_V_TILES;
 
-  // Logits: each thread handles a subset of k, full D_CK+D_KP dot per k.
+  // Stage 3c: cp.async double-buffered logit pass.
+  //
+  //   * Pre-initialise s_logits[k] = -INFINITY so any k we don't compute
+  //     (invalid g or tile beyond n_valid_tiles) is correctly masked for the
+  //     downstream softmax max.
+  //   * Tile layout: 16 K rows per tile. For each row we cp.async both the
+  //     ckv (1024 B) and the kpe (128 B) halves into SMEM. s_v_tile is
+  //     aliased as the per-tile ckv buffer (idle until the value projection).
+  //     s_kpe_tile is a small (4 KiB) dedicated region for the kpe halves.
+  //   * Compute: each warp owns 2 logits per tile (BK=16 / NUM_WARPS=8 = 2),
+  //     computed via `warp_reduce_sum` over 32 lanes × (8 packed bf162 from
+  //     ckv + 1 packed bf162 from kpe) = full D_CK+D_KP dot.
+  //   * Every thread's 32-bit reads of s_qn / s_qp / the tile buffers land
+  //     on distinct banks (stride-1 lane access to bf162 = 4 B / lane).
+
+  // Pre-init logits to -INF so skipped tiles/rows are masked at softmax time.
   for (int k = tid; k < TOPK; k += THREADS) {
-    const int g = s_gidx[k];
-    if (g < 0) {
-      s_logits[k] = -INFINITY;
-      continue;
-    }
-    const __nv_bfloat16* kc = ckv_flat + static_cast<int64_t>(g) * D_CK;
-    const __nv_bfloat16* kp = kpe_flat + static_cast<int64_t>(g) * D_KP;
-    float acc = packed_dot_bf16_f32<D_CK>(s_qn, kc)
-              + packed_dot_bf16_f32<D_KP>(s_qp, kp);
-    s_logits[k] = acc * sm_scale_log2e;  // base-2 logits
+    s_logits[k] = -INFINITY;
   }
   __syncthreads();
+
+  auto issue_logit_tile = [&](int tile, int buf) {
+    const int k0 = tile * BK;
+    __nv_bfloat16* ckv_buf = s_v_tile + buf * (BK * D_CK);
+    __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
+
+    // ckv half: 4 × 16 B per thread (identical decomposition to Stage 3b).
+    #pragma unroll
+    for (int c = 0; c < CHUNKS_PER_THREAD; ++c) {
+      const int chunk = tid + c * THREADS;           // 0..1023
+      const int r = chunk / (D_CK / 8);              // chunk/64 -> row in tile
+      const int ch16 = chunk % (D_CK / 8);           // chunk%64 -> 16 B col
+      const int k = k0 + r;
+      int g = s_gidx[k];
+      if (g < 0) g = 0;  // safe fallback; compute-time `continue` masks it
+      const uint4* src =
+          reinterpret_cast<const uint4*>(ckv_flat + static_cast<int64_t>(g) * D_CK) + ch16;
+      uint4* dst = reinterpret_cast<uint4*>(ckv_buf + r * D_CK) + ch16;
+      cp_async_16(__cvta_generic_to_shared(dst), src);
+    }
+
+    // kpe half: 1 × 8 B per thread. Per tile: 16 rows × (64 bf16 / 4) = 256
+    // 8-byte chunks = exactly THREADS chunks, so one cp.async per thread.
+    {
+      const int chunk = tid;                          // 0..255
+      const int r = chunk / (D_KP / 4);               // chunk/16 -> row in tile
+      const int ch8 = chunk % (D_KP / 4);             // chunk%16 -> 8 B col
+      const int k = k0 + r;
+      int g = s_gidx[k];
+      if (g < 0) g = 0;
+      const uint2* src =
+          reinterpret_cast<const uint2*>(kpe_flat + static_cast<int64_t>(g) * D_KP) + ch8;
+      uint2* dst = reinterpret_cast<uint2*>(kpe_buf + r * D_KP) + ch8;
+      cp_async_8(__cvta_generic_to_shared(dst), src);
+    }
+  };
+
+  if (n_valid_tiles > 0) {
+    issue_logit_tile(0, 0);
+    cp_async_commit_group();
+
+    const int warp_id = tid >> 5;       // 0..NUM_WARPS-1 (8)
+    const int lane = tid & (WARP - 1);  // 0..31
+
+    for (int tile = 0; tile < n_valid_tiles; ++tile) {
+      const int buf = tile & 1;
+      const int next_tile = tile + 1;
+
+      if (next_tile < n_valid_tiles) {
+        issue_logit_tile(next_tile, next_tile & 1);
+        cp_async_commit_group();
+        cp_async_wait_group<1>();
+      } else {
+        cp_async_wait_group<0>();
+      }
+      __syncthreads();
+
+      const __nv_bfloat16* ckv_buf = s_v_tile + buf * (BK * D_CK);
+      const __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
+
+      #pragma unroll
+      for (int wr = 0; wr < 2; ++wr) {               // 2 logits / warp
+        const int r = warp_id * 2 + wr;              // 0..15
+        const int k = tile * BK + r;
+        const int g = s_gidx[k];
+        if (g < 0) continue;  // s_logits[k] is already -INFINITY
+
+        const __nv_bfloat162* kc2 =
+            reinterpret_cast<const __nv_bfloat162*>(ckv_buf + r * D_CK);
+        const __nv_bfloat162* kp2 =
+            reinterpret_cast<const __nv_bfloat162*>(kpe_buf + r * D_KP);
+
+        float acc = 0.f;
+        // D_CK / 2 / WARP = 8 packed bf162 per lane across D_CK.
+        #pragma unroll
+        for (int j = 0; j < D_CK / 2 / WARP; ++j) {
+          const int i2 = j * WARP + lane;
+          const float2 kf = __bfloat1622float2(kc2[i2]);
+          acc += s_qn[2 * i2] * kf.x + s_qn[2 * i2 + 1] * kf.y;
+        }
+        // D_KP / 2 = 32 packed bf162 = exactly one per lane.
+        {
+          const float2 kf = __bfloat1622float2(kp2[lane]);
+          acc += s_qp[2 * lane] * kf.x + s_qp[2 * lane + 1] * kf.y;
+        }
+
+        acc = warp_reduce_sum(acc);
+        if (lane == 0) s_logits[k] = acc * sm_scale_log2e;
+      }
+      __syncthreads();
+    }
+  }
 
   // Block-parallel max.
   float local_max = -INFINITY;
@@ -437,12 +564,15 @@ std::tuple<torch::Tensor, torch::Tensor> run(
 
   const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
   const dim3 block(THREADS);
-  // s_logits + s_qn + s_qp + s_gidx + s_reduce + s_v_tile (V_PIPE * BK * D_CK bf16)
+  // s_logits + s_qn + s_qp + s_gidx + s_reduce + s_v_tile + s_kpe_tile
+  //   s_v_tile  : V_PIPE * BK * D_CK bf16 (32 KiB, Stage 3b)
+  //   s_kpe_tile: V_PIPE * BK * D_KP bf16 ( 4 KiB, Stage 3c)
   const size_t shmem =
       (static_cast<size_t>(TOPK) + D_CK + D_KP) * sizeof(float)
       + static_cast<size_t>(TOPK) * sizeof(int)
       + static_cast<size_t>(NUM_WARPS) * sizeof(float)
-      + static_cast<size_t>(V_PIPE) * BK * D_CK * sizeof(__nv_bfloat16);
+      + static_cast<size_t>(V_PIPE) * BK * D_CK * sizeof(__nv_bfloat16)
+      + static_cast<size_t>(V_PIPE) * BK * D_KP * sizeof(__nv_bfloat16);
 
   const auto stream = at::cuda::getCurrentCUDAStream(q_nope.device().index());
 
