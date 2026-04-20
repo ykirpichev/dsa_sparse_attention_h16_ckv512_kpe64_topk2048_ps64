@@ -20,6 +20,26 @@
  *     __syncthreads chopped up the memory pipeline that Stage 1 kept fully
  *     parallelized. Kept the sync-light single-pass design and optimized the
  *     instruction mix instead.
+ *
+ * Stage-3b: cp.async double-buffered value-projection tile prefetch.
+ *   - Stage-3 (head tiling) was a measured negative result: our bottleneck is
+ *     NOT K-side HBM bandwidth (effective ~1.6 TB/s vs 7.5 TB/s peak on B200)
+ *     but per-block stall time on dependent K loads in the value projection —
+ *     every inner iteration had a ~400-cycle serial dependent GMEM load that
+ *     the compiler couldn't pipeline across the `if (g < 0) continue;` branch.
+ *   - Simpler attempts (branch-free clamp; `#pragma unroll 4`) either wasted
+ *     BW on fake loads for short-sequence traces or failed to break the
+ *     serial-load dependence.
+ *   - Final Stage-3b pipeline: load BK=16 K rows at a time into SMEM with
+ *     `cp.async.ca.shared.global` 16-byte copies, double-buffered across two
+ *     SMEM tile slots. While the value FMAs for tile `t` run from SMEM, the
+ *     next tile's HBM reads (tile `t+1`) are already in flight. This turns
+ *     the inner FMA loop into SMEM reads (~20 cycle) backed by an
+ *     asynchronous memory pipeline, directly attacking the per-block stall-
+ *     bound diagnosis.
+ *   - Short-sequence traces: rows with `g < 0` are issued from `ckv_flat[0]`
+ *     (safe fallback) and then masked at compute time by `continue`. The
+ *     wasted HBM is cached in L2 and does not dominate.
  */
 
 #include <ATen/cuda/CUDAContext.h>
@@ -42,6 +62,19 @@ constexpr int THREADS = 256;
 constexpr int WARP = 32;
 constexpr int NUM_WARPS = THREADS / WARP;  // 8
 constexpr float LOG2E_F = 1.4426950408889634f;
+
+// Value-projection tiling parameters (Stage 3b cp.async double buffering).
+// BK = K rows per tile; V_PIPE = number of SMEM buffers (double-buffer => 2).
+// Tile size (bf16) = BK * D_CK * 2 B = 16 * 1024 = 16 KiB; 2 buffers = 32 KiB.
+// Per thread per tile load: 4 * 16 B = 64 B (256 threads * 64 B = 16 KiB).
+constexpr int BK = 16;
+constexpr int V_PIPE = 2;
+static_assert(TOPK % BK == 0, "TOPK must be divisible by BK");
+static_assert(BK * D_CK % (THREADS * 16 / 2) == 0,
+              "BK tile size must be a multiple of THREADS * 8 bf16 elements");
+constexpr int NUM_V_TILES = TOPK / BK;                               // 128
+constexpr int TILE_CHUNKS_16B = BK * D_CK * sizeof(__nv_bfloat16) / 16;  // 1024
+constexpr int CHUNKS_PER_THREAD = TILE_CHUNKS_16B / THREADS;         // 4
 
 float sm_scale_to_float(py::object o) {
   try {
@@ -104,6 +137,25 @@ __device__ __forceinline__ float block_reduce_max(float v, float* smem) {
   return r;
 }
 
+// cp.async.ca.shared.global wrappers (inline PTX).
+// `smem_int` must come from __cvta_generic_to_shared on the SMEM destination.
+// 16 B copies are the widest the instruction supports and match our float4 K layout.
+__device__ __forceinline__ void cp_async_16(unsigned smem_int, const void* gmem_src) {
+  asm volatile("cp.async.ca.shared.global [%0], [%1], 16;\n"
+               :
+               : "r"(smem_int), "l"(gmem_src));
+}
+
+__device__ __forceinline__ void cp_async_commit_group() {
+  asm volatile("cp.async.commit_group;\n" ::);
+}
+
+// cp.async.wait_group needs an immediate argument; template over the depth.
+template <int N>
+__device__ __forceinline__ void cp_async_wait_group() {
+  asm volatile("cp.async.wait_group %0;\n" ::"n"(N));
+}
+
 __device__ __forceinline__ float block_reduce_sum(float v, float* smem) {
   v = warp_reduce_sum(v);
   const int lane = threadIdx.x & (WARP - 1);
@@ -143,12 +195,23 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   const int64_t out_off = (t * H + h) * D_CK;
   const int64_t lse_i = t * H + h;
 
+  // SMEM layout:
+  //   s_logits [TOPK]            float      8 KiB
+  //   s_qn     [D_CK]            float      2 KiB
+  //   s_qp     [D_KP]            float    256 B
+  //   s_gidx   [TOPK]            int        8 KiB
+  //   s_reduce [NUM_WARPS]       float     32 B
+  //   s_v_tile [V_PIPE][BK][D_CK] bf16     32 KiB  (Stage 3b: cp.async tiles)
+  // Total: ~50.6 KiB (well under the 100 KiB attribute cap).
   extern __shared__ unsigned char raw[];
-  float* s_logits = reinterpret_cast<float*>(raw);           // TOPK   floats
-  float* s_qn = s_logits + TOPK;                              // D_CK   floats
-  float* s_qp = s_qn + D_CK;                                  // D_KP   floats
-  int* s_gidx = reinterpret_cast<int*>(s_qp + D_KP);          // TOPK   ints
-  float* s_reduce = reinterpret_cast<float*>(s_gidx + TOPK);  // NUM_WARPS floats
+  float* s_logits = reinterpret_cast<float*>(raw);
+  float* s_qn = s_logits + TOPK;
+  float* s_qp = s_qn + D_CK;
+  int* s_gidx = reinterpret_cast<int*>(s_qp + D_KP);
+  float* s_reduce = reinterpret_cast<float*>(s_gidx + TOPK);
+  // V tiles are bf16; align them on 16 B so cp.async 16 B stores are well-aligned.
+  // s_reduce is NUM_WARPS floats = 32 B, which is already 16 B aligned.
+  __nv_bfloat16* s_v_tile = reinterpret_cast<__nv_bfloat16*>(s_reduce + NUM_WARPS);
 
   // Load Q into shared as fp32 (reused by every logit).
   for (int d = tid; d < D_CK; d += THREADS) {
@@ -158,11 +221,21 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     s_qp[d] = bf16_to_f(q_pe[qp_off + d]);
   }
   // Cache sparse_idx (clamped to valid range) so the value-projection pass does not re-read global.
+  // Also track the maximum k-position that has any valid gather index. For
+  // short sequences (many -1 entries), the value-projection tile loop can
+  // truncate at that position rather than always walking all NUM_V_TILES.
+  int local_max_valid_k_p1 = 0;  // stored as k+1 so "none valid" reduces to 0
   for (int k = tid; k < TOPK; k += THREADS) {
     int32_t g = sparse_idx[si_off + k];
-    s_gidx[k] = (g >= 0 && static_cast<int64_t>(g) < num_kv_rows) ? g : -1;
+    const bool valid = (g >= 0 && static_cast<int64_t>(g) < num_kv_rows);
+    s_gidx[k] = valid ? g : -1;
+    if (valid && (k + 1) > local_max_valid_k_p1) local_max_valid_k_p1 = k + 1;
   }
   __syncthreads();
+  const float reduced_max = block_reduce_max(static_cast<float>(local_max_valid_k_p1), s_reduce);
+  const int n_valid_rows = static_cast<int>(reduced_max);
+  int n_valid_tiles = (n_valid_rows + BK - 1) / BK;
+  if (n_valid_tiles > NUM_V_TILES) n_valid_tiles = NUM_V_TILES;
 
   // Logits: each thread handles a subset of k, full D_CK+D_KP dot per k.
   for (int k = tid; k < TOPK; k += THREADS) {
@@ -207,24 +280,89 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
 
   if (tid == 0) lse_out[lse_i] = mx + log2f(sum);
 
-  // Weighted cKV projection with packed bf162 loads and stores.
-  // D_CK = 2*THREADS so every thread owns exactly one packed output slot
-  // (d = 2*tid, 2*tid+1). The inner k loop becomes 1 packed GMEM read + 2 FMAs
-  // per k, halving the load instruction count vs the scalar variant.
+  // Weighted cKV projection — cp.async double-buffered tile prefetch.
+  //
+  // Structure:
+  //   * NUM_V_TILES = TOPK / BK (128) tiles of K rows, BK=16 rows each.
+  //   * Two SMEM buffers of shape [BK, D_CK] bf16. At any moment buffer
+  //     `tile & 1` holds the K rows the inner FMA loop is consuming, while
+  //     buffer `(tile + 1) & 1` is being filled by in-flight cp.async loads.
+  //   * `cp_async_commit_group` + `cp_async_wait_group<1>` keep exactly one
+  //     tile-load in flight at a time: we always wait for the older of the
+  //     two outstanding groups before compute.
+  //   * For rows with `g < 0`, we issue the cp.async from `ckv_flat[0]` as a
+  //     safe fallback (avoids illegal addresses) and skip compute via
+  //     `if (g < 0) continue;` inside the BK loop. The fallback load is
+  //     cheap (L2 hit) and happens only for short-sequence traces.
+  //
+  // Per-tile issue: each thread launches CHUNKS_PER_THREAD=4 16-byte
+  // cp.async copies, covering the whole 16 KiB tile (1024 × 16 B chunks
+  // across 256 threads, 4 per thread).
   static_assert(D_CK == 2 * THREADS, "packed output path requires D_CK == 2*THREADS");
+
+  auto issue_v_tile = [&](int tile, int buf) {
+    const int k0 = tile * BK;
+    __nv_bfloat16* buf_base = s_v_tile + buf * (BK * D_CK);
+    #pragma unroll
+    for (int c = 0; c < CHUNKS_PER_THREAD; ++c) {
+      const int chunk = tid + c * THREADS;          // 0..TILE_CHUNKS_16B-1
+      const int r = chunk / (D_CK / 8);              // chunk/64 -> row in tile
+      const int ch16 = chunk % (D_CK / 8);           // chunk%64 -> 16-byte col
+      const int k = k0 + r;
+      int g = s_gidx[k];
+      if (g < 0) g = 0;  // safe fallback; masked at compute time
+      const uint4* src =
+          reinterpret_cast<const uint4*>(ckv_flat + static_cast<int64_t>(g) * D_CK) + ch16;
+      uint4* dst = reinterpret_cast<uint4*>(buf_base + r * D_CK) + ch16;
+      const unsigned smem_int = __cvta_generic_to_shared(dst);
+      cp_async_16(smem_int, src);
+    }
+  };
+
   const int i = tid;
   const float inv_sum = 1.f / sum;
   float o0 = 0.f, o1 = 0.f;
-  for (int k = 0; k < TOPK; ++k) {
-    const int g = s_gidx[k];
-    if (g < 0) continue;
-    const __nv_bfloat162* kc2 =
-        reinterpret_cast<const __nv_bfloat162*>(ckv_flat + static_cast<int64_t>(g) * D_CK);
-    const float2 kf = __bfloat1622float2(kc2[i]);
-    const float p = s_logits[k];
-    o0 += p * kf.x;
-    o1 += p * kf.y;
+
+  // For short-sequence traces we may have 0 valid rows (but the all-masked
+  // case was already handled above by the `mx == -INFINITY` early return, so
+  // n_valid_tiles >= 1 here). Still guard defensively.
+  if (n_valid_tiles > 0) {
+    // Prime: launch tile 0 into buffer 0.
+    issue_v_tile(0, 0);
+    cp_async_commit_group();
+
+    for (int tile = 0; tile < n_valid_tiles; ++tile) {
+      const int buf = tile & 1;
+      const int next_tile = tile + 1;
+
+      // Kick off the next tile before waiting for the current one so its HBM
+      // reads overlap with our FMAs.
+      if (next_tile < n_valid_tiles) {
+        issue_v_tile(next_tile, next_tile & 1);
+        cp_async_commit_group();
+        cp_async_wait_group<1>();  // leave the just-issued group in flight
+      } else {
+        cp_async_wait_group<0>();  // drain: this is the last tile
+      }
+      __syncthreads();  // make this tile's cp.async writes visible to all threads
+
+      const int k0 = tile * BK;
+      const __nv_bfloat162* tile_pairs =
+          reinterpret_cast<const __nv_bfloat162*>(s_v_tile + buf * (BK * D_CK));
+      #pragma unroll
+      for (int r = 0; r < BK; ++r) {
+        const int k = k0 + r;
+        const int g = s_gidx[k];
+        if (g < 0) continue;
+        const float2 kf = __bfloat1622float2(tile_pairs[r * (D_CK / 2) + i]);
+        const float p = s_logits[k];
+        o0 += p * kf.x;
+        o1 += p * kf.y;
+      }
+      __syncthreads();  // ensure all threads done with this buffer before next issue reuses it
+    }
   }
+
   const __nv_bfloat162 packed =
       __halves2bfloat162(f_to_bf16(o0 * inv_sum), f_to_bf16(o1 * inv_sum));
   reinterpret_cast<__nv_bfloat162*>(out + out_off)[i] = packed;
@@ -299,11 +437,12 @@ std::tuple<torch::Tensor, torch::Tensor> run(
 
   const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
   const dim3 block(THREADS);
-  // s_logits + s_qn + s_qp + s_gidx + s_reduce
+  // s_logits + s_qn + s_qp + s_gidx + s_reduce + s_v_tile (V_PIPE * BK * D_CK bf16)
   const size_t shmem =
       (static_cast<size_t>(TOPK) + D_CK + D_KP) * sizeof(float)
       + static_cast<size_t>(TOPK) * sizeof(int)
-      + static_cast<size_t>(NUM_WARPS) * sizeof(float);
+      + static_cast<size_t>(NUM_WARPS) * sizeof(float)
+      + static_cast<size_t>(V_PIPE) * BK * D_CK * sizeof(__nv_bfloat16);
 
   const auto stream = at::cuda::getCurrentCUDAStream(q_nope.device().index());
 
