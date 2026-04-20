@@ -21,19 +21,19 @@ from flashinfer_bench import BuildSpec
 from flashinfer_bench.agents import pack_solution_from_files
 
 
-def load_config() -> dict:
-    """Load configuration from config.toml."""
-    config_path = PROJECT_ROOT / "config.toml"
-    if not config_path.exists():
-        raise FileNotFoundError(f"Config file not found: {config_path}")
+def load_config(config_path: Path | None = None) -> dict:
+    """Load configuration from config.toml (or an alternate path)."""
+    path = config_path or (PROJECT_ROOT / "config.toml")
+    if not path.exists():
+        raise FileNotFoundError(f"Config file not found: {path}")
 
-    with open(config_path, "rb") as f:
+    with open(path, "rb") as f:
         return tomllib.load(f)
 
 
-def pack_solution(output_path: Path = None) -> Path:
+def pack_solution(output_path: Path = None, config_path: Path | None = None) -> Path:
     """Pack solution files into a Solution JSON."""
-    config = load_config()
+    config = load_config(config_path)
 
     solution_config = config["solution"]
     build_config = config["build"]
@@ -41,11 +41,15 @@ def pack_solution(output_path: Path = None) -> Path:
     language = build_config["language"]
     entry_point = build_config["entry_point"]
 
-    # Determine source directory based on language
-    if language == "triton":
+    sub = build_config.get("source_dir")
+    if sub:
+        source_dir = PROJECT_ROOT / "solution" / sub
+    elif language == "triton":
         source_dir = PROJECT_ROOT / "solution" / "triton"
     elif language == "cuda":
         source_dir = PROJECT_ROOT / "solution" / "cuda"
+    elif language == "python":
+        source_dir = PROJECT_ROOT / "solution" / "python"
     else:
         raise ValueError(f"Unsupported language: {language}")
 
@@ -54,12 +58,17 @@ def pack_solution(output_path: Path = None) -> Path:
 
     # Create build spec
     dps = build_config.get("destination_passing_style", True)
-    spec = BuildSpec(
+    spec_kwargs: dict = dict(
         language=language,
         target_hardware=["cuda"],
         entry_point=entry_point,
         destination_passing_style=dps,
     )
+    if build_config.get("binding") is not None:
+        spec_kwargs["binding"] = build_config["binding"]
+    spec = BuildSpec(**spec_kwargs)
+
+    description = solution_config.get("description", "")
 
     # Pack the solution
     solution = pack_solution_from_files(
@@ -68,6 +77,7 @@ def pack_solution(output_path: Path = None) -> Path:
         name=solution_config["name"],
         definition=solution_config["definition"],
         author=solution_config["author"],
+        description=description,
     )
 
     # Write to output file
@@ -95,10 +105,16 @@ def main():
         default=None,
         help="Output path for solution.json (default: ./solution.json)"
     )
+    parser.add_argument(
+        "-c", "--config",
+        type=Path,
+        default=None,
+        help="Path to config TOML (default: ./config.toml). E.g. config.batched_pytorch.toml for the PyTorch baseline.",
+    )
     args = parser.parse_args()
 
     try:
-        pack_solution(args.output)
+        pack_solution(args.output, config_path=args.config)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
