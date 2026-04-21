@@ -25,11 +25,10 @@ app = modal.App("flashinfer-bench")
 trace_volume = modal.Volume.from_name("flashinfer-trace", create_if_missing=True)
 TRACE_SET_PATH = "/data"
 
-# FlashInfer CI image (CUDA 13.2 + nvcc) required to build the CUDA extension
-# at runtime via torch.utils.cpp_extension.load. The upstream starter-kit
-# `debian_slim + pip install torch` image does not ship nvcc.
+# Pin to the same image digest documented in EVALUATION.md (evaluator environment).
+# CUDA 13.2 + nvcc; required to compile the TVM-FFI CUDA entry at runtime.
 image = (
-    modal.Image.from_registry("flashinfer/flashinfer-ci-cu132:latest")
+    modal.Image.from_registry("flashinfer/flashinfer-ci-cu132:20260401-2c675fb")
     .apt_install("git")
     .env({"CUDA_HOME": "/usr/local/cuda"})
     .pip_install("wheel", "setuptools")
