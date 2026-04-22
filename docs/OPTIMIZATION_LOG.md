@@ -250,11 +250,42 @@ Raw logs: `artifacts/smoke_qload_itemA_v4_phases.log` (itemA final), `artifacts/
 -   **vproj also improved (−3.4 %)** even though we didn't touch the value pass. Likely explanation: the trailing `__syncthreads()` at the end of the logit pass now lands with all warps arriving together (no warp exits early via `continue`), reducing the barrier-last-arrival tail.
 -   Full-benchmark geomean numbers pending (Modal workspace billing cap hit; smoke cycle counts used as primary signal).
 
+### Full-benchmark verdict (23 workloads)
+
+| binary | geomean speedup vs FI | geomean runtime | vs exp06 |
+|--------|----------------------:|----------------:|---------:|
+| exp06 (4 CTA + bf16 Q) | 27.12× | 52.2 µs | — |
+| itemA (this change)    | **28.33×** | **50.6 µs** | **+4.46 % geomean, −3.18 % runtime** |
+
+All 23 workloads pass. Biggest wins (−7 % to −14 %) are on the short-trace workloads (`68d6817d`, `b7668cfd`, `0a63b87b`, `9d4a5f21`, `f77df5ce`, `e6b849f2`) — exactly what diag02 predicted since those had softmax eating 14 % of short-trace cycles.
+
+Raw log: `artifacts/full_bench_itemA_qload_2026-04-22.log`.
+
+### itemB-attempted — warp-reduced atomicMax for `local_max_valid_k_p1` (reverted)
+
+**Change.** Replaced `block_reduce_max` (3 internal syncs) with a warp-local `__shfl_xor_sync` max tree followed by one `atomicMax` to a shared int slot per warp (8 atomics instead of 256 to sidestep SMEM-atomic contention). Net sync delta: −2 `__syncthreads()`.
+
+**Data.**
+
+-   Smoke (diag02 phase cycles, summed over 23 workloads): **−3.4 % qload, −3.0 % logit, −2.3 % total** — looked like a clean win.
+-   Full bench (2 independent runs, kernel wall-clock): **+2.5 % runtime consistently**. Long-trace workloads went from 152-155 µs → 157-160 µs in every run. Geomean vs FI: 28.12× (worse than itemA's 28.33×).
+
+Register count (57 regs/thread) and CTAs/SM (4) identical to itemA (61 regs). Best guess: the two removed `__syncthreads()` were serving as implicit pipeline barriers that let the HBM load/store scheduler drain; without them some downstream stall worsens. Reverted. Raw log: `artifacts/full_bench_itemB_warpatomic_2026-04-22.log`.
+
+Both a naive (per-thread atomicMax, 256-way contention) and warp-reduced variant regressed identically, so contention on the SMEM atomic is not the primary cause.
+
+### itemC-attempted — pre-issue first v-tile before softmax (reverted)
+
+**Change.** Moved `issue_v_tile(0, 0); cp_async_commit_group();` to the end of the logit pass, so the cp.async HBM load would overlap with the softmax max/sum reductions.
+
+**Data.** Smoke (itemA → itemC): total **+2.0 %**. `vproj` improved −14.5 % on short-trace (n_valid_tiles≤1), but softmax regressed +23 % everywhere because the ~100-cycle cp.async issue cost moved from the v-tile loop into the softmax-measurement window. Long traces regressed outright (+1.7 % total) because their tile-0 wait was already cheap. Reverted. Raw log: `artifacts/smoke_qload_itemC_phases.log`.
+
 ### Next on the qload branch
 
-If itemA's smoke win carries over to the full benchmark (expected geomean ~ +2–3 %), the next concrete pair of changes:
+With itemA banked (+4.46 % geomean) and items B and C falsified by full-bench data, the remaining Tier 1 ideas are exhausted. The best options now are:
 
--   **item B** — replace `block_reduce_max(local_max_valid_k_p1)` with a single `atomicMax` to a shared int slot, dropping one of the three `__syncthreads()` inside `block_reduce_max`. Saves ~150 cycles on every launch, ~1 % of short-trace runtime.
--   **item C** — issue `issue_v_tile(0, 0)` at the end of the logit pass (before the softmax max reduction) so its cp.async latency hides behind the softmax. Saves ~400 cycles on every trace (uniform win regardless of nvt).
+-   **Tier 2 item D** — collapse the 2 `__syncthreads()` per logit tile into 1 named barrier (wait-on-producer, not wait-on-all). This is the lowest-risk Tier 2 entry and hits the long-trace critical path directly (logit is still 50 % of long-trace cycles). Expected ~100 cycles/tile × 128 = ~13 k cycles on long traces, ~25 % of the remaining logit budget.
+-   **Tier 2 item E** — vectorise warp-reduce so each warp handles 2 logits per tile with a single group-shuffle tree. Moderate effort, complementary to D.
+-   **Meta-observation from B/C.** diag02 phase timings aren't a reliable predictor of full-bench wall-clock when the change shifts pipeline barriers around. Future ideas should be validated on the full bench before being accepted.
 
 

@@ -280,6 +280,16 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   // Also track the maximum k-position that has any valid gather index. For
   // short sequences (many -1 entries), the value-projection tile loop can
   // truncate at that position rather than always walking all NUM_V_TILES.
+  //
+  // itemB-attempted: we tried replacing the block_reduce_max below with a
+  // warp-reduced + atomicMax to a single shared int slot (saves 2 syncs).
+  // Smoke phase timers showed −3.4% qload and −2.3% total, but the full
+  // bench regressed by ~2.5% consistently across 2 runs — long-trace
+  // workloads all went from 152-155us → 157-160us. Reason unclear (regs
+  // identical, CTAs/SM identical); best guess is that the removed syncs
+  // were serving as implicit pipeline barriers for HBM scheduling, and
+  // without them some downstream stall worsens. Change reverted; see
+  // `artifacts/full_bench_itemB_warpatomic_2026-04-22.log` for data.
   int local_max_valid_k_p1 = 0;  // stored as k+1 so "none valid" reduces to 0
   for (int k = tid; k < TOPK; k += THREADS) {
     int32_t g = sparse_idx[si_off + k];
@@ -481,6 +491,15 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   // Per-tile issue: each thread launches CHUNKS_PER_THREAD=4 16-byte
   // cp.async copies, covering the whole 16 KiB tile (1024 × 16 B chunks
   // across 256 threads, 4 per thread).
+  //
+  // itemC-attempted: we tried pre-issuing tile 0 at the end of the logit
+  // pass so its HBM latency would hide behind softmax. Result was a net
+  // +2 % regression: the ~100-cycle cp.async issue cost moved from the
+  // vproj phase into the softmax phase (softmax +23 % short-trace), while
+  // the theoretical HBM-latency savings only materialised for n_valid_tiles
+  // == 1 traces (vproj −15 % short-trace). Long traces regressed outright
+  // because their tile-0 wait was already cheap. See
+  // `artifacts/smoke_qload_itemC_phases.log` for the data; change reverted.
   static_assert(D_CK == 2 * THREADS, "packed output path requires D_CK == 2*THREADS");
 
   auto issue_v_tile = [&](int tile, int buf) {
