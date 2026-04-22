@@ -69,6 +69,12 @@
 #include <cstdio>
 #include <mutex>
 
+// diag02: set to 1 to enable in-kernel phase cycle timers. Block (0,0) prints
+// one line of cycle counts per kernel launch. Leave at 0 for benchmark runs.
+#ifndef PROFILE_PHASES
+#define PROFILE_PHASES 0
+#endif
+
 namespace {
 
 constexpr int D_CK = 512;
@@ -190,6 +196,34 @@ __device__ __forceinline__ float block_reduce_sum(float v, float* smem) {
   return r;
 }
 
+// Phase-timing instrumentation (diag02).
+//   Define `PROFILE_PHASES` (e.g. via env / NVCC_PREPEND_FLAGS) to have block
+//   (0,0) print phase cycle counts to stderr at the end of the kernel. Prints
+//   once per launch (per workload). Zero overhead when disabled.
+#if PROFILE_PHASES
+#define PHASE_MARK(var)                                                   \
+  do {                                                                    \
+    if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0) {         \
+      var = clock64();                                                    \
+    }                                                                     \
+  } while (0)
+#define PHASE_PRINT(c0, c1, c2, c3, c4, c5, T_, H_, nvt)                  \
+  do {                                                                    \
+    if (blockIdx.x == 0 && blockIdx.y == 0 && threadIdx.x == 0) {         \
+      printf("[diag02] T=%lld H=%lld n_valid_tiles=%d  "                  \
+             "qload=%lld  logit=%lld  softmax=%lld  vproj=%lld  "         \
+             "owrite=%lld  total=%lld  (cycles)\n",                       \
+             (long long)T_, (long long)H_, (int)nvt,                      \
+             (long long)(c1 - c0), (long long)(c2 - c1),                  \
+             (long long)(c3 - c2), (long long)(c4 - c3),                  \
+             (long long)(c5 - c4), (long long)(c5 - c0));                 \
+    }                                                                     \
+  } while (0)
+#else
+#define PHASE_MARK(var) do { } while (0)
+#define PHASE_PRINT(c0, c1, c2, c3, c4, c5, T_, H_, nvt) do { } while (0)
+#endif
+
 __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     const __nv_bfloat16* __restrict__ q_nope,
     const __nv_bfloat16* __restrict__ q_pe,
@@ -204,6 +238,8 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   const int t = blockIdx.x;
   const int h = blockIdx.y;
   const int tid = threadIdx.x;
+  long long ts_c0 = 0, ts_c1 = 0, ts_c2 = 0, ts_c3 = 0, ts_c4 = 0, ts_c5 = 0;
+  PHASE_MARK(ts_c0);
 
   const int64_t qh_off = (t * H + h) * D_CK;
   const int64_t qp_off = (t * H + h) * D_KP;
@@ -277,6 +313,7 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     s_logits[k] = -INFINITY;
   }
   __syncthreads();
+  PHASE_MARK(ts_c1);  // end of Q+idx load phase
 
   auto issue_logit_tile = [&](int tile, int buf) {
     const int k0 = tile * BK;
@@ -378,6 +415,8 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     }
   }
 
+  PHASE_MARK(ts_c2);  // end of logit pass
+
   // Block-parallel max.
   float local_max = -INFINITY;
   for (int k = tid; k < TOPK; k += THREADS) {
@@ -405,6 +444,7 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   const float sum = block_reduce_sum(local_sum, s_reduce);
 
   if (tid == 0) lse_out[lse_i] = mx + log2f(sum);
+  PHASE_MARK(ts_c3);  // end of softmax
 
   // Weighted cKV projection — cp.async double-buffered tile prefetch.
   //
@@ -489,9 +529,13 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     }
   }
 
+  PHASE_MARK(ts_c4);  // end of value projection (before output write)
   const __nv_bfloat162 packed =
       __halves2bfloat162(f_to_bf16(o0 * inv_sum), f_to_bf16(o1 * inv_sum));
   reinterpret_cast<__nv_bfloat162*>(out + out_off)[i] = packed;
+  PHASE_MARK(ts_c5);  // end of kernel
+  PHASE_PRINT(ts_c0, ts_c1, ts_c2, ts_c3, ts_c4, ts_c5,
+              gridDim.x, H, n_valid_tiles);
 }
 
 void require_b200() {

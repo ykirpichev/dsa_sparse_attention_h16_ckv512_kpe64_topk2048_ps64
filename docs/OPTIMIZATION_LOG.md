@@ -100,3 +100,115 @@ Revised hypotheses for each regression:
 - Idea 3 – CTA clusters with multicast across H heads per token (this is the only remaining idea that directly attacks the "16 heads × same sparse_idx" redundancy without the L2 contention observed in exp04)
 - Idea 2 – FP8 KV cache (requires schema change)
 
+---
+
+## diag02 — in-kernel phase cycle profile (post-exp06 baseline)
+
+Added `PROFILE_PHASES` instrumentation (off by default) that makes block (0,0)
+print `clock64()` deltas for five phases of every kernel launch:
+
+```
+qload  = Q load + sparse_idx gather/mask + n_valid_tiles reduction + s_logits -INF init
+logit  = cp.async double-buffered tile loop computing all 2048 logits
+softmax= block_reduce_max + exp2 + block_reduce_sum + log2f(sum)
+vproj  = cp.async double-buffered tile loop for the weighted-V FMAs
+owrite = packed bf162 store to `out`
+```
+
+Raw data: `artifacts/smoke_diag02_phases.log` (smoke pass, 23 workloads × 9
+launches each). Post-warmup median cycles per phase, grouped by
+`n_valid_tiles` (`nvt` = ceil(actual sparse support / BK=16)):
+
+| nvt | qload | logit | softmax | vproj | owrite | total |   log/tile | vp/tile |
+|-----|-------|-------|---------|-------|--------|-------|------------|---------|
+|   1 |  ~8.5 k |  ~2.0 k |  2135  |  ~750 |  135 |  ~13.5 k | 1878 | 744 |
+|   2 |  ~8.3 k |  ~3.2 k |  2135  | ~1505 |  133 |  ~15.3 k | 1600 | 752 |
+|   3 |  ~8.2 k |  ~4.6 k |  2134  | ~2345 |  133 |  ~17.4 k | 1528 | 781 |
+|   4 |  ~8.8 k |  ~6.1 k |  2139  | ~3230 |  134 |  ~20.4 k | 1520 | 808 |
+|   6 |  ~8.3 k |  ~9.1 k |  2137  | ~4900 |  134 |  ~24.6 k | 1513 | 816 |
+|   9 |  ~8.4 k |  ~13.3 k |  2135  | ~7410 |  136 |  ~31.4 k | 1475 | 823 |
+|  18 |  ~8.5 k | ~25.8 k |  2135  | ~14.9 k |  133 | ~51.4 k | 1434 | 830 |
+|  26 |  ~8.8 k | ~36.2 k |  2139  | ~21.6 k |  134 | ~69.0 k | 1392 | 831 |
+
+### Linear model (fit across all 207 post-warmup launches)
+
+```
+total_cycles  =  10,805  +  2,249 * n_valid_tiles
+               ├──────────┤    ├──────────────┤
+               fixed overhead  per-tile cost
+```
+
+Per-phase decomposition:
+
+```
+qload     = 8,125 +   24 * nvt   (nearly constant — one-shot HBM + 3 syncs)
+logit     =   549 + 1,388 * nvt   (per-tile logit dot+reduce)
+softmax   = 2,134 +    0 * nvt   (independent of nvt; 2x block_reduce)
+vproj     =  -138 +   837 * nvt   (per-tile weighted-V MAC from SMEM)
+owrite    =   135                (1 packed bf162 store per thread)
+```
+
+### Phase-share breakdown (cycles pooled across launches)
+
+| Regime               | qload    | logit    | softmax | vproj   | owrite |
+|----------------------|----------|----------|---------|---------|--------|
+| **all launches**     | **37.1%** | 34.1%  |  9.6%   | 18.5%   |  0.6%  |
+| **long** (nvt ≥ 8)   | 16.8%     | **49.8%** |  4.2%   | **29.0%** |  0.3%  |
+| **short** (nvt < 4)  | **53.8%** | 21.3%  | 14.2%   |  9.8%   |  0.9%  |
+
+### Headline findings
+
+1.  **Short traces are qload-bound** (54 % of cycles in a ~13 k-cycle prologue).
+    This was invisible before: every prior experiment focused on the logit /
+    value passes. Cutting qload from 8 k→3 k cycles would save ≈ 5 k × 113 /
+    1,699 k = **~ 33 % of short-trace runtime**.
+2.  **Long traces are logit-bound** (50 %). Logit is **1.65 × more expensive
+    per tile than vproj** (1388 vs 837 cycles) despite both phases doing
+    roughly the same amount of FMA work per tile. The difference is in the
+    warp-reduce chain (5 `__shfl_xor` cycles × 2 logits/warp) plus the
+    double `__syncthreads` around each tile.
+3.  **Per-tile throughput ≈ 2,249 cycles.** At 1.8 GHz × 4 CTAs/SM × 148 SMs
+    that is ≈ **7.3 TB/s effective HBM throughput** per tile (18,432 B /
+    tile). B200 peak is ~8 TB/s → we're within 10 % of peak on tile loads.
+    This **re-opens** the HBM-bound hypothesis that exp05 appeared to
+    disprove: halving K/V reads (exp05) regressed because the doubled
+    register pressure + local spill cost more than the HBM save — not
+    because HBM was already free.
+4.  **Softmax is a flat 2,134 cycles regardless of nvt** — 14 % of short-
+    trace time but < 5 % of long-trace. No further softmax tricks worth it.
+5.  **Output write is trivially cheap** (135 cycles, 0.3-0.9 %). Idea 18 is
+    dead.
+
+### Revised action plan (priorities)
+
+**Tier 1 – Tackle qload first** (dominates short traces, 53 % of cycles):
+
+| # | Idea | Expected win | Effort | Risk |
+|---|------|-------------|--------|------|
+| A | Async `cp.async` load of `sparse_idx` into SMEM while Q is loaded + start issue_logit_tile(0) **before** the idx-cache sync; remove the redundant -INF pre-init by carrying the `g<0` mask into softmax | 3-5 k cycles off short traces (~25 % of short-trace total) | S | Low |
+| B | Replace the separate `block_reduce_max(local_max_valid_k_p1)` reduction with an atomicMax to shared int (skips one block-wide sync) | ~500 cycles | XS | Low |
+| C | Kick off `issue_v_tile(0, 0)` at the **end of the logit pass** (before softmax) so its cp.async latency hides behind the softmax reductions | ~400 cycles off every trace | S | Low |
+
+**Tier 2 – Cut per-tile logit cost** (50 % of long-trace):
+
+| # | Idea | Expected win | Effort | Risk |
+|---|------|-------------|--------|------|
+| D | Collapse the 2 `__syncthreads` per logit tile into 1 named barrier (wait-on-producer, not wait-on-all) | ~100 cycles/tile × 128 tiles = ~13 k | M | Med |
+| E | Vectorise warp-reduce: each warp handles 2 logits by doing 1 D_CK+D_KP dot per tile, reduced via a single group-shuffle tree (currently 2 serial reductions) | ~200 cycles/tile | M | Low |
+| F | Warp-specialised pipeline (Idea 6): 2 warps do pure `cp.async` issue+wait, 6 warps do FMA. Moves the 2 syncs out of the critical path | ~300 cycles/tile | L | High |
+
+**Tier 3 – Cut per-tile vproj cost / HBM traffic** (29 % of long-trace):
+
+| # | Idea | Expected win | Effort | Risk |
+|---|------|-------------|--------|------|
+| G | FP8 KV (Idea 2): halves HBM per tile, vproj ≈ 0.5 × long-trace cycles | up to 30 % long-trace, 15 % smoke geomean | XL | High (schema) |
+| H | CTA clusters + TMA multicast (Idea 3): 4 heads share one ckv gather via cluster-SMEM multicast, 4 × HBM reduction on ckv | up to 25 % long-trace | XL | High |
+| I | tcgen05 UMMA value pass (Idea 11, retry): trades the scalar FMA pipe for tensor core; needs SWIZZLE_128B + per-output accumulation | 15-25 % long-trace if it works | XL | Very high (prior attempt regressed) |
+
+**Next concrete step:** implement **Tier 1 item A** on a new sub-branch
+(`perf_ideas_v5_qload`). It's XS-Low-Risk, directly hits the biggest
+underexplored bottleneck, and re-uses the diag02 instrumentation to verify.
+If it lands +3 % geomean, proceed to item C (free latency hide across a
+phase boundary). After that, revisit item D (named barriers) as Tier 2's
+lowest-risk entry.
+
