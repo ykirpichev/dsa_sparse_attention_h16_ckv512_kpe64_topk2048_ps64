@@ -235,6 +235,18 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     float* __restrict__ lse_out,
     int64_t H,
     int64_t num_kv_rows) {
+  // Grid-order trade-off (ATTEMPTED, REVERTED):
+  // Tried dim3(H, T) so all 16 heads of the same token are adjacent in
+  // launch order — the theory being that same-token CTAs gather the exact
+  // same ckv/kpe rows from HBM (sparse_indices is per-token, no head dim)
+  // so co-locating them gives H× L2 reuse on ckv. Full bench showed
+  // +1.70 % absolute latency geomean (consistent +1-2 % on all long
+  // traces). Probable cause: forcing 3 CTAs/SM to all want the same
+  // HBM addresses saturates the SM's MIO / L2 request path, and the
+  // original dim3(T, H) order already gets good L2 reuse via the
+  // hardware grid scheduler's tile-swizzle. The "+20 % speedup" seen in
+  // the sp column was pure FI-reference timing drift between Modal
+  // sessions (ref latency varied 15-30 % between runs).
   const int t = blockIdx.x;
   const int h = blockIdx.y;
   const int tid = threadIdx.x;
