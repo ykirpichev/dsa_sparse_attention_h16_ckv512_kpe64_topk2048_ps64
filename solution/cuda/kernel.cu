@@ -362,6 +362,31 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   };
 
   if (n_valid_tiles > 0) {
+    // itemD attempt (v5_syncs, REVERTED 2026-04-22): tried reordering
+    // the tile loop to drop SYNC_B by moving the issue AFTER the sync:
+    //
+    //     wait<0>; SYNC_A; issue(next); commit; compute   // 1 sync/tile
+    //
+    // versus the original:
+    //
+    //     issue(next); commit; wait<1>; SYNC_A; compute; SYNC_B   // 2 syncs/tile
+    //
+    // Smoke correctness was fine (same abs/rel err, occ=4, regs=60), but
+    // the full bench showed +2.3-2.6 % *regression* on every long-trace
+    // workload (nvt ≈ 26, 0.13-0.16 ms). Short traces (nvt=1-2) were
+    // noise. Geomean: +1.23 % latency / -0.65 % speedup.
+    //
+    // Root cause: the original placed `issue+commit+wait<1>` *before*
+    // SYNC_A, so the cp.async instruction issue and the barrier latency
+    // were overlapped by the compiler/scheduler. itemD forced the issue
+    // to happen *after* SYNC_A, serialising the two. Saving one sync is
+    // not free if that sync was doing implicit pipeline work.
+    //
+    // Same failure mode as itemB and itemC: diag02 phase counters (which
+    // attribute the saved sync to "logit" phase) reward the reorder, but
+    // real wall-clock on long traces rejects it because the scheduler
+    // loses a useful overlap opportunity. See docs/OPTIMIZATION_LOG.md
+    // §"Meta-observation" for the general lesson.
     issue_logit_tile(0, 0);
     cp_async_commit_group();
 

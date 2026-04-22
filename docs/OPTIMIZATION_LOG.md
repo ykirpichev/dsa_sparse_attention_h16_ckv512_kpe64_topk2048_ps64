@@ -288,4 +288,63 @@ With itemA banked (+4.46 % geomean) and items B and C falsified by full-bench da
 -   **Tier 2 item E** — vectorise warp-reduce so each warp handles 2 logits per tile with a single group-shuffle tree. Moderate effort, complementary to D.
 -   **Meta-observation from B/C.** diag02 phase timings aren't a reliable predictor of full-bench wall-clock when the change shifts pipeline barriers around. Future ideas should be validated on the full bench before being accepted.
 
+### itemD-attempted — reorder logit tile loop to drop SYNC_B (reverted, branch `perf_ideas_v5_syncs`)
+
+**Change.** Restructured the logit tile loop from
+
+```
+issue(next); commit; wait<1>;   // (or wait<0> on last)
+SYNC_A;
+compute buf = tile & 1;
+SYNC_B;
+```
+
+to
+
+```
+wait<0>;
+SYNC_A;                           // acts as barrier-before-next-issue
+issue(next); commit;              // writes to other buf (safe w.r.t. compute)
+compute buf = tile & 1;
+// SYNC_B removed
+```
+
+One `__syncthreads()` saved per tile. Correctness preserved (iter+1's SYNC_A is block-wide, so by the time iter+1 issues to tile&1, all threads finished iter's compute on tile&1).
+
+**Data (23-workload full bench, itemA → itemD_logit):**
+
+| regime                    | latency Δ | speedup Δ |
+|---------------------------|----------:|----------:|
+| short traces (0.013-0.017 ms, nvt=1-2) | ~0 % | ~0 % |
+| long traces  (0.13-0.16 ms, nvt≈26) | **+2.3 to +2.6 %** | **−1.5 to −4.6 %** |
+| geomean                   | **+1.23 %** | **−0.65 %** |
+
+Smoke correctness identical to itemA (same abs/rel err, regs=60, occ=4). Raw log: `artifacts/full_bench_itemD_logit_2026-04-22.log`.
+
+**Root cause.** In the original layout, `issue + commit + wait<1>` runs *before* SYNC_A, so the cp.async-issue latency (per-thread instruction stream of 4× `cp.async.ca.shared.global` + 1× `cp.async.ca.shared.global`) overlaps with the block-wide barrier. itemD moves the issue *after* SYNC_A, serialising the two. On long traces (26 tiles × ~40 cycles of lost overlap ≈ ~1 k cycles), this precisely matches the +2-3 % regression we see.
+
+**Generalised lesson (confirming B/C).** Three attempts now (B, C, D) to reduce syncs or repack pipeline operations have all regressed, because each removed/moved sync was serving implicit pipeline work:
+
+-   **itemB** — removed syncs were implicit HBM-scheduler barriers.
+-   **itemC** — pre-issued cp.async pushed its instruction cost into the softmax measurement window.
+-   **itemD** — the `issue`-before-`SYNC_A` ordering gave the scheduler free barrier/async overlap that's lost when we reorder.
+
+The current kernel is at a local optimum for local reorders of its 2-buffer cp.async pipeline. Further wins require either (a) a fundamentally different pipeline primitive (TMA replaces cp.async at a much lower instruction issue count) or (b) a different algorithm (fused online softmax removes the separate logit / softmax / vproj phases entirely).
+
+### Revised next step — TMA gather (Idea 1)
+
+The 3 failed local reorders (B, C, D) confirm that the remaining wins live in **changing the instruction mix**, not in shuffling existing syncs. qload is still the #1 cycle consumer (53 % of short-trace cycles), and per-thread `cp.async.ca.shared.global` is an instruction-issue-bound workload — exactly what TMA was built to replace.
+
+Plan:
+1. Set up a `CUtensorMap` for `ckv_cache` and `kpe_cache` host-side, pass both as kernel args (re-uses the existing contiguous `[S, D]` layout).
+2. Replace the `issue_logit_tile` / `issue_v_tile` helpers with a single-thread TMA `cp.async.bulk.tensor.gather4.shared::cluster.global` per tile:
+    -   gather 4 contiguous rows per call → 4 TMA calls per BK=16 tile.
+    -   cuts per-thread instruction issue count from CHUNKS_PER_THREAD × THREADS = 1024 to O(4) per tile.
+3. Coordinate completion via `mbarrier` rather than `cp.async.commit_group` / `wait_group`.
+4. Keep the 2-buffer ping-pong; only the *producer path* changes.
+
+Expected win: 20-40 % on short-trace qload (entirely instruction-issue-bound) and 5-10 % on long-trace (where qload is a smaller slice but ckv/kpe gather is still per-thread).
+
+This is the lowest-risk high-impact option because the rest of the kernel (compute, softmax, vproj-FMA) stays exactly as it is today.
+
 
