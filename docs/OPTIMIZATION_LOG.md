@@ -39,3 +39,10 @@ Baseline:
 | Rev | Idea(s) | Geomean | Δ vs v4 | Notes |
 | --- | ------- | ------- | ------- | ----- |
 | baseline (`60192e4`) | — | 36.45× | 0 | submission-v1 kernel restored. |
+| exp01 (reverted) | 16: V_PIPE 2→4 | ~27× est. | **−25%** | Regressed uniformly (long seqs: 14.6→10.6×, 17.4→12.6×, …). Root cause: 90 KiB SMEM footprint dropped occupancy 2→1 CTA/SM. Log: `artifacts/full_bench_idea16_vpipe4_2026-04-22.log`. |
+
+### Lessons / notes
+
+- **V_PIPE=4 is occupancy-limited.** On B200 with 228 KiB SMEM/SM, 2 × 90 KiB = 180 KiB should nominally fit, but measured regression shows the scheduler drops to 1 CTA/SM (likely because the bumped attribute cap raises the SMEM carveout reservation). To try a deeper pipeline we'd need to **shrink the static SMEM** first (e.g. Idea 14: bf16 Q saves 2 KiB; merge s_logits/s_gidx regions; halve BK to 8 which would also halve the tile, freeing budget for V_PIPE=4 with no net SMEM growth).
+- **Orthogonal path:** rather than deeper pipeline, focus on **reducing dominant work** (Ideas 5, 11, 13, 14) and **cross-head data reuse** (Ideas 3, 11) — long sequences (T≥256) are the geomean drag at 11-17×.
+
