@@ -347,4 +347,96 @@ Expected win: 20-40 % on short-trace qload (entirely instruction-issue-bound) an
 
 This is the lowest-risk high-impact option because the rest of the kernel (compute, softmax, vproj-FMA) stays exactly as it is today.
 
+---
+
+## v5_fused — fused online-softmax K loop (Idea 5, branch `perf_ideas_v5_fused`)
+
+### Change
+
+Collapsed the separate `logit → softmax → vproj` three-phase pipeline into a
+single K-tile loop with online (FlashAttention-style) softmax:
+
+```
+m = -INF; l = 0; O[2] = 0
+for tile = 0..n_valid_tiles-1:
+    cp.async-load ckv+kpe tile          # ONE HBM load per tile (was 2)
+    compute 16 logits warp-cooperative → s_logits_tile[16]
+    tile_max = max(s_logits_tile)
+    m_new = max(m, tile_max)
+    alpha = exp2(m - m_new)             # (guarded for -INF)
+    l *= alpha; O *= alpha
+    for r = 0..15:
+        p = exp2(s_logits_tile[r] - m_new)  # 0 for g<0 rows
+        l += p; O += p * V[r]
+    m = m_new
+out = O / l; lse = m + log2(l)
+```
+
+Structural consequences:
+1. **HBM ckv load halved.** The old kernel read each ckv tile twice
+   (logit pass + vproj pass). The fused loop reads it once.
+2. **s_logits[TOPK] deleted.** 8 KiB SMEM saved — total per-CTA SMEM drops
+   from ~54 KiB to ~46 KiB. Opens headroom for V_PIPE=3 / TMA mbarriers.
+3. **2 syncs per tile** (SYNC_A after wait, SYNC_B after logit write)
+   instead of **4** (logit pass had 2, vproj pass had 2).
+4. **Softmax phase deleted entirely.** No more block-wide max / sum
+   reductions or the `s_logits` exp2 rewrite pass.
+
+### Correctness
+
+Smoke (10 sampled workloads): all PASSED with `abs_err` / `rel_err` in the
+same range as `itemA` (e.g. `1.95e-03 / 2.03e-02` on `232ed014`).
+
+Full bench: **23 / 23 PASSED**, max `abs_err` up to `1.56e-02` (same
+tolerance bucket as itemA), max `rel_err` up to `2.57` (same as itemA's
+`5.48` on `d57eb9e1` — driven by tiny reference values).
+
+### Full-bench performance (23 workloads, 2 independent runs)
+
+Absolute kernel latency (stable across runs; FI-reference speedup numbers
+drift significantly between Modal invocations and aren't directly
+comparable):
+
+| regime              | itemA (ms)  | fused (ms)  | Δ%        |
+|---------------------|------------:|------------:|----------:|
+| short trace (nvt=1-2)   | 0.013-0.017 | 0.011-0.014 | **-10 to -15 %** |
+| medium trace (nvt≈11)  | 0.083-0.090 | 0.072-0.076 | **-13 to -15 %** |
+| long trace  (nvt≈26)   | 0.153-0.159 | 0.131-0.135 | **-14 to -15 %** |
+| **geomean**         |             |             | **-11.75 %** |
+
+Consistent 12-15 % wall-clock improvement on every workload class. The
+long-trace win is slightly larger than short-trace (as expected: long
+traces benefit most from halving ckv HBM traffic).
+
+Register / occupancy trade-off: regs/thread went from 60 → 69 and
+occupancy dropped from 4 CTAs/SM to 3 CTAs/SM. Even so, the fused loop is
+faster in wall-clock because the per-CTA compute is now dramatically
+faster (fewer phases, one K pass instead of two, no s_logits traffic).
+
+Raw logs: `artifacts/full_bench_fused_v1_2026-04-22.log`,
+`artifacts/full_bench_fused_run2_2026-04-22.log`.
+
+### Why this worked (when the 3 local reorders didn't)
+
+itemB, itemC, and itemD each tried to save 1-2 syncs or reshuffle the
+cp.async timing while keeping the same 3-phase split. Each regressed
+because any given sync was doing invisible pipeline work.
+
+The fused loop takes the opposite direction: it **eliminates the phase
+split entirely**, so the 2 remaining syncs serve fundamentally different
+purposes (publishing cp.async writes, publishing logits) and can't be
+reshuffled away. It's a structural change, not a local reorder.
+
+Stacking with later optimisations: the fused loop frees 8 KiB SMEM and
+is **additive with TMA** (next step), **CTA clusters** (needs careful
+multicast design), and **UMMA for the K-dot / V-acc** (risky but high
+reward).
+
+### Next step
+
+Continue with **TMA gather** on the fused producer path. Expected to add
+another 10-15 % on short traces (instruction-issue bottleneck) and
+~5-8 % on long traces (TMA bulk transfer is more HBM-efficient than
+256-thread cp.async).
+
 

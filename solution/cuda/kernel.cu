@@ -247,22 +247,26 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   const int64_t out_off = (t * H + h) * D_CK;
   const int64_t lse_i = t * H + h;
 
-  // SMEM layout (v5/exp06: Q stored in SMEM as bf16, not fp32):
-  //   s_logits  [TOPK]              float   8 KiB
-  //   s_qn      [D_CK]              bf16    1 KiB  (was fp32, 2 KiB)
-  //   s_qp      [D_KP]              bf16  128 B    (was fp32, 256 B)
-  //   s_gidx    [TOPK]              int     8 KiB
-  //   s_reduce  [NUM_WARPS]         float  32 B
-  //   s_v_tile  [V_PIPE][BK][D_CK]  bf16   32 KiB
-  //   s_kpe_tile[V_PIPE][BK][D_KP]  bf16    4 KiB
+  // SMEM layout (v5_fused: Idea 5 — fused single-pass K loop, no s_logits):
+  //   s_logits_tile [BK]             float   64 B   (was s_logits[TOPK] = 8 KiB)
+  //   s_qn          [D_CK]           bf16    1 KiB
+  //   s_qp          [D_KP]           bf16    128 B
+  //   s_gidx        [TOPK]           int     8 KiB
+  //   s_reduce      [NUM_WARPS]      float   32 B
+  //   s_v_tile      [V_PIPE][BK][D_CK]  bf16 32 KiB
+  //   s_kpe_tile    [V_PIPE][BK][D_KP]  bf16  4 KiB
+  //   TOTAL ≈ 46 KiB (was ~54 KiB) — opens 8 KiB of headroom for future
+  //   V_PIPE=3 / deeper pipelines.
   //
-  // Motivation: the logit hot loop does one SMEM read of s_qn per FMA pair.
-  // Storing Q as bf16 halves those reads (one LDS.U.32 per lane instead of
-  // one LDS.U.64), easing SMEM-bw pressure. The bf162→float2 convert is
-  // cheap (CVT2BF2F). Total saving: ~1.125 KiB SMEM.
+  // Rationale: the previous kernel loaded each ckv tile TWICE from HBM
+  // (once for the logit dot, once for the weighted-V accumulate) because
+  // the 8 KiB s_logits buffer forced a separate logit → softmax → vproj
+  // phase split. With online softmax we keep per-thread running state
+  // (m, l, O) and update it as we see each tile's 16 logits, halving
+  // ckv HBM traffic.
   extern __shared__ unsigned char raw[];
-  float* s_logits = reinterpret_cast<float*>(raw);
-  __nv_bfloat16* s_qn = reinterpret_cast<__nv_bfloat16*>(s_logits + TOPK);
+  float* s_logits_tile = reinterpret_cast<float*>(raw);           // [BK] fp32
+  __nv_bfloat16* s_qn = reinterpret_cast<__nv_bfloat16*>(s_logits_tile + BK);
   __nv_bfloat16* s_qp = s_qn + D_CK;
   int* s_gidx = reinterpret_cast<int*>(s_qp + D_KP);
   float* s_reduce = reinterpret_cast<float*>(s_gidx + TOPK);
@@ -303,54 +307,73 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   int n_valid_tiles = (n_valid_rows + BK - 1) / BK;
   if (n_valid_tiles > NUM_V_TILES) n_valid_tiles = NUM_V_TILES;
 
-  // Stage 3c: cp.async double-buffered logit pass.
+  // Fused single-pass K loop (Idea 5, v5_fused).
   //
-  //   * diag02 (v5_qload/itemA): we no longer pre-initialise s_logits to
-  //     -INFINITY. Instead: (a) the logit compute below writes -INFINITY
-  //     inline for rows with g<0, and (b) the softmax loops are bounded
-  //     by n_valid_rows_full = n_valid_tiles*BK (not TOPK) so untouched
-  //     tail slots never participate. This removes the 8 writes/thread
-  //     pre-init pass + 1 __syncthreads from the prologue and tightens
-  //     the softmax reductions from 2048 → as few as 16 iterations.
-  //     diag02 showed qload dominating short-trace runtime (~54% of
-  //     cycles at n_valid_tiles<4); net win ~5% on short traces.
-  //   * Tile layout: 16 K rows per tile. For each row we cp.async both the
-  //     ckv (1024 B) and the kpe (128 B) halves into SMEM. s_v_tile is
-  //     aliased as the per-tile ckv buffer (idle until the value projection).
-  //     s_kpe_tile is a small (4 KiB) dedicated region for the kpe halves.
-  //   * Compute: each warp owns 2 logits per tile (BK=16 / NUM_WARPS=8 = 2),
-  //     computed via `warp_reduce_sum` over 32 lanes × (8 packed bf162 from
-  //     ckv + 1 packed bf162 from kpe) = full D_CK+D_KP dot.
-  //   * Every thread's 32-bit reads of s_qn / s_qp / the tile buffers land
-  //     on distinct banks (stride-1 lane access to bf162 = 4 B / lane).
+  // Each iteration loads ONE ckv+kpe tile (16 rows × D_CK+D_KP bf16), computes
+  // the 16 logits via the same warp-cooperative dot as the logit pass, then
+  // updates the per-thread running (m, l, O) state (online softmax) using the
+  // same ckv data — so each HBM ckv byte is consumed exactly once per token.
+  //
+  // Per-tile SMEM primitives:
+  //   * s_v_tile   — ping-pong buffer [V_PIPE=2][BK=16][D_CK=512] bf16.
+  //   * s_kpe_tile — ping-pong buffer [V_PIPE=2][BK=16][D_KP=64]  bf16.
+  //   * s_logits_tile — tiny [BK=16] fp32 scratch for cross-warp logit share.
+  //
+  // Per-tile sync topology (just 2 syncs instead of 4 in the previous split):
+  //   wait<1> (or wait<0> on last)
+  //   SYNC_A   — publish cp.async writes and implicit barrier-before-next-
+  //              iter's s_logits_tile write (iter+1 won't overwrite
+  //              s_logits_tile until after its own SYNC_A, by which point
+  //              all threads in this iter have finished reading it).
+  //   <logit compute, warp-parallel, writes s_logits_tile[0..15]>
+  //   SYNC_B   — publish s_logits_tile writes
+  //   <softmax-rescale + V-accumulate, all 256 threads, writes regs m/l/O>
+  //   (no SYNC_C — see SYNC_A comment)
+  //
+  // Buffer-reuse dependence (identical to the old logit / vproj loops):
+  //   Iter+1's cp.async writes to (tile+1)&1 ≠ tile&1, so no conflict with
+  //   iter's compute that reads buf = tile&1. Iter+2's cp.async writes back
+  //   to tile&1, which is safe because iter+1's SYNC_A (block-wide) is the
+  //   barrier-before-write for that reuse.
+  //
+  // Early-exit: n_valid_tiles == 0 means the token has no valid gather
+  // indices at all — write zeros / lse=-INF and return.
   PHASE_MARK(ts_c1);  // end of Q+idx load phase
 
-  auto issue_logit_tile = [&](int tile, int buf) {
+  if (n_valid_tiles == 0) {
+    if (tid == 0) lse_out[lse_i] = -INFINITY;
+    const __nv_bfloat162 zero =
+        __halves2bfloat162(f_to_bf16(0.f), f_to_bf16(0.f));
+    reinterpret_cast<__nv_bfloat162*>(out + out_off)[tid] = zero;
+    return;
+  }
+
+  // Single ckv+kpe tile issuer (identical to the previous issue_logit_tile).
+  auto issue_tile = [&](int tile, int buf) {
     const int k0 = tile * BK;
     __nv_bfloat16* ckv_buf = s_v_tile + buf * (BK * D_CK);
     __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
 
-    // ckv half: 4 × 16 B per thread (identical decomposition to Stage 3b).
+    // ckv half: 4 × 16 B per thread = 1024 16 B chunks = full 16 KiB tile.
     #pragma unroll
     for (int c = 0; c < CHUNKS_PER_THREAD; ++c) {
-      const int chunk = tid + c * THREADS;           // 0..1023
-      const int r = chunk / (D_CK / 8);              // chunk/64 -> row in tile
-      const int ch16 = chunk % (D_CK / 8);           // chunk%64 -> 16 B col
+      const int chunk = tid + c * THREADS;
+      const int r = chunk / (D_CK / 8);
+      const int ch16 = chunk % (D_CK / 8);
       const int k = k0 + r;
       int g = s_gidx[k];
-      if (g < 0) g = 0;  // safe fallback; compute-time `continue` masks it
+      if (g < 0) g = 0;  // safe fallback; masked at compute time via -INF logit
       const uint4* src =
           reinterpret_cast<const uint4*>(ckv_flat + static_cast<int64_t>(g) * D_CK) + ch16;
       uint4* dst = reinterpret_cast<uint4*>(ckv_buf + r * D_CK) + ch16;
       cp_async_16(__cvta_generic_to_shared(dst), src);
     }
 
-    // kpe half: 1 × 8 B per thread. Per tile: 16 rows × (64 bf16 / 4) = 256
-    // 8-byte chunks = exactly THREADS chunks, so one cp.async per thread.
+    // kpe half: 1 × 8 B per thread (exactly THREADS 8 B chunks per tile).
     {
-      const int chunk = tid;                          // 0..255
-      const int r = chunk / (D_KP / 4);               // chunk/16 -> row in tile
-      const int ch8 = chunk % (D_KP / 4);             // chunk%16 -> 8 B col
+      const int chunk = tid;
+      const int r = chunk / (D_KP / 4);
+      const int ch8 = chunk % (D_KP / 4);
       const int k = k0 + r;
       int g = s_gidx[k];
       if (g < 0) g = 0;
@@ -361,240 +384,136 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     }
   };
 
-  if (n_valid_tiles > 0) {
-    // itemD attempt (v5_syncs, REVERTED 2026-04-22): tried reordering
-    // the tile loop to drop SYNC_B by moving the issue AFTER the sync:
-    //
-    //     wait<0>; SYNC_A; issue(next); commit; compute   // 1 sync/tile
-    //
-    // versus the original:
-    //
-    //     issue(next); commit; wait<1>; SYNC_A; compute; SYNC_B   // 2 syncs/tile
-    //
-    // Smoke correctness was fine (same abs/rel err, occ=4, regs=60), but
-    // the full bench showed +2.3-2.6 % *regression* on every long-trace
-    // workload (nvt ≈ 26, 0.13-0.16 ms). Short traces (nvt=1-2) were
-    // noise. Geomean: +1.23 % latency / -0.65 % speedup.
-    //
-    // Root cause: the original placed `issue+commit+wait<1>` *before*
-    // SYNC_A, so the cp.async instruction issue and the barrier latency
-    // were overlapped by the compiler/scheduler. itemD forced the issue
-    // to happen *after* SYNC_A, serialising the two. Saving one sync is
-    // not free if that sync was doing implicit pipeline work.
-    //
-    // Same failure mode as itemB and itemC: diag02 phase counters (which
-    // attribute the saved sync to "logit" phase) reward the reorder, but
-    // real wall-clock on long traces rejects it because the scheduler
-    // loses a useful overlap opportunity. See docs/OPTIMIZATION_LOG.md
-    // §"Meta-observation" for the general lesson.
-    issue_logit_tile(0, 0);
-    cp_async_commit_group();
-
-    const int warp_id = tid >> 5;       // 0..NUM_WARPS-1 (8)
-    const int lane = tid & (WARP - 1);  // 0..31
-
-    for (int tile = 0; tile < n_valid_tiles; ++tile) {
-      const int buf = tile & 1;
-      const int next_tile = tile + 1;
-
-      if (next_tile < n_valid_tiles) {
-        issue_logit_tile(next_tile, next_tile & 1);
-        cp_async_commit_group();
-        cp_async_wait_group<1>();
-      } else {
-        cp_async_wait_group<0>();
-      }
-      __syncthreads();
-
-      const __nv_bfloat16* ckv_buf = s_v_tile + buf * (BK * D_CK);
-      const __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
-
-      const __nv_bfloat162* qn2 =
-          reinterpret_cast<const __nv_bfloat162*>(s_qn);
-      const __nv_bfloat162* qp2 =
-          reinterpret_cast<const __nv_bfloat162*>(s_qp);
-
-      #pragma unroll
-      for (int wr = 0; wr < 2; ++wr) {               // 2 logits / warp
-        const int r = warp_id * 2 + wr;              // 0..15
-        const int k = tile * BK + r;
-
-        // itemA: always run the dot (the cp.async pass already loaded
-        // ckv_flat[0] as a safe fallback for g<0), then select -INF at the
-        // write. This keeps the hot path free of warp-uniform branches and
-        // preserves instruction scheduling for the 9-iter packed-bf16 dot.
-        // `g` is deliberately loaded inside the lane-0 write to avoid
-        // keeping a register live across the whole FMA chain.
-        const __nv_bfloat162* kc2 =
-            reinterpret_cast<const __nv_bfloat162*>(ckv_buf + r * D_CK);
-        const __nv_bfloat162* kp2 =
-            reinterpret_cast<const __nv_bfloat162*>(kpe_buf + r * D_KP);
-
-        float acc = 0.f;
-        // D_CK / 2 / WARP = 8 packed bf162 per lane across D_CK. Both Q and K
-        // are now bf162 in SMEM; we load one 32-bit word per lane per operand.
-        #pragma unroll
-        for (int j = 0; j < D_CK / 2 / WARP; ++j) {
-          const int i2 = j * WARP + lane;
-          const float2 kf = __bfloat1622float2(kc2[i2]);
-          const float2 qf = __bfloat1622float2(qn2[i2]);
-          acc += qf.x * kf.x + qf.y * kf.y;
-        }
-        // D_KP / 2 = 32 packed bf162 = exactly one per lane.
-        {
-          const float2 kf = __bfloat1622float2(kp2[lane]);
-          const float2 qf = __bfloat1622float2(qp2[lane]);
-          acc += qf.x * kf.x + qf.y * kf.y;
-        }
-
-        acc = warp_reduce_sum(acc);
-        if (lane == 0) {
-          const int g = s_gidx[k];
-          s_logits[k] = (g >= 0) ? (acc * sm_scale_log2e) : -INFINITY;
-        }
-      }
-      __syncthreads();
-    }
-  }
-
-  PHASE_MARK(ts_c2);  // end of logit pass
-
-  // Block-parallel max. Bounded by n_valid_rows_full (= n_valid_tiles*BK)
-  // instead of TOPK: the logit pass is guaranteed to have written every
-  // s_logits[k] for k in [0, n_valid_rows_full) — either the warp-reduced
-  // logit for g >= 0 rows, or -INFINITY for g < 0 rows (itemA writes -INF
-  // inline). Everything at k >= n_valid_rows_full is untouched/invalid and
-  // must not be read. This collapses short-trace softmax from 2048 → as
-  // few as 16 iterations total.
-  const int n_valid_rows_full = n_valid_tiles * BK;
-  float local_max = -INFINITY;
-  for (int k = tid; k < n_valid_rows_full; k += THREADS) {
-    local_max = fmaxf(local_max, s_logits[k]);
-  }
-  const float mx = block_reduce_max(local_max, s_reduce);
-
-  // All-masked row handling: write zeros and LSE=-inf, nothing else to compute.
-  if (mx == -INFINITY) {
-    if (tid == 0) lse_out[lse_i] = -INFINITY;
-    const __nv_bfloat162 zero =
-        __halves2bfloat162(f_to_bf16(0.f), f_to_bf16(0.f));
-    reinterpret_cast<__nv_bfloat162*>(out + out_off)[tid] = zero;
-    return;
-  }
-
-  // Block-parallel unnormalized softmax (base-2 exp). Same tight loop
-  // bound as the max reduction. For g < 0 rows the logit pass wrote -INF,
-  // so exp2f(-INF - mx) = 0 contributes nothing — we can skip the explicit
-  // gidx check entirely. We keep s_logits as unnormalised probs and
-  // divide by sum at output write time.
-  float local_sum = 0.f;
-  for (int k = tid; k < n_valid_rows_full; k += THREADS) {
-    const float e = exp2f(s_logits[k] - mx);
-    s_logits[k] = e;
-    local_sum += e;
-  }
-  const float sum = block_reduce_sum(local_sum, s_reduce);
-
-  if (tid == 0) lse_out[lse_i] = mx + log2f(sum);
-  PHASE_MARK(ts_c3);  // end of softmax
-
-  // Weighted cKV projection — cp.async double-buffered tile prefetch.
-  //
-  // Structure:
-  //   * NUM_V_TILES = TOPK / BK (128) tiles of K rows, BK=16 rows each.
-  //   * Two SMEM buffers of shape [BK, D_CK] bf16. At any moment buffer
-  //     `tile & 1` holds the K rows the inner FMA loop is consuming, while
-  //     buffer `(tile + 1) & 1` is being filled by in-flight cp.async loads.
-  //   * `cp_async_commit_group` + `cp_async_wait_group<1>` keep exactly one
-  //     tile-load in flight at a time: we always wait for the older of the
-  //     two outstanding groups before compute.
-  //   * For rows with `g < 0`, we issue the cp.async from `ckv_flat[0]` as a
-  //     safe fallback (avoids illegal addresses) and skip compute via
-  //     `if (g < 0) continue;` inside the BK loop. The fallback load is
-  //     cheap (L2 hit) and happens only for short-sequence traces.
-  //
-  // Per-tile issue: each thread launches CHUNKS_PER_THREAD=4 16-byte
-  // cp.async copies, covering the whole 16 KiB tile (1024 × 16 B chunks
-  // across 256 threads, 4 per thread).
-  //
-  // itemC-attempted: we tried pre-issuing tile 0 at the end of the logit
-  // pass so its HBM latency would hide behind softmax. Result was a net
-  // +2 % regression: the ~100-cycle cp.async issue cost moved from the
-  // vproj phase into the softmax phase (softmax +23 % short-trace), while
-  // the theoretical HBM-latency savings only materialised for n_valid_tiles
-  // == 1 traces (vproj −15 % short-trace). Long traces regressed outright
-  // because their tile-0 wait was already cheap. See
-  // `artifacts/smoke_qload_itemC_phases.log` for the data; change reverted.
   static_assert(D_CK == 2 * THREADS, "packed output path requires D_CK == 2*THREADS");
 
-  auto issue_v_tile = [&](int tile, int buf) {
-    const int k0 = tile * BK;
-    __nv_bfloat16* buf_base = s_v_tile + buf * (BK * D_CK);
-    #pragma unroll
-    for (int c = 0; c < CHUNKS_PER_THREAD; ++c) {
-      const int chunk = tid + c * THREADS;          // 0..TILE_CHUNKS_16B-1
-      const int r = chunk / (D_CK / 8);              // chunk/64 -> row in tile
-      const int ch16 = chunk % (D_CK / 8);           // chunk%64 -> 16-byte col
-      const int k = k0 + r;
-      int g = s_gidx[k];
-      if (g < 0) g = 0;  // safe fallback; masked at compute time
-      const uint4* src =
-          reinterpret_cast<const uint4*>(ckv_flat + static_cast<int64_t>(g) * D_CK) + ch16;
-      uint4* dst = reinterpret_cast<uint4*>(buf_base + r * D_CK) + ch16;
-      const unsigned smem_int = __cvta_generic_to_shared(dst);
-      cp_async_16(smem_int, src);
+  // Per-thread running softmax+output state.
+  float m = -INFINITY;  // running max over all logits seen so far
+  float l = 0.f;        // running sum of exp2(logit - m)
+  float o0 = 0.f, o1 = 0.f;  // running weighted V for the two output channels
+                             // (2*tid, 2*tid+1) owned by this thread
+
+  issue_tile(0, 0);
+  cp_async_commit_group();
+
+  const int warp_id = tid >> 5;       // 0..NUM_WARPS-1 (8)
+  const int lane = tid & (WARP - 1);  // 0..31
+  const int i = tid;                  // output channel pair owner
+
+  const __nv_bfloat162* qn2 =
+      reinterpret_cast<const __nv_bfloat162*>(s_qn);
+  const __nv_bfloat162* qp2 =
+      reinterpret_cast<const __nv_bfloat162*>(s_qp);
+
+  for (int tile = 0; tile < n_valid_tiles; ++tile) {
+    const int buf = tile & 1;
+    const int next_tile = tile + 1;
+
+    if (next_tile < n_valid_tiles) {
+      issue_tile(next_tile, next_tile & 1);
+      cp_async_commit_group();
+      cp_async_wait_group<1>();
+    } else {
+      cp_async_wait_group<0>();
     }
-  };
+    __syncthreads();  // SYNC_A
 
-  const int i = tid;
-  const float inv_sum = 1.f / sum;
-  float o0 = 0.f, o1 = 0.f;
+    const __nv_bfloat16* ckv_buf = s_v_tile + buf * (BK * D_CK);
+    const __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
 
-  // For short-sequence traces we may have 0 valid rows (but the all-masked
-  // case was already handled above by the `mx == -INFINITY` early return, so
-  // n_valid_tiles >= 1 here). Still guard defensively.
-  if (n_valid_tiles > 0) {
-    // Prime: launch tile 0 into buffer 0.
-    issue_v_tile(0, 0);
-    cp_async_commit_group();
+    // --- Phase 1: logit compute (warp-parallel, 2 dots per warp) ---
+    //
+    // Exactly the same compute as the old logit pass, writing to a 16-entry
+    // scratch instead of s_logits[k] (no more indexing by global k).
+    #pragma unroll
+    for (int wr = 0; wr < 2; ++wr) {
+      const int r = warp_id * 2 + wr;
+      const int k = tile * BK + r;
+      const __nv_bfloat162* kc2 =
+          reinterpret_cast<const __nv_bfloat162*>(ckv_buf + r * D_CK);
+      const __nv_bfloat162* kp2 =
+          reinterpret_cast<const __nv_bfloat162*>(kpe_buf + r * D_KP);
 
-    for (int tile = 0; tile < n_valid_tiles; ++tile) {
-      const int buf = tile & 1;
-      const int next_tile = tile + 1;
-
-      // Kick off the next tile before waiting for the current one so its HBM
-      // reads overlap with our FMAs.
-      if (next_tile < n_valid_tiles) {
-        issue_v_tile(next_tile, next_tile & 1);
-        cp_async_commit_group();
-        cp_async_wait_group<1>();  // leave the just-issued group in flight
-      } else {
-        cp_async_wait_group<0>();  // drain: this is the last tile
+      float acc = 0.f;
+      #pragma unroll
+      for (int j = 0; j < D_CK / 2 / WARP; ++j) {
+        const int i2 = j * WARP + lane;
+        const float2 kf = __bfloat1622float2(kc2[i2]);
+        const float2 qf = __bfloat1622float2(qn2[i2]);
+        acc += qf.x * kf.x + qf.y * kf.y;
       }
-      __syncthreads();  // make this tile's cp.async writes visible to all threads
+      {
+        const float2 kf = __bfloat1622float2(kp2[lane]);
+        const float2 qf = __bfloat1622float2(qp2[lane]);
+        acc += qf.x * kf.x + qf.y * kf.y;
+      }
 
-      const int k0 = tile * BK;
+      acc = warp_reduce_sum(acc);
+      if (lane == 0) {
+        const int g = s_gidx[k];
+        s_logits_tile[r] = (g >= 0) ? (acc * sm_scale_log2e) : -INFINITY;
+      }
+    }
+    __syncthreads();  // SYNC_B
+
+    // --- Phase 2: online-softmax rescale + V accumulate ---
+    //
+    // All 256 threads do the same scalar reduction over the 16 logits
+    // (broadcast read from the same SMEM bank-slot gives no bank conflict —
+    // it's a warp-wide broadcast). Each thread owns output channels
+    // (2*tid, 2*tid+1) and walks through BK=16 V-rows in parallel.
+    float tile_max = -INFINITY;
+    #pragma unroll
+    for (int r = 0; r < BK; ++r) {
+      tile_max = fmaxf(tile_max, s_logits_tile[r]);
+    }
+
+    // Skip fully-masked tiles (all 16 rows had g<0) — otherwise exp2(-INF -
+    // (-INF)) = NaN would poison the accumulators. This branch is block-
+    // uniform (tile_max is identical across all threads) so zero divergence.
+    if (tile_max > -INFINITY) {
+      const float m_new = fmaxf(m, tile_max);
+      // First-valid-tile case: m == -INF ⇒ alpha = 0 (O, l are already 0,
+      // so multiplying by 0 is a no-op). Normal case: alpha = 2^(m - m_new).
+      const float alpha = (m == -INFINITY) ? 0.f : exp2f(m - m_new);
+      l  *= alpha;
+      o0 *= alpha;
+      o1 *= alpha;
+
+      // V load is bf162-packed: one 32-bit LDS per thread per row gives the
+      // two channels (2*i, 2*i+1). For rows with logit == -INFINITY (g < 0),
+      // p = exp2(-INF - m_new) = 0 so the FMA contributes nothing.
       const __nv_bfloat162* tile_pairs =
-          reinterpret_cast<const __nv_bfloat162*>(s_v_tile + buf * (BK * D_CK));
+          reinterpret_cast<const __nv_bfloat162*>(ckv_buf);
       #pragma unroll
       for (int r = 0; r < BK; ++r) {
-        const int k = k0 + r;
-        const int g = s_gidx[k];
-        if (g < 0) continue;
+        const float logit = s_logits_tile[r];
+        const float p = exp2f(logit - m_new);
         const float2 kf = __bfloat1622float2(tile_pairs[r * (D_CK / 2) + i]);
-        const float p = s_logits[k];
+        l  += p;
         o0 += p * kf.x;
         o1 += p * kf.y;
       }
-      __syncthreads();  // ensure all threads done with this buffer before next issue reuses it
+      m = m_new;
     }
+    // No SYNC_C — iter+1's SYNC_A is the barrier-before-s_logits_tile-write.
   }
 
-  PHASE_MARK(ts_c4);  // end of value projection (before output write)
+  PHASE_MARK(ts_c4);  // end of fused K loop (old logit+softmax+vproj)
+
+  // Final normalize + output write. Because n_valid_tiles > 0 guarantees at
+  // least one row had g >= 0 (n_valid_tiles comes from max_valid_k_p1 > 0),
+  // we know m is finite and l > 0 here.
+  const float inv_l = 1.f / l;
+  if (tid == 0) lse_out[lse_i] = m + log2f(l);
   const __nv_bfloat162 packed =
-      __halves2bfloat162(f_to_bf16(o0 * inv_sum), f_to_bf16(o1 * inv_sum));
+      __halves2bfloat162(f_to_bf16(o0 * inv_l), f_to_bf16(o1 * inv_l));
   reinterpret_cast<__nv_bfloat162*>(out + out_off)[i] = packed;
+
   PHASE_MARK(ts_c5);  // end of kernel
+  // ts_c2 / ts_c3 are reused: both point at the same spot (end of fused
+  // loop) so the diag02 output stays compatible with the 6-phase format.
+  ts_c2 = ts_c4;
+  ts_c3 = ts_c4;
   PHASE_PRINT(ts_c0, ts_c1, ts_c2, ts_c3, ts_c4, ts_c5,
               gridDim.x, H, n_valid_tiles);
 }
@@ -610,21 +529,19 @@ void require_b200() {
                                    << prop.major << "." << prop.minor;
 }
 
-// Dynamic SMEM cap sized exactly to actual kernel usage (~54 KiB for
-// v5/exp06). A tight cap lets the GPU schedule 4 CTAs/SM (B200: 228 KiB
-// SMEM/SM → 4 × 54 = 216 KiB fits). The previous 100 KiB cap forced the
-// scheduler down to 2 CTAs/SM even though the kernel never used more than
-// half of that budget.
+// Dynamic SMEM cap sized exactly to actual kernel usage (~46 KiB for
+// v5_fused). A tight cap lets the GPU schedule 4 CTAs/SM (B200: 228 KiB
+// SMEM/SM → 4 × 46 = 184 KiB fits comfortably).
 //
-// Actual SMEM per CTA at launch:
-//   s_logits  (TOPK * fp32)             =  8192 B
-//   s_qn + s_qp ((D_CK+D_KP) * bf16)    =  1152 B
-//   s_gidx    (TOPK * int32)            =  8192 B
-//   s_reduce  (NUM_WARPS * fp32)        =    32 B
-//   s_v_tile  (V_PIPE*BK*D_CK * bf16)   = 32768 B
-//   s_kpe_tile(V_PIPE*BK*D_KP * bf16)   =  4096 B
-//   Total ≈ 54432 B ≈ 53.2 KiB.
-constexpr int KERNEL_MAX_DYN_SMEM = 55 * 1024;
+// Actual SMEM per CTA at launch (v5_fused: Idea 5, fused K loop):
+//   s_logits_tile (BK * fp32)            =    64 B   (was s_logits[TOPK]=8192)
+//   s_qn + s_qp ((D_CK+D_KP) * bf16)     =  1152 B
+//   s_gidx    (TOPK * int32)             =  8192 B
+//   s_reduce  (NUM_WARPS * fp32)         =    32 B
+//   s_v_tile  (V_PIPE*BK*D_CK * bf16)    = 32768 B
+//   s_kpe_tile(V_PIPE*BK*D_KP * bf16)    =  4096 B
+//   Total ≈ 46304 B ≈ 45.2 KiB.
+constexpr int KERNEL_MAX_DYN_SMEM = 47 * 1024;
 
 void configure_kernel_attrs_once() {
   static std::once_flag once;
@@ -641,13 +558,13 @@ void configure_kernel_attrs_once() {
     int occ_actual = 0;
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &occ_full_cap, mla_sparse_attn_kernel, THREADS, KERNEL_MAX_DYN_SMEM);
-    // ~54 KiB is the actual launch-time footprint for v5/exp06.
+    // ~46 KiB is the actual launch-time footprint for v5_fused.
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &occ_actual, mla_sparse_attn_kernel, THREADS, 54 * 1024);
+        &occ_actual, mla_sparse_attn_kernel, THREADS, 46 * 1024);
     fprintf(stderr,
             "[mla_sparse_attn] regs/thread=%d  localSz=%d  "
             "static_smem=%zu  max_dyn_smem=%d  max_threads=%d  "
-            "occ@cap=%d  occ@actual(54K)=%d blocks/SM\n",
+            "occ@cap=%d  occ@actual(46K)=%d blocks/SM\n",
             attrs.numRegs, (int)attrs.localSizeBytes,
             (size_t)attrs.sharedSizeBytes, attrs.maxDynamicSharedSizeBytes,
             attrs.maxThreadsPerBlock, occ_full_cap, occ_actual);
@@ -738,12 +655,16 @@ void kernel_fn(
 
   const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
   const dim3 block(THREADS);
-  // s_logits + s_qn + s_qp + s_gidx + s_reduce + s_v_tile + s_kpe_tile
-  //   s_v_tile  : V_PIPE * BK * D_CK bf16 (32 KiB, Stage 3b)
-  //   s_kpe_tile: V_PIPE * BK * D_KP bf16 ( 4 KiB, Stage 3c)
-  // v5/exp06: s_qn / s_qp now bf16 (not fp32), saving 1.125 KiB per CTA.
+  // v5_fused (Idea 5): s_logits[TOPK] replaced by s_logits_tile[BK] — saves
+  //                    ~8 KiB per CTA. Total ≈ 46 KiB.
+  //   s_logits_tile: BK * fp32 (64 B)
+  //   s_qn + s_qp  : (D_CK + D_KP) * bf16 (1152 B)
+  //   s_gidx       : TOPK * int32 (8 KiB)
+  //   s_reduce     : NUM_WARPS * fp32 (32 B)
+  //   s_v_tile     : V_PIPE * BK * D_CK * bf16 (32 KiB)
+  //   s_kpe_tile   : V_PIPE * BK * D_KP * bf16 (4 KiB)
   const size_t shmem =
-      static_cast<size_t>(TOPK) * sizeof(float)
+      static_cast<size_t>(BK) * sizeof(float)
       + static_cast<size_t>(D_CK + D_KP) * sizeof(__nv_bfloat16)
       + static_cast<size_t>(TOPK) * sizeof(int)
       + static_cast<size_t>(NUM_WARPS) * sizeof(float)
