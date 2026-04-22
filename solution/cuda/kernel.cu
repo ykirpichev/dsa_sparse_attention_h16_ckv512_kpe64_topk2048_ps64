@@ -211,35 +211,34 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   const int64_t out_off = (t * H + h) * D_CK;
   const int64_t lse_i = t * H + h;
 
-  // SMEM layout:
+  // SMEM layout (v5/exp06: Q stored in SMEM as bf16, not fp32):
   //   s_logits  [TOPK]              float   8 KiB
-  //   s_qn      [D_CK]              float   2 KiB
-  //   s_qp      [D_KP]              float 256 B
+  //   s_qn      [D_CK]              bf16    1 KiB  (was fp32, 2 KiB)
+  //   s_qp      [D_KP]              bf16  128 B    (was fp32, 256 B)
   //   s_gidx    [TOPK]              int     8 KiB
   //   s_reduce  [NUM_WARPS]         float  32 B
-  //   s_v_tile  [V_PIPE][BK][D_CK]  bf16   32 KiB   (Stage 3b value tile)
-  //   s_kpe_tile[V_PIPE][BK][D_KP]  bf16    4 KiB   (Stage 3c logit tile, kpe part)
+  //   s_v_tile  [V_PIPE][BK][D_CK]  bf16   32 KiB
+  //   s_kpe_tile[V_PIPE][BK][D_KP]  bf16    4 KiB
   //
-  // s_v_tile is aliased as the ckv-row buffer during the Stage-3c logit pass
-  // (s_v_tile sits idle before the value projection). Total ~54.6 KiB, still
-  // under the 100 KiB cudaFuncAttribute cap.
+  // Motivation: the logit hot loop does one SMEM read of s_qn per FMA pair.
+  // Storing Q as bf16 halves those reads (one LDS.U.32 per lane instead of
+  // one LDS.U.64), easing SMEM-bw pressure. The bf162→float2 convert is
+  // cheap (CVT2BF2F). Total saving: ~1.125 KiB SMEM.
   extern __shared__ unsigned char raw[];
   float* s_logits = reinterpret_cast<float*>(raw);
-  float* s_qn = s_logits + TOPK;
-  float* s_qp = s_qn + D_CK;
+  __nv_bfloat16* s_qn = reinterpret_cast<__nv_bfloat16*>(s_logits + TOPK);
+  __nv_bfloat16* s_qp = s_qn + D_CK;
   int* s_gidx = reinterpret_cast<int*>(s_qp + D_KP);
   float* s_reduce = reinterpret_cast<float*>(s_gidx + TOPK);
-  // s_reduce is NUM_WARPS floats = 32 B, already 16 B aligned, so the bf16
-  // tile region is 16 B aligned for cp.async.
   __nv_bfloat16* s_v_tile = reinterpret_cast<__nv_bfloat16*>(s_reduce + NUM_WARPS);
   __nv_bfloat16* s_kpe_tile = s_v_tile + V_PIPE * BK * D_CK;
 
-  // Load Q into shared as fp32 (reused by every logit).
+  // Load Q into shared as bf16 (direct copy, no conversion).
   for (int d = tid; d < D_CK; d += THREADS) {
-    s_qn[d] = bf16_to_f(q_nope[qh_off + d]);
+    s_qn[d] = q_nope[qh_off + d];
   }
   for (int d = tid; d < D_KP; d += THREADS) {
-    s_qp[d] = bf16_to_f(q_pe[qp_off + d]);
+    s_qp[d] = q_pe[qp_off + d];
   }
   // Cache sparse_idx (clamped to valid range) so the value-projection pass does not re-read global.
   // Also track the maximum k-position that has any valid gather index. For
@@ -338,6 +337,11 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
       const __nv_bfloat16* ckv_buf = s_v_tile + buf * (BK * D_CK);
       const __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
 
+      const __nv_bfloat162* qn2 =
+          reinterpret_cast<const __nv_bfloat162*>(s_qn);
+      const __nv_bfloat162* qp2 =
+          reinterpret_cast<const __nv_bfloat162*>(s_qp);
+
       #pragma unroll
       for (int wr = 0; wr < 2; ++wr) {               // 2 logits / warp
         const int r = warp_id * 2 + wr;              // 0..15
@@ -351,17 +355,20 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
             reinterpret_cast<const __nv_bfloat162*>(kpe_buf + r * D_KP);
 
         float acc = 0.f;
-        // D_CK / 2 / WARP = 8 packed bf162 per lane across D_CK.
+        // D_CK / 2 / WARP = 8 packed bf162 per lane across D_CK. Both Q and K
+        // are now bf162 in SMEM; we load one 32-bit word per lane per operand.
         #pragma unroll
         for (int j = 0; j < D_CK / 2 / WARP; ++j) {
           const int i2 = j * WARP + lane;
           const float2 kf = __bfloat1622float2(kc2[i2]);
-          acc += s_qn[2 * i2] * kf.x + s_qn[2 * i2 + 1] * kf.y;
+          const float2 qf = __bfloat1622float2(qn2[i2]);
+          acc += qf.x * kf.x + qf.y * kf.y;
         }
         // D_KP / 2 = 32 packed bf162 = exactly one per lane.
         {
           const float2 kf = __bfloat1622float2(kp2[lane]);
-          acc += s_qp[2 * lane] * kf.x + s_qp[2 * lane + 1] * kf.y;
+          const float2 qf = __bfloat1622float2(qp2[lane]);
+          acc += qf.x * kf.x + qf.y * kf.y;
         }
 
         acc = warp_reduce_sum(acc);
@@ -498,32 +505,47 @@ void require_b200() {
                                    << prop.major << "." << prop.minor;
 }
 
-// Opt into the large per-CTA dynamic SMEM budget on sm_100 (up to ~228 KiB).
-// Stage-1 kernel only uses ~18.5 KiB but we set a 100 KiB cap now so Stage-2/3
-// tile sizes don't require touching this again.
+// Dynamic SMEM cap sized exactly to actual kernel usage (~54 KiB for
+// v5/exp06). A tight cap lets the GPU schedule 4 CTAs/SM (B200: 228 KiB
+// SMEM/SM → 4 × 54 = 216 KiB fits). The previous 100 KiB cap forced the
+// scheduler down to 2 CTAs/SM even though the kernel never used more than
+// half of that budget.
+//
+// Actual SMEM per CTA at launch:
+//   s_logits  (TOPK * fp32)             =  8192 B
+//   s_qn + s_qp ((D_CK+D_KP) * bf16)    =  1152 B
+//   s_gidx    (TOPK * int32)            =  8192 B
+//   s_reduce  (NUM_WARPS * fp32)        =    32 B
+//   s_v_tile  (V_PIPE*BK*D_CK * bf16)   = 32768 B
+//   s_kpe_tile(V_PIPE*BK*D_KP * bf16)   =  4096 B
+//   Total ≈ 54432 B ≈ 53.2 KiB.
+constexpr int KERNEL_MAX_DYN_SMEM = 55 * 1024;
+
 void configure_kernel_attrs_once() {
   static std::once_flag once;
   std::call_once(once, []() {
     cudaFuncSetAttribute(mla_sparse_attn_kernel,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
-                         100 * 1024);
+                         KERNEL_MAX_DYN_SMEM);
 
     // Log register / SMEM / occupancy once per process so we can verify
-    // that optimization experiments don't spill below the 2-CTA/SM cliff.
+    // future optimization experiments against this baseline.
     cudaFuncAttributes attrs{};
     cudaFuncGetAttributes(&attrs, (const void*)mla_sparse_attn_kernel);
-    int num_blocks_per_sm = 0;
-    const size_t static_shmem = attrs.sharedSizeBytes;
-    // Assume at least the static + full dynamic cap for the occupancy probe.
+    int occ_full_cap = 0;
+    int occ_actual = 0;
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-        &num_blocks_per_sm, mla_sparse_attn_kernel, THREADS, 100 * 1024);
+        &occ_full_cap, mla_sparse_attn_kernel, THREADS, KERNEL_MAX_DYN_SMEM);
+    // ~54 KiB is the actual launch-time footprint for v5/exp06.
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &occ_actual, mla_sparse_attn_kernel, THREADS, 54 * 1024);
     fprintf(stderr,
             "[mla_sparse_attn] regs/thread=%d  localSz=%d  "
             "static_smem=%zu  max_dyn_smem=%d  max_threads=%d  "
-            "occupancy=%d blocks/SM\n",
+            "occ@cap=%d  occ@actual(54K)=%d blocks/SM\n",
             attrs.numRegs, (int)attrs.localSizeBytes,
-            static_shmem, attrs.maxDynamicSharedSizeBytes,
-            attrs.maxThreadsPerBlock, num_blocks_per_sm);
+            (size_t)attrs.sharedSizeBytes, attrs.maxDynamicSharedSizeBytes,
+            attrs.maxThreadsPerBlock, occ_full_cap, occ_actual);
   });
 }
 
@@ -614,8 +636,10 @@ void kernel_fn(
   // s_logits + s_qn + s_qp + s_gidx + s_reduce + s_v_tile + s_kpe_tile
   //   s_v_tile  : V_PIPE * BK * D_CK bf16 (32 KiB, Stage 3b)
   //   s_kpe_tile: V_PIPE * BK * D_KP bf16 ( 4 KiB, Stage 3c)
+  // v5/exp06: s_qn / s_qp now bf16 (not fp32), saving 1.125 KiB per CTA.
   const size_t shmem =
-      (static_cast<size_t>(TOPK) + D_CK + D_KP) * sizeof(float)
+      static_cast<size_t>(TOPK) * sizeof(float)
+      + static_cast<size_t>(D_CK + D_KP) * sizeof(__nv_bfloat16)
       + static_cast<size_t>(TOPK) * sizeof(int)
       + static_cast<size_t>(NUM_WARPS) * sizeof(float)
       + static_cast<size_t>(V_PIPE) * BK * D_CK * sizeof(__nv_bfloat16)
