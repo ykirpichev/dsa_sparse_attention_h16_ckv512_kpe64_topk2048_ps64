@@ -470,6 +470,16 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     // Skip fully-masked tiles (all 16 rows had g<0) — otherwise exp2(-INF -
     // (-INF)) = NaN would poison the accumulators. This branch is block-
     // uniform (tile_max is identical across all threads) so zero divergence.
+    //
+    // Idea 7 ATTEMPTED (REVERTED): wrapping the rescale in
+    //     `if (tile_max > m) { m_new = tile_max; ... }`
+    // to skip the 3× fp32 mults when m doesn't grow. Full bench showed
+    // +0.35 % geomean latency regression (see
+    // artifacts/full_bench_fused_condresc_2026-04-22.log). Reason: the
+    // extra block-uniform branch splits the CFG of the tight inner loop
+    // and inhibits the compiler's instruction scheduling. Keeping the
+    // unconditional rescale — 3 fp32 mults per thread are free next to
+    // a 16-iter exp2f + FMA chain.
     if (tile_max > -INFINITY) {
       const float m_new = fmaxf(m, tile_max);
       // First-valid-tile case: m == -INF ⇒ alpha = 0 (O, l are already 0,
