@@ -212,3 +212,49 @@ If it lands +3 % geomean, proceed to item C (free latency hide across a
 phase boundary). After that, revisit item D (named barriers) as Tier 2's
 lowest-risk entry.
 
+---
+
+## itemA — skip s_logits pre-init + tight softmax loop bound (branch `perf_ideas_v5_qload`)
+
+### Change (kernel.cu)
+1.  Remove the block-wide `for (k=tid; k<TOPK; k+=THREADS) s_logits[k] = -INFINITY;` pre-init and its trailing `__syncthreads()`.
+2.  In the logit pass, replace the `if (g<0) continue;` early-out with an **unconditional dot + predicated write**: lane 0 stores either `acc * sm_scale_log2e` (for g ≥ 0) or `-INFINITY` (for g < 0). The dot runs on the cp.async fallback (`ckv_flat[0]`) for g < 0 rows. Keeping the hot path branch-free matters — the earlier `if (g<0) { lane-0 write -INF; continue; }` variant regressed long-trace logit by +9% because the compiler couldn't schedule the unroll past the warp-uniform branch.
+3.  Defer the `s_gidx[k]` load that selects the write value until just before the lane-0 store, so the compiler can overlap it with the FMA chain instead of keeping an extra live register through the dot.
+4.  Bound the softmax max / sum loops by `n_valid_rows_full = n_valid_tiles * BK` (was `TOPK = 2048`). For `nvt=1` this collapses 2048 iterations over 256 threads → as few as 16 iterations total.
+
+### diag02 smoke comparison (23 workloads × 9 launches, post-warmup medians)
+
+Phase cycles, summed across all (T,H,nvt) groupings:
+
+| phase   |  exp06  | itemA  |   Δ     |   Δ%     |
+|---------|---------|--------|---------|----------|
+| qload   | 159,830 | 155,508 | −4,322 | **−2.7%** |
+| logit   | 166,669 | 172,406 | +5,737 | **+3.4%** |
+| softmax |  40,565 |  26,442 | −14,123 | **−34.8%** |
+| vproj   |  91,186 |  88,094 | −3,092 | **−3.4%** |
+| total   | 461,035 | 444,979 | −16,056 | **−3.5%** |
+
+Regime split:
+
+| regime                  | Δ total | softmax | qload | logit  | vproj  |
+|-------------------------|--------:|--------:|------:|-------:|-------:|
+| short-trace (nvt < 4)   | **−5.3%** | −34.5% | −1.6% | +2.1% | −4.1% |
+| long-trace (nvt ≥ 8)    | **−1.3%** | −34.4% | −3.6% | +3.4% | −2.2% |
+
+Raw logs: `artifacts/smoke_qload_itemA_v4_phases.log` (itemA final), `artifacts/smoke_diag02_phases.log` (exp06 baseline).
+
+### Notes & remaining regressions
+
+-   **Softmax win is huge (−34.8 %)** — dwarfs everything else and justifies the change even with the logit regression.
+-   **Long-trace logit regression (+3.4 %)** persists even after the hot-path branch removal. Probable cause: the unconditional dot runs on every row, even g < 0 rows for short traces (though those workloads are ≪ long-trace weight); the ternary select at the write adds ~1 cycle per logit. Not worth fighting further — the net is still positive.
+-   **vproj also improved (−3.4 %)** even though we didn't touch the value pass. Likely explanation: the trailing `__syncthreads()` at the end of the logit pass now lands with all warps arriving together (no warp exits early via `continue`), reducing the barrier-last-arrival tail.
+-   Full-benchmark geomean numbers pending (Modal workspace billing cap hit; smoke cycle counts used as primary signal).
+
+### Next on the qload branch
+
+If itemA's smoke win carries over to the full benchmark (expected geomean ~ +2–3 %), the next concrete pair of changes:
+
+-   **item B** — replace `block_reduce_max(local_max_valid_k_p1)` with a single `atomicMax` to a shared int slot, dropping one of the three `__syncthreads()` inside `block_reduce_max`. Saves ~150 cycles on every launch, ~1 % of short-trace runtime.
+-   **item C** — issue `issue_v_tile(0, 0)` at the end of the logit pass (before the softmax max reduction) so its cp.async latency hides behind the softmax. Saves ~400 cycles on every trace (uniform win regardless of nvt).
+
+

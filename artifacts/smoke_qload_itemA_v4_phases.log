@@ -1,0 +1,540 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-F8UDuFdXqRAwL3jZelLYaG
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_cuda_v4
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: cuda
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_cuda_v4 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running SMOKE benchmark on Modal B200 (23 random workloads, seed=42)...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: PASSED | 0.063 ms | 15.21x speedup | abs_err=1.43e-06, 
+rel_err=7.24e-06
+    error: [mla_sparse_attn] regs/thread=68  localSz=72  static_smem=0  
+max_dyn_smem=56320  max_threads=256  occ@cap=3  occ@actual(54K)=3 blocks/SM
+[diag02] T=1 H=16 n_valid_tiles=1  qload=5787  logit=2925  softmax=1439  
+vproj=737  owrite=135  total=11023  (cycles)
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+[diag02] T=1 H=16 n_valid_tiles=1  qload=4808  logit=2142  softmax=1437  
+vproj=735  owrite=134  total=9256  (cycles)
+[diag02] T=1 H=16 n_valid_tiles=1  qload=7769  logit=2600  softmax=1442  
+vproj=740  owrite=134  total=12685  (cycles)
+[diag02] T=1 H=16 n_valid_tiles=1  qload=7793  logit=2385  softmax=1391  
+vproj=706  owrite=134  total=12409  (cycles)
+[diag02] T=1 H=16 n_valid_tiles=1  qload=7982  logit=2602  softmax=1426  
+vproj=749  owrite=134  total=12893  (cycles)
+[diag02] T=1 H=16 n_valid_tiles=1  qload=8149  logit=2366  softmax=1445  
+vproj=749  owrite=134  total=12843  (cycles)
+[diag02] T=1 H=16 n_valid_tiles=1  qload=7632  logit=2373  softmax=1423  
+vproj=743  owrite=134  total=12305  (cycles)
+[diag02] T=1 H=16 n_valid_tiles=1  qload=7780  logit=2383  softmax=1426  
+vproj=732  owrite=135  total=12456  (cycles)
+[diag02] T=1 H=16 n_valid_tiles=1  qload=7876  logit=2397  softmax=1443  
+vproj=743  owrite=134  total=12593  (cycles)
+
+  Workload 9d4a5f21...: PASSED | 0.064 ms | 17.29x speedup | abs_err=3.91e-03, 
+rel_err=9.65e-03
+    error: [diag02] T=2 H=16 n_valid_tiles=2  qload=5537  logit=3640  
+softmax=1409  vproj=1470  owrite=136  total=12192  (cycles)
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+[diag02] T=2 H=16 n_valid_tiles=2  qload=4243  logit=2929  softmax=1354  
+vproj=1451  owrite=135  total=10112  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8199  logit=3235  softmax=1360  
+vproj=1429  owrite=135  total=14358  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=7987  logit=3392  softmax=1354  
+vproj=1436  owrite=137  total=14306  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8500  logit=3190  softmax=1357  
+vproj=1453  owrite=135  total=14635  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8360  logit=3174  softmax=1353  
+vproj=1457  owrite=135  total=14479  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8476  logit=3189  softmax=1354  
+vproj=1451  owrite=137  total=14607  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8412  logit=3182  softmax=1354  
+vproj=1435  owrite=138  total=14521  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8634  logit=3168  softmax=1354  
+vproj=1446  owrite=134  total=14736  (cycles)
+
+  Workload b7668cfd...: PASSED | 0.066 ms | 16.81x speedup | abs_err=9.77e-04, 
+rel_err=7.63e-03
+    error: [diag02] T=2 H=16 n_valid_tiles=3  qload=5013  logit=4516  
+softmax=1449  vproj=2225  owrite=135  total=13338  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=3  qload=4278  logit=4408  softmax=1427  
+vproj=2226  owrite=135  total=12474  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=3  qload=7911  logit=4576  softmax=1427  
+vproj=2246  owrite=135  total=16295  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=3  qload=8131  logit=4610  softmax=1436  
+vproj=2216  owrite=136  total=16529  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=3  qload=8333  logit=4574  softmax=1441  
+vproj=2223  owrite=135  total=16706  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=3  qload=8544  logit=4577  softmax=1441  
+vproj=2219  owrite=135  total=16916  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=3  qload=8008  logit=4587  softmax=1441  
+vproj=2223  owrite=135  total=16394  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=3  qload=8311  logit=4606  softmax=1436  
+vproj=2216  owrite=136  total=16705  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=3  qload=8068  logit=4623  softmax=1427  
+vproj=2234  owrite=137  total=16489  (cycles)
+
+  Workload 0a63b87b...: PASSED | 0.068 ms | 16.17x speedup | abs_err=3.81e-06, 
+rel_err=6.29e-03
+    error: [diag02] T=2 H=16 n_valid_tiles=4  qload=5105  logit=6977  
+softmax=1363  vproj=2985  owrite=136  total=16566  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=4  qload=4260  logit=5932  softmax=1364  
+vproj=2945  owrite=135  total=14636  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=4  qload=8268  logit=6359  softmax=1363  
+vproj=2944  owrite=135  total=19069  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=4  qload=8255  logit=6745  softmax=1356  
+vproj=2944  owrite=135  total=19435  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=4  qload=7769  logit=6450  softmax=1367  
+vproj=2950  owrite=135  total=18671  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=4  qload=8016  logit=6394  softmax=1356  
+vproj=2939  owrite=137  total=18842  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=4  qload=7846  logit=6748  softmax=1362  
+vproj=2939  owrite=136  total=19031  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=4  qload=8331  logit=6684  softmax=1355  
+vproj=2967  owrite=135  total=19472  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=4  qload=7659  logit=6672  softmax=1361  
+vproj=2957  owrite=136  total=18785  (cycles)
+
+  Workload 05f6de65...: PASSED | 0.064 ms | 17.27x speedup | abs_err=3.91e-03, 
+rel_err=7.81e-03
+    error: [diag02] T=2 H=16 n_valid_tiles=1  qload=5854  logit=1711  
+softmax=1436  vproj=749  owrite=135  total=9885  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=1  qload=4263  logit=1719  softmax=1451  
+vproj=748  owrite=135  total=8316  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=1  qload=8788  logit=2070  softmax=1387  
+vproj=718  owrite=135  total=13098  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=1  qload=7963  logit=2056  softmax=1387  
+vproj=718  owrite=135  total=12259  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=1  qload=8853  logit=2425  softmax=1386  
+vproj=726  owrite=136  total=13526  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=1  qload=8123  logit=2079  softmax=1387  
+vproj=725  owrite=135  total=12449  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=1  qload=8062  logit=2072  softmax=1389  
+vproj=718  owrite=135  total=12376  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=1  qload=8098  logit=2065  softmax=1393  
+vproj=730  owrite=135  total=12421  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=1  qload=8291  logit=2166  softmax=1386  
+vproj=726  owrite=137  total=12706  (cycles)
+
+  Workload fc85411e...: PASSED | 0.063 ms | 17.16x speedup | abs_err=2.44e-04, 
+rel_err=6.85e-03
+    error: [diag02] T=2 H=16 n_valid_tiles=2  qload=5060  logit=3544  
+softmax=1364  vproj=1444  owrite=135  total=11547  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=4214  logit=2995  softmax=1354  
+vproj=1432  owrite=135  total=10130  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8171  logit=3510  softmax=1357  
+vproj=1431  owrite=135  total=14604  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8291  logit=3826  softmax=1353  
+vproj=1461  owrite=137  total=15068  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=7838  logit=3504  softmax=1349  
+vproj=1452  owrite=135  total=14278  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=7679  logit=3765  softmax=1355  
+vproj=1444  owrite=135  total=14378  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8739  logit=3560  softmax=1354  
+vproj=1456  owrite=134  total=15243  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8222  logit=3472  softmax=1357  
+vproj=1428  owrite=135  total=14614  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=7882  logit=3862  softmax=1354  
+vproj=1432  owrite=135  total=14665  (cycles)
+
+  Workload e6b849f2...: PASSED | 0.070 ms | 15.64x speedup | abs_err=2.44e-04, 
+rel_err=7.14e-03
+    error: [diag02] T=2 H=16 n_valid_tiles=6  qload=5797  logit=8707  
+softmax=1371  vproj=4585  owrite=134  total=20594  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=6  qload=4343  logit=8738  softmax=1374  
+vproj=4574  owrite=135  total=19164  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=6  qload=8024  logit=8984  softmax=1369  
+vproj=4589  owrite=136  total=23102  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=6  qload=8150  logit=9004  softmax=1372  
+vproj=4597  owrite=134  total=23257  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=6  qload=8587  logit=9074  softmax=1367  
+vproj=4576  owrite=135  total=23739  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=6  qload=8673  logit=9029  softmax=1376  
+vproj=4613  owrite=135  total=23826  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=6  qload=8497  logit=8980  softmax=1371  
+vproj=4554  owrite=135  total=23537  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=6  qload=7916  logit=9069  softmax=1376  
+vproj=4545  owrite=136  total=23042  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=6  qload=8468  logit=9096  softmax=1372  
+vproj=4618  owrite=137  total=23691  (cycles)
+
+  Workload 9f3f891b...: PASSED | 0.084 ms | 13.18x speedup | abs_err=2.44e-04, 
+rel_err=8.66e-03
+    error: [diag02] T=2 H=16 n_valid_tiles=18  qload=5131  logit=26400  
+softmax=1392  vproj=14670  owrite=137  total=47730  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=18  qload=4243  logit=26396  softmax=1394  
+vproj=14596  owrite=129  total=46758  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=18  qload=8348  logit=26717  softmax=1386  
+vproj=14617  owrite=138  total=51206  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=18  qload=8383  logit=27156  softmax=1395  
+vproj=14631  owrite=139  total=51704  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=18  qload=7870  logit=26867  softmax=1392  
+vproj=14639  owrite=135  total=50903  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=18  qload=7723  logit=27112  softmax=1387  
+vproj=14601  owrite=136  total=50959  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=18  qload=8292  logit=26912  softmax=1392  
+vproj=14580  owrite=133  total=51309  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=18  qload=8245  logit=26336  softmax=1391  
+vproj=14588  owrite=137  total=50697  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=18  qload=7510  logit=26995  softmax=1391  
+vproj=14666  owrite=136  total=50698  (cycles)
+
+  Workload f77df5ce...: PASSED | 0.059 ms | 18.43x speedup | abs_err=1.95e-03, 
+rel_err=7.09e-03
+    error: [diag02] T=2 H=16 n_valid_tiles=2  qload=5758  logit=2971  
+softmax=1386  vproj=1460  owrite=135  total=11710  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=4358  logit=2958  softmax=1349  
+vproj=1435  owrite=138  total=10238  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8005  logit=3104  softmax=1401  
+vproj=1465  owrite=135  total=14110  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=9042  logit=3189  softmax=1353  
+vproj=1435  owrite=137  total=15156  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8254  logit=3327  softmax=1356  
+vproj=1453  owrite=135  total=14525  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8374  logit=3305  softmax=1363  
+vproj=1447  owrite=135  total=14624  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8287  logit=3178  softmax=1356  
+vproj=1431  owrite=134  total=14386  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8111  logit=3360  softmax=1400  
+vproj=1472  owrite=135  total=14478  (cycles)
+[diag02] T=2 H=16 n_valid_tiles=2  qload=8454  logit=3160  softmax=1414  
+vproj=1463  owrite=135  total=14626  (cycles)
+
+  Workload 385742b2...: PASSED | 0.088 ms | 21.75x speedup | abs_err=1.95e-03, 
+rel_err=1.67e-02
+    error: [diag02] T=8 H=16 n_valid_tiles=6  qload=5413  logit=9715  
+softmax=1369  vproj=4643  owrite=135  total=21275  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=6  qload=4286  logit=8787  softmax=1367  
+vproj=4606  owrite=138  total=19184  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=6  qload=8203  logit=9366  softmax=1371  
+vproj=4625  owrite=132  total=23697  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=6  qload=7793  logit=9474  softmax=1367  
+vproj=4621  owrite=136  total=23391  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=6  qload=7879  logit=9494  softmax=1372  
+vproj=4618  owrite=136  total=23499  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=6  qload=7835  logit=9439  softmax=1373  
+vproj=4612  owrite=138  total=23397  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=6  qload=7948  logit=9690  softmax=1373  
+vproj=4608  owrite=137  total=23756  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=6  qload=8008  logit=9856  softmax=1373  
+vproj=4620  owrite=136  total=23993  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=6  qload=7449  logit=9771  softmax=1369  
+vproj=4613  owrite=137  total=23339  (cycles)
+
+  Workload 4c46a94b...: PASSED | 0.084 ms | 23.09x speedup | abs_err=7.81e-03, 
+rel_err=1.57e-02
+    error: [diag02] T=8 H=16 n_valid_tiles=2  qload=5717  logit=2898  
+softmax=1345  vproj=1461  owrite=135  total=11556  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=4358  logit=2929  softmax=1383  
+vproj=1441  owrite=137  total=10248  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=7318  logit=3573  softmax=1394  
+vproj=1463  owrite=135  total=13883  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=7304  logit=3531  softmax=1415  
+vproj=1470  owrite=135  total=13855  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=7903  logit=3806  softmax=1355  
+vproj=1441  owrite=135  total=14640  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=7483  logit=3578  softmax=1402  
+vproj=1487  owrite=138  total=14088  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=7357  logit=3536  softmax=1416  
+vproj=1465  owrite=135  total=13909  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=7654  logit=3647  softmax=1353  
+vproj=1434  owrite=136  total=14224  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=7377  logit=3893  softmax=1401  
+vproj=1465  owrite=135  total=14271  (cycles)
+
+  Workload 38389961...: PASSED | 0.090 ms | 19.60x speedup | abs_err=1.95e-03, 
+rel_err=7.52e-03
+    error: [diag02] T=7 H=16 n_valid_tiles=3  qload=5503  logit=4598  
+softmax=1437  vproj=2208  owrite=137  total=13883  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=3  qload=4248  logit=4367  softmax=1436  
+vproj=2231  owrite=135  total=12417  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=3  qload=8168  logit=4807  softmax=1432  
+vproj=2239  owrite=136  total=16782  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=3  qload=8183  logit=4642  softmax=1441  
+vproj=2246  owrite=135  total=16647  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=3  qload=8460  logit=4606  softmax=1436  
+vproj=2246  owrite=135  total=16883  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=3  qload=8223  logit=4768  softmax=1452  
+vproj=2223  owrite=135  total=16801  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=3  qload=8183  logit=4735  softmax=1441  
+vproj=2217  owrite=136  total=16712  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=3  qload=8482  logit=4759  softmax=1425  
+vproj=2217  owrite=136  total=17019  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=3  qload=7849  logit=4705  softmax=1425  
+vproj=2223  owrite=135  total=16337  (cycles)
+
+  Workload 02d6ae9c...: PASSED | 0.160 ms | 12.00x speedup | abs_err=1.95e-03, 
+rel_err=5.71e-02
+    error: [diag02] T=8 H=16 n_valid_tiles=4  qload=5860  logit=6351  
+softmax=1355  vproj=2956  owrite=136  total=16658  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=4  qload=4402  logit=5832  softmax=1355  
+vproj=2950  owrite=135  total=14674  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=4  qload=8411  logit=6608  softmax=1356  
+vproj=2944  owrite=135  total=19454  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=4  qload=8022  logit=6499  softmax=1356  
+vproj=2956  owrite=136  total=18969  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=4  qload=8665  logit=6658  softmax=1361  
+vproj=2944  owrite=135  total=19763  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=4  qload=8112  logit=6487  softmax=1357  
+vproj=2990  owrite=137  total=19083  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=4  qload=8277  logit=6874  softmax=1361  
+vproj=2956  owrite=136  total=19604  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=4  qload=8518  logit=6659  softmax=1355  
+vproj=2939  owrite=136  total=19607  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=4  qload=8227  logit=6840  softmax=1357  
+vproj=2939  owrite=136  total=19499  (cycles)
+
+  Workload ddfa9e34...: PASSED | 0.131 ms | 12.44x speedup | abs_err=1.95e-03, 
+rel_err=1.41e-02
+    error: [diag02] T=6 H=16 n_valid_tiles=1  qload=5837  logit=2061  
+softmax=1448  vproj=755  owrite=135  total=10236  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=1  qload=4371  logit=1788  softmax=1381  
+vproj=736  owrite=137  total=8413  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=1  qload=8021  logit=2401  softmax=1385  
+vproj=717  owrite=135  total=12659  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=1  qload=8152  logit=2303  softmax=1455  
+vproj=752  owrite=135  total=12797  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=1  qload=7539  logit=2716  softmax=1385  
+vproj=725  owrite=136  total=12501  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=1  qload=7446  logit=2697  softmax=1392  
+vproj=728  owrite=135  total=12398  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=1  qload=7615  logit=2732  softmax=1449  
+vproj=757  owrite=136  total=12689  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=1  qload=7795  logit=2422  softmax=1427  
+vproj=753  owrite=135  total=12532  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=1  qload=8078  logit=2382  softmax=1392  
+vproj=725  owrite=135  total=12712  (cycles)
+
+  Workload 78b2e11c...: PASSED | 0.160 ms | 11.94x speedup | abs_err=7.81e-03, 
+rel_err=4.31e-02
+    error: [diag02] T=8 H=16 n_valid_tiles=2  qload=5000  logit=3387  
+softmax=1363  vproj=1431  owrite=134  total=11315  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=4389  logit=2909  softmax=1361  
+vproj=1448  owrite=135  total=10242  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=8334  logit=3611  softmax=1353  
+vproj=1429  owrite=135  total=14862  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=7940  logit=3122  softmax=1355  
+vproj=1431  owrite=134  total=13982  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=8196  logit=3203  softmax=1353  
+vproj=1453  owrite=135  total=14340  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=8320  logit=3173  softmax=1361  
+vproj=1453  owrite=135  total=14442  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=8003  logit=3293  softmax=1360  
+vproj=1457  owrite=135  total=14248  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=8205  logit=3414  softmax=1355  
+vproj=1444  owrite=136  total=14554  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=8417  logit=3190  softmax=1356  
+vproj=1431  owrite=134  total=14528  (cycles)
+
+  Workload 68d6817d...: PASSED | 0.065 ms | 24.77x speedup | abs_err=1.95e-03, 
+rel_err=7.46e-03
+    error: [diag02] T=6 H=16 n_valid_tiles=2  qload=5720  logit=2931  
+softmax=1419  vproj=1473  owrite=132  total=11675  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=2  qload=4250  logit=2893  softmax=1399  
+vproj=1489  owrite=135  total=10166  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=2  qload=8077  logit=3392  softmax=1405  
+vproj=1468  owrite=136  total=14478  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=2  qload=8775  logit=3188  softmax=1354  
+vproj=1436  owrite=135  total=14888  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=2  qload=8443  logit=3167  softmax=1354  
+vproj=1442  owrite=137  total=14543  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=2  qload=8009  logit=3159  softmax=1392  
+vproj=1463  owrite=136  total=14159  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=2  qload=7964  logit=3190  softmax=1402  
+vproj=1471  owrite=135  total=14162  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=2  qload=8284  logit=3311  softmax=1353  
+vproj=1434  owrite=135  total=14517  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=2  qload=8272  logit=3178  softmax=1345  
+vproj=1455  owrite=136  total=14386  (cycles)
+
+  Workload 564007ac...: PASSED | 0.160 ms | 12.09x speedup | abs_err=1.95e-03, 
+rel_err=7.75e-03
+    error: [diag02] T=8 H=16 n_valid_tiles=18  qload=5298  logit=26203  
+softmax=1392  vproj=14604  owrite=132  total=47629  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=18  qload=4450  logit=26273  softmax=1394  
+vproj=14609  owrite=136  total=46862  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=18  qload=8013  logit=26206  softmax=1391  
+vproj=14556  owrite=135  total=50301  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=18  qload=8256  logit=25725  softmax=1392  
+vproj=14626  owrite=135  total=50134  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=18  qload=8310  logit=26376  softmax=1389  
+vproj=14624  owrite=137  total=50836  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=18  qload=8417  logit=25974  softmax=1391  
+vproj=14623  owrite=139  total=50544  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=18  qload=8384  logit=26178  softmax=1392  
+vproj=14624  owrite=130  total=50708  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=18  qload=8138  logit=26202  softmax=1386  
+vproj=14682  owrite=137  total=50545  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=18  qload=8950  logit=26058  softmax=1389  
+vproj=14618  owrite=135  total=51150  (cycles)
+
+  Workload ae4219a9...: PASSED | 0.160 ms | 11.20x speedup | abs_err=1.95e-03, 
+rel_err=8.23e-03
+    error: [diag02] T=7 H=16 n_valid_tiles=2  qload=6287  logit=2947  
+softmax=1354  vproj=1443  owrite=135  total=12166  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=2  qload=4205  logit=2898  softmax=1360  
+vproj=1453  owrite=135  total=10051  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=2  qload=8582  logit=3234  softmax=1355  
+vproj=1454  owrite=136  total=14761  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=2  qload=8422  logit=3312  softmax=1360  
+vproj=1457  owrite=136  total=14687  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=2  qload=8251  logit=3196  softmax=1349  
+vproj=1430  owrite=135  total=14361  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=2  qload=8614  logit=3185  softmax=1356  
+vproj=1438  owrite=135  total=14728  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=2  qload=8728  logit=3322  softmax=1357  
+vproj=1443  owrite=135  total=14985  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=2  qload=8889  logit=3249  softmax=1356  
+vproj=1430  owrite=135  total=15059  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=2  qload=8071  logit=3451  softmax=1355  
+vproj=1451  owrite=135  total=14463  (cycles)
+
+  Workload 232ed014...: PASSED | 0.090 ms | 21.57x speedup | abs_err=3.91e-03, 
+rel_err=7.75e-03
+    error: [diag02] T=8 H=16 n_valid_tiles=3  qload=6353  logit=4443  
+softmax=1436  vproj=2254  owrite=136  total=14622  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=3  qload=4350  logit=4367  softmax=1444  
+vproj=2231  owrite=137  total=12529  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=3  qload=8608  logit=4666  softmax=1425  
+vproj=2242  owrite=135  total=17076  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=3  qload=8376  logit=4800  softmax=1441  
+vproj=2242  owrite=135  total=16994  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=3  qload=8324  logit=5048  softmax=1440  
+vproj=2225  owrite=135  total=17172  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=3  qload=8855  logit=4495  softmax=1441  
+vproj=2216  owrite=137  total=17144  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=3  qload=8132  logit=4775  softmax=1432  
+vproj=2236  owrite=135  total=16710  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=3  qload=8338  logit=4820  softmax=1444  
+vproj=2214  owrite=135  total=16951  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=3  qload=8871  logit=4656  softmax=1432  
+vproj=2212  owrite=137  total=17308  (cycles)
+
+  Workload 7a389715...: PASSED | 0.131 ms | 14.52x speedup | abs_err=1.95e-03, 
+rel_err=1.01e-02
+    error: [diag02] T=8 H=16 n_valid_tiles=1  qload=5414  logit=2056  
+softmax=1445  vproj=764  owrite=135  total=9814  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=1  qload=4356  logit=1778  softmax=1386  
+vproj=726  owrite=136  total=8382  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=1  qload=8768  logit=2164  softmax=1395  
+vproj=732  owrite=136  total=13195  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=1  qload=8729  logit=2155  softmax=1386  
+vproj=726  owrite=137  total=13133  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=1  qload=8466  logit=2172  softmax=1444  
+vproj=756  owrite=138  total=12976  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=1  qload=8286  logit=2026  softmax=1452  
+vproj=734  owrite=135  total=12633  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=1  qload=8498  logit=2091  softmax=1440  
+vproj=751  owrite=138  total=12918  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=1  qload=8324  logit=2259  softmax=1399  
+vproj=733  owrite=137  total=12852  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=1  qload=8354  logit=2064  softmax=1433  
+vproj=760  owrite=138  total=12749  (cycles)
+
+  Workload 5096e459...: PASSED | 0.156 ms | 12.56x speedup | abs_err=3.91e-03, 
+rel_err=6.46e-02
+    error: [diag02] T=8 H=16 n_valid_tiles=2  qload=5027  logit=3561  
+softmax=1357  vproj=1428  owrite=135  total=11508  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=4373  logit=2867  softmax=1355  
+vproj=1445  owrite=138  total=10178  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=8441  logit=3156  softmax=1348  
+vproj=1433  owrite=137  total=14515  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=8302  logit=3579  softmax=1357  
+vproj=1452  owrite=136  total=14826  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=9047  logit=3240  softmax=1354  
+vproj=1444  owrite=138  total=15223  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=8337  logit=3142  softmax=1353  
+vproj=1443  owrite=135  total=14410  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=7971  logit=3315  softmax=1357  
+vproj=1459  owrite=135  total=14237  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=8419  logit=3314  softmax=1356  
+vproj=1446  owrite=135  total=14670  (cycles)
+[diag02] T=8 H=16 n_valid_tiles=2  qload=7989  logit=3140  softmax=1360  
+vproj=1427  owrite=136  total=14052  (cycles)
+
+  Workload d57eb9e1...: PASSED | 0.158 ms | 10.61x speedup | abs_err=3.91e-03, 
+rel_err=7.81e-03
+    error: [diag02] T=6 H=16 n_valid_tiles=9  qload=5211  logit=13075  
+softmax=1420  vproj=7220  owrite=136  total=27062  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=9  qload=4270  logit=13065  softmax=1435  
+vproj=7297  owrite=135  total=26202  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=9  qload=8455  logit=12878  softmax=1440  
+vproj=7358  owrite=133  total=30264  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=9  qload=8226  logit=13226  softmax=1421  
+vproj=7237  owrite=137  total=30247  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=9  qload=8075  logit=13707  softmax=1411  
+vproj=7219  owrite=136  total=30548  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=9  qload=8581  logit=13368  softmax=1409  
+vproj=7210  owrite=133  total=30701  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=9  qload=8100  logit=13210  softmax=1421  
+vproj=7275  owrite=135  total=30141  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=9  qload=8202  logit=13021  softmax=1423  
+vproj=7209  owrite=135  total=29990  (cycles)
+[diag02] T=6 H=16 n_valid_tiles=9  qload=8445  logit=13046  softmax=1411  
+vproj=7210  owrite=135  total=30247  (cycles)
+
+  Workload 2207f0fd...: PASSED | 0.158 ms | 11.46x speedup | abs_err=3.91e-03, 
+rel_err=1.16e-01
+    error: [diag02] T=7 H=16 n_valid_tiles=26  qload=5000  logit=37347  
+softmax=1407  vproj=21151  owrite=135  total=65040  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=26  qload=4305  logit=37856  softmax=1404  
+vproj=21111  owrite=135  total=64811  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=26  qload=7735  logit=37211  softmax=1405  
+vproj=21133  owrite=135  total=67619  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=26  qload=8239  logit=37540  softmax=1406  
+vproj=21149  owrite=136  total=68470  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=26  qload=8173  logit=38467  softmax=1404  
+vproj=21122  owrite=135  total=69301  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=26  qload=8445  logit=38589  softmax=1406  
+vproj=21162  owrite=135  total=69737  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=26  qload=7860  logit=38135  softmax=1407  
+vproj=21147  owrite=132  total=68681  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=26  qload=7774  logit=38383  softmax=1404  
+vproj=21163  owrite=135  total=68859  (cycles)
+[diag02] T=7 H=16 n_valid_tiles=26  qload=8283  logit=37387  softmax=1404  
+vproj=21178  owrite=135  total=68387  (cycles)
+
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-22T00:49:56-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-F8UDuFdXqRAwL3jZelLYaG

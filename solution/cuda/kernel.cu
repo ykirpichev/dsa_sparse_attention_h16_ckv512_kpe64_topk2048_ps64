@@ -295,9 +295,15 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
 
   // Stage 3c: cp.async double-buffered logit pass.
   //
-  //   * Pre-initialise s_logits[k] = -INFINITY so any k we don't compute
-  //     (invalid g or tile beyond n_valid_tiles) is correctly masked for the
-  //     downstream softmax max.
+  //   * diag02 (v5_qload/itemA): we no longer pre-initialise s_logits to
+  //     -INFINITY. Instead: (a) the logit compute below writes -INFINITY
+  //     inline for rows with g<0, and (b) the softmax loops are bounded
+  //     by n_valid_rows_full = n_valid_tiles*BK (not TOPK) so untouched
+  //     tail slots never participate. This removes the 8 writes/thread
+  //     pre-init pass + 1 __syncthreads from the prologue and tightens
+  //     the softmax reductions from 2048 → as few as 16 iterations.
+  //     diag02 showed qload dominating short-trace runtime (~54% of
+  //     cycles at n_valid_tiles<4); net win ~5% on short traces.
   //   * Tile layout: 16 K rows per tile. For each row we cp.async both the
   //     ckv (1024 B) and the kpe (128 B) halves into SMEM. s_v_tile is
   //     aliased as the per-tile ckv buffer (idle until the value projection).
@@ -307,12 +313,6 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   //     ckv + 1 packed bf162 from kpe) = full D_CK+D_KP dot.
   //   * Every thread's 32-bit reads of s_qn / s_qp / the tile buffers land
   //     on distinct banks (stride-1 lane access to bf162 = 4 B / lane).
-
-  // Pre-init logits to -INF so skipped tiles/rows are masked at softmax time.
-  for (int k = tid; k < TOPK; k += THREADS) {
-    s_logits[k] = -INFINITY;
-  }
-  __syncthreads();
   PHASE_MARK(ts_c1);  // end of Q+idx load phase
 
   auto issue_logit_tile = [&](int tile, int buf) {
@@ -383,9 +383,13 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
       for (int wr = 0; wr < 2; ++wr) {               // 2 logits / warp
         const int r = warp_id * 2 + wr;              // 0..15
         const int k = tile * BK + r;
-        const int g = s_gidx[k];
-        if (g < 0) continue;  // s_logits[k] is already -INFINITY
 
+        // itemA: always run the dot (the cp.async pass already loaded
+        // ckv_flat[0] as a safe fallback for g<0), then select -INF at the
+        // write. This keeps the hot path free of warp-uniform branches and
+        // preserves instruction scheduling for the 9-iter packed-bf16 dot.
+        // `g` is deliberately loaded inside the lane-0 write to avoid
+        // keeping a register live across the whole FMA chain.
         const __nv_bfloat162* kc2 =
             reinterpret_cast<const __nv_bfloat162*>(ckv_buf + r * D_CK);
         const __nv_bfloat162* kp2 =
@@ -409,7 +413,10 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
         }
 
         acc = warp_reduce_sum(acc);
-        if (lane == 0) s_logits[k] = acc * sm_scale_log2e;
+        if (lane == 0) {
+          const int g = s_gidx[k];
+          s_logits[k] = (g >= 0) ? (acc * sm_scale_log2e) : -INFINITY;
+        }
       }
       __syncthreads();
     }
@@ -417,9 +424,16 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
 
   PHASE_MARK(ts_c2);  // end of logit pass
 
-  // Block-parallel max.
+  // Block-parallel max. Bounded by n_valid_rows_full (= n_valid_tiles*BK)
+  // instead of TOPK: the logit pass is guaranteed to have written every
+  // s_logits[k] for k in [0, n_valid_rows_full) — either the warp-reduced
+  // logit for g >= 0 rows, or -INFINITY for g < 0 rows (itemA writes -INF
+  // inline). Everything at k >= n_valid_rows_full is untouched/invalid and
+  // must not be read. This collapses short-trace softmax from 2048 → as
+  // few as 16 iterations total.
+  const int n_valid_rows_full = n_valid_tiles * BK;
   float local_max = -INFINITY;
-  for (int k = tid; k < TOPK; k += THREADS) {
+  for (int k = tid; k < n_valid_rows_full; k += THREADS) {
     local_max = fmaxf(local_max, s_logits[k]);
   }
   const float mx = block_reduce_max(local_max, s_reduce);
@@ -433,10 +447,13 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     return;
   }
 
-  // Block-parallel unnormalized softmax (base-2 exp). We keep s_logits as
-  // unnormalized probs and divide by sum at output write time.
+  // Block-parallel unnormalized softmax (base-2 exp). Same tight loop
+  // bound as the max reduction. For g < 0 rows the logit pass wrote -INF,
+  // so exp2f(-INF - mx) = 0 contributes nothing — we can skip the explicit
+  // gidx check entirely. We keep s_logits as unnormalised probs and
+  // divide by sum at output write time.
   float local_sum = 0.f;
-  for (int k = tid; k < TOPK; k += THREADS) {
+  for (int k = tid; k < n_valid_rows_full; k += THREADS) {
     const float e = exp2f(s_logits[k] - mx);
     s_logits[k] = e;
     local_sum += e;
