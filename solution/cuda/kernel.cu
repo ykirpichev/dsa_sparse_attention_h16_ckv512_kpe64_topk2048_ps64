@@ -66,6 +66,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <mutex>
 
 namespace {
@@ -506,6 +507,23 @@ void configure_kernel_attrs_once() {
     cudaFuncSetAttribute(mla_sparse_attn_kernel,
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          100 * 1024);
+
+    // Log register / SMEM / occupancy once per process so we can verify
+    // that optimization experiments don't spill below the 2-CTA/SM cliff.
+    cudaFuncAttributes attrs{};
+    cudaFuncGetAttributes(&attrs, (const void*)mla_sparse_attn_kernel);
+    int num_blocks_per_sm = 0;
+    const size_t static_shmem = attrs.sharedSizeBytes;
+    // Assume at least the static + full dynamic cap for the occupancy probe.
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &num_blocks_per_sm, mla_sparse_attn_kernel, THREADS, 100 * 1024);
+    fprintf(stderr,
+            "[mla_sparse_attn] regs/thread=%d  localSz=%d  "
+            "static_smem=%zu  max_dyn_smem=%d  max_threads=%d  "
+            "occupancy=%d blocks/SM\n",
+            attrs.numRegs, (int)attrs.localSizeBytes,
+            static_shmem, attrs.maxDynamicSharedSizeBytes,
+            attrs.maxThreadsPerBlock, num_blocks_per_sm);
   });
 }
 

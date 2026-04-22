@@ -40,9 +40,34 @@ Baseline:
 | --- | ------- | ------- | ------- | ----- |
 | baseline (`60192e4`) | — | 36.45× | 0 | submission-v1 kernel restored. |
 | exp01 (reverted) | 16: V_PIPE 2→4 | ~27× est. | **−25%** | Regressed uniformly (long seqs: 14.6→10.6×, 17.4→12.6×, …). Root cause: 90 KiB SMEM footprint dropped occupancy 2→1 CTA/SM. Log: `artifacts/full_bench_idea16_vpipe4_2026-04-22.log`. |
+| exp02 (reverted) | 5: Fused logit+V online softmax | ~27× est. | **−18%** (short), **−27%** (long) | Same pattern as exp01. Halved ckv HBM traffic (−47% nominal) but introduced m/ℓ scalars across tiles + per-tile rescale path; compiler likely bumped registers above the 128/thread threshold for 2 CTAs/SM. Logs: `artifacts/full_bench_idea5_fused_2026-04-22.log`, `artifacts/full_bench_idea5_fused_condrescale_2026-04-22.log` (conditional rescale helped smoke but didn't rescue the full bench). |
+| exp03 (reverted) | 5 + 7 combo | ~28× est. | **−25%** | Adding conditional `if (tile_max > m)` rescale guard didn't recover occupancy. |
+| exp04 (reverted) | 3 (lite): H-major grid | ~27× est. | **−28%** | Swapped grid(T,H)→grid(H,T). No codegen change. Likely L2 / HBM channel contention from 16 co-scheduled H-CTAs of the same token hitting scattered sparse indices. |
+| diag01 | runtime occupancy probe added | 36.45× | 0 | **Diagnostic instrumentation** (persistent): `cudaFuncGetAttributes` + `cudaOccupancyMaxActiveBlocksPerMultiprocessor` at kernel configure time. |
+
+### Critical diagnostic (diag01) — occupancy theory DEBUNKED
+
+Runtime probe output on v4 baseline:
+
+```
+[mla_sparse_attn] regs/thread=65  localSz=0  static_smem=0  max_dyn_smem=102400  max_threads=256  occupancy=2 blocks/SM
+```
+
+**v4 uses only 65 regs/thread (well below the 128 threshold for 2 CTAs/SM), has zero local memory spill, and already runs at 2 blocks/SM.** The −25-28% regressions seen in exp01-04 are NOT from an occupancy drop — they must have a different root cause.
+
+Revised hypotheses for each regression:
+
+- **exp01 (V_PIPE 2→4):** Doubling outstanding `cp.async` requests likely flooded the L1→L2→HBM fabric. With only ~ 1 kB of tile-row working-set per warp, deeper pipelining didn't hide more latency and added cp.async issue-queue pressure (instruction mix).
+- **exp02 (fused):** Not a register blowup. Likely bottleneck: scalar FMA throughput. The fused kernel has to run the weighted-V FMAs (`BK * D_CK / THREADS` = 32 fp32 FMAs / thread / tile) on EVERY tile, instead of amortized over softmax-weighted values. Same issues/tile but 2× the FMAs.
+- **exp04 (H-major):** All 16 heads of a token launching together smash the same 2-4 MiB of scattered K/V rows. Under T-major, co-scheduled CTAs are distinct tokens → different cache footprints → better L2 hit rate.
 
 ### Lessons / notes
 
-- **V_PIPE=4 is occupancy-limited.** On B200 with 228 KiB SMEM/SM, 2 × 90 KiB = 180 KiB should nominally fit, but measured regression shows the scheduler drops to 1 CTA/SM (likely because the bumped attribute cap raises the SMEM carveout reservation). To try a deeper pipeline we'd need to **shrink the static SMEM** first (e.g. Idea 14: bf16 Q saves 2 KiB; merge s_logits/s_gidx regions; halve BK to 8 which would also halve the tile, freeing budget for V_PIPE=4 with no net SMEM growth).
-- **Orthogonal path:** rather than deeper pipeline, focus on **reducing dominant work** (Ideas 5, 11, 13, 14) and **cross-head data reuse** (Ideas 3, 11) — long sequences (T≥256) are the geomean drag at 11-17×.
+- **Do not use SMEM/reg budget as a proxy for expected speedup.** v4 has ample headroom.
+- **Verification path:** the runtime probe is now live. All future experiments should log their `regs/thread` + `occupancy`.
+- **Orthogonal paths** that don't touch the occupancy balance:
+  - **Reduce THREADS**: 256→128 halves SMEM-for-state and doubles occupancy headroom, but the packed output path is hard-coded to `D_CK == 2*THREADS`. Would require regrouping the output write.
+  - **Persistent-CTA** (idea 10): one CTA does many (T,H) — no per-CTA SMEM growth, better cache warmth.
+  - **H-fusion** (idea 3 cluster multicast / idea 11 UMMA per (T,H)) — shares the ckv tile across all 16 heads of a token. Fundamentally reduces HBM by 16× on the K side.
+  - **Indexer split** — currently the kernel computes the full Q·K dot; if we precompute per-token top-k dots in a warp-specialized producer (FlashMLA style), we could fan out across heads more efficiently.
 
