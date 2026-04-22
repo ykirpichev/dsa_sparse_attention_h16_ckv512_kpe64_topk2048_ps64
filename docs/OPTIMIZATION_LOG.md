@@ -74,3 +74,29 @@ Revised hypotheses for each regression:
   - **H-fusion** (idea 3 cluster multicast / idea 11 UMMA per (T,H)) — shares the ckv tile across all 16 heads of a token. Fundamentally reduces HBM by 16× on the K side.
   - **Indexer split** — currently the kernel computes the full Q·K dot; if we precompute per-token top-k dots in a warp-specialized producer (FlashMLA style), we could fan out across heads more efficiently.
 
+## Summary of v5 experiments (current state)
+
+**Kept:**
+- `diag01` – runtime `regs/thread` + occupancy probe, prints once per process.
+- `exp06` – bf16 Q in SMEM + tight 55 KiB SMEM cap → 4 CTAs/SM (was 2). Kernel runtime geomean −2.7% vs v4 (all 23 workloads pass).
+
+**Tried and reverted (all −18 … −42% regressions):**
+- `exp01` – V_PIPE 2→4 (deeper cp.async pipeline)
+- `exp02` – fused logit+V online softmax (single pass over K)
+- `exp03` – exp02 + conditional softmax rescale
+- `exp04` – H-major grid reorder (grid(H,T) vs grid(T,H))
+- `exp05` – H_PER_CTA=2 (batch 2 heads per CTA): exposed that **long traces are NOT HBM-bound**; halving HBM made them slower, not faster
+- `exp07` – bf16 logits in SMEM: ~flat perf, precision pinned to bf16 quantum (abs_err 1.56e-02 uniformly), not worth it
+
+**Key characterisation of v4 bottleneck** (from failed experiments):
+- v4 is *not* register or SMEM limited (only 65 regs/thread, 2 CTAs/SM was self-inflicted by the 100 KiB cap).
+- v4 is *not* HBM-bound on long traces — halving K/V traffic via head batching *slowed* them down.
+- Most likely bottleneck: scalar FMA throughput + SMEM read bandwidth + `__syncthreads` serialization in the cp.async pipeline. All three contribute; no single "silver bullet" remaining.
+
+**Remaining high-impact ideas (all High effort, High risk):**
+- Idea 1 – TMA gather (`cp.async.bulk.tensor.gather4`) replaces cp.async tile loads
+- Idea 6 – warp-specialised producer/consumer pipeline (async DMA → MMA)
+- Idea 11 – tcgen05 UMMA value pass (previous attempt failed on SWIZZLE/numerical issues)
+- Idea 3 – CTA clusters with multicast across H heads per token (this is the only remaining idea that directly attacks the "16 heads × same sparse_idx" redundancy without the L2 contention observed in exp04)
+- Idea 2 – FP8 KV cache (requires schema change)
+
