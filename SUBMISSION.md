@@ -45,13 +45,21 @@ flashinfer-bench run \
   --save-results --use-isolated-runner --log-level INFO --resume --timeout 300
 ```
 
-Results for `wombat_dsa_sparse_mla_cuda_v4` (latest trace per workload):
+Results for `wombat_dsa_sparse_mla_cuda_v4_sm100a` (Stage 1 kernel rebuilt
+against `sm_100a`; per-(T,H) CTA structure preserved):
 
 - **23 / 23 workloads PASSED**
-- Latencies 0.013 – 0.160 ms
-- Speedups 11.3× – 116.9× vs the reference (mean ≈ 41×)
+- Latencies 0.012 – 0.160 ms
+- Speedups 14.28× – 152.40× vs the reference (geomean ≈ 35.6×, median 30.1×)
 - TVM-FFI compile + isolated-runner subprocess mode both succeed.
 - CLI exit code 0.
+
+Head-fusion experiment (`v5a_fused_sm100a`, one CTA per token covering
+H=16 heads) was measured on the same 23 workloads and REGRESSED to
+geomean 5.25×: on large-T workloads the reduction in CTA count (T vs
+T×H) starves B200 SMs, and the HBM-reuse win doesn't outweigh it
+because the per-head kernel was already L2-resident. The per-(T,H)
+structure is kept as the production configuration.
 
 The contest baseline (`flashinfer_wrapper_5af199`) also passes 23/23 in the same
 container, confirming the environment is sane.
