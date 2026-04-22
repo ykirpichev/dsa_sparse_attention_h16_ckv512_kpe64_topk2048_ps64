@@ -440,3 +440,99 @@ another 10-15 % on short traces (instruction-issue bottleneck) and
 256-thread cp.async).
 
 
+---
+
+## v8_umma_svp (FAILED — archived): fused-heads UMMA logit + scalar value pass
+
+**Motivation.** User set a 2× target (SoTA). After exhausting micro-opts on
+`v5_fused` (~33× geomean), the only remaining lever for the compute-bound
+tiles was Tensor Cores (UMMA / `tcgen05.mma.kind::f16`). Goal: use UMMA for
+the logit pass, keep scalar value pass first, measure, then try UMMA V pass.
+
+**Design.** Copied the archived `v7_umma` infrastructure (`tcgen05_ptx.h`,
+`umma_desc.h`) and built a *new* fused-heads kernel on top of the fused
+online-softmax idea:
+
+- Grid `(T,)` (fused heads). SMEM `SWIZZLE_128B` layout for Q / K.
+- `MMA_M=64, MMA_N=BK=16`, 32+4 K-atoms per tile for Q_nope·K_ckv^T and
+  Q_pe·K_kpe^T respectively.
+- Fused online softmax: warp 0 lanes 0..15 own one head each, maintain
+  running `(m, l)` in SMEM; softmax output `P` broadcast to the whole CTA
+  via a new small `s_p_row [HEADS, BK]` fp32 buffer.
+- Scalar value pass reading directly from the swizzled `s_ckv` buffer via
+  `swz128b_chunk16b_offset()` (no V^T transpose, no separate value-pass
+  SMEM).
+
+**Correctness.** All 23 full-bench workloads PASSED.
+
+**Performance.** Geomean dropped from **~33×** (`v5_fused`) to **12.11×**:
+short traces stayed fast (38-58×), medium traces regressed ~40 %, long
+traces collapsed to 4-8×.
+
+**Root cause.** Occupancy collapse from SMEM pressure, not a logit-pass
+speed problem. Per-CTA SMEM for the fused-heads layout:
+
+| Buffer    | Size    | Notes                                       |
+|-----------|---------|---------------------------------------------|
+| `s_q_n`   | 64 KiB  | `MMA_M=64` forces 64 rows but only 16 real  |
+| `s_q_p`   |  8 KiB  | Same `MMA_M=64` padding                     |
+| `s_ckv`   | 32 KiB  | `V_PIPE=2 × BK=16 × D_CK=512`               |
+| `s_kpe`   |  4 KiB  | `V_PIPE=2 × BK=16 × D_KP=64`                |
+| `s_gidx`  |  8 KiB  | `TOPK=2048` int                             |
+| Misc      | ~2 KiB  | `s_p_row`, `s_m/l/scale`, mbar, tmem ptr    |
+| **Total** |**~118 KiB** |                                         |
+
+The B200 dynamic SMEM cap is 228 KiB → **1 CTA per SM**. The `v5_fused`
+per-(T,H) kernel is ~46 KiB per CTA → **3 CTAs per SM**. All UMMA kinds
+(`f16`, `tf32`, `f8f6f4`, `i8`) require `M ≥ 64`, so the `s_q_n` padding
+cost is unavoidable unless we change instruction kind (no smaller one
+exists for f16-accumulating f16-input UMMA on SM100).
+
+Raw totals on long traces (T≈4096):
+- `v5_fused`: 65 536 CTAs × `30k cycles` / (148 SMs × 3 occ) ≈ 4.5 M
+  cycles per SM.
+- `v8_umma_svp`: 4 096 CTAs × `480k cycles` / (148 SMs × 1 occ) ≈
+  13.3 M cycles per SM → matches the ~3× regression we observed.
+
+Even fixing the broken V-pass UMMA (next on the Idea list) would not
+recover: best case is ~2× per-CTA speedup from scalar-V → UMMA-V, but we
+are paying a 3× occupancy penalty. Net would still regress vs `v5_fused`.
+
+**Decision.** Abandoned. Reverted to `v5_fused`. Archived kernel in
+`docs/archive/kernel_v8_umma_svp_attempt.cu` for future reference.
+
+**Key lesson.** On this workload the compute-bound bottleneck is V
+accumulate (≈60 % of per-tile cycles) and the kernel is already close
+to L2-bandwidth-bound at `v5_fused` occupancy. The only way UMMA could
+help is a per-(T, H) variant where the CTA structure doesn't force the
+`MMA_M=64` padding. Such a variant needs 64 `(t, h)` pairs to share the
+same K — which they fundamentally don't (each `t` has its own
+`sparse_idx`). There is no architecturally clean UMMA path for this
+workload at its current shape.
+
+### What a realistic 2× would need
+
+Achieving 2× vs `v5_fused` would require one of:
+1. **Algorithmic change**: reduce total K/V HBM traffic (FP8 KV cache,
+   cache-reuse across adjacent T via cluster multicast). FP8 KV halves
+   HBM bytes → ~15-25 % long-trace win. Requires quantization in
+   producer and dequantization in the kernel. Moderate risk.
+2. **Persistent kernel / grid-level scheduling**: amortize kernel launch
+   / prologue cost across many tokens. Helps short traces where we
+   already do well; modest geomean win.
+3. **Split-K for short traces**: extra parallelism for T < 148. Helps
+   the very fast workloads get even faster. Low marginal geomean
+   contribution because those workloads are already small absolute
+   time.
+
+None of these individually delivers 2×. The realistic ceiling from the
+current architecture with `v5_fused` as the baseline is probably
+~1.2-1.3× from stacking multiple small wins.
+
+### Next step
+
+Revert to `v5_fused` (`wombat_dsa_sparse_mla_cuda_v5_fused`). Pivot to
+lower-risk optimisations that stack additively without touching the
+core CTA / SMEM structure: HFMA2 for the logit dot product (Idea 13),
+FP8 KV cache feasibility study (Idea 2), and per-T-bucket kernel
+variants (Idea 20) driven by a runtime dispatch heuristic.

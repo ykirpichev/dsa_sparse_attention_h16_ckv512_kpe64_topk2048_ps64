@@ -1,5 +1,5 @@
 [solution]
-name = "wombat_dsa_sparse_mla_cuda_v4"
+name = "wombat_dsa_sparse_mla_cuda_v5_fused"
 definition = "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64"
 author = "Wombat"
 
