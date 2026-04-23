@@ -802,11 +802,20 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
     return;
   }
 
-  // gather4 tile issuer — runs on thread 0 only. Reads 16 (int32) row
-  // indices from s_gidx[tile*BK .. tile*BK+15], substitutes -1 with 0
-  // (the logit stage will mask those rows via the original s_gidx check),
-  // and fires 4 gather4s per descriptor (lo, hi, kpe) against the slot's
-  // mbarrier. One combined `arrive.expect_tx` accounts for all 12 loads.
+  // gather4 tile issuer — parallelized across warp 0 (lanes 0..11 each
+  // issue one gather4). Lane 0 also does the combined arrive+expect_tx.
+  //
+  // Lane → descriptor mapping (12 gather4s per tile, 4 per descriptor):
+  //   lanes 0..3   → ckv_lo, row-group gr=0..3
+  //   lanes 4..7   → ckv_hi, row-group gr=0..3
+  //   lanes 8..11  → kpe,    row-group gr=0..3
+  //
+  // Warp-uniform branch on `if (warp_id != 0) return;` leaves warps 1..7
+  // fully idle during issue — they'll wait at the next mbarrier_wait anyway.
+  // Within warp 0 the 3-way if/else over descriptor kind causes diverged
+  // issue over 3 warp cycles instead of 12 serial issues from thread 0 —
+  // saving ~9 warp cycles per tile. TMA unit still serializes the actual
+  // transfers (shared HW resource), but instruction dispatch is faster.
   //
   // Per-tile byte budget:
   //   ckv_lo:  BK rows × D_HALF bf16 = 16 * 256 * 2 =  8192 B
@@ -816,19 +825,25 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
   constexpr uint32_t TILE_CKV_HALF_BYTES = BK * D_HALF * sizeof(__nv_bfloat16);  // 8192
   constexpr uint32_t TILE_KPE_BYTES      = BK * D_KP   * sizeof(__nv_bfloat16);  // 2048
   constexpr uint32_t TILE_TX_BYTES       = 2 * TILE_CKV_HALF_BYTES + TILE_KPE_BYTES;  // 18432
+  const int warp_id = tid >> 5;
+  const int lane    = tid & (WARP - 1);
+  const int i       = tid;
   auto issue_tile_tma = [&](int tile, int buf) {
-    if (tid != 0) return;
+    if (warp_id != 0) return;
     const int k0 = tile * BK;
     __nv_bfloat16* lo_buf  = s_v_lo     + buf * (BK * D_HALF);
     __nv_bfloat16* hi_buf  = s_v_hi     + buf * (BK * D_HALF);
     __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
     uint64_t* mbar = &s_tile_mbar[buf];
-    mbarrier_arrive_expect_tx(mbar, TILE_TX_BYTES);
+    if (lane == 0) {
+      mbarrier_arrive_expect_tx(mbar, TILE_TX_BYTES);
+    }
 
-    // Row indices in batches of 4, with -1 → 0 fixup (mask handled downstream
-    // by the logit stage writing -INFINITY when s_gidx[k] < 0).
-    #pragma unroll
-    for (int gr = 0; gr < BK / 4; ++gr) {
+    // All 12 gather4 issuers compute their (descriptor, row-group) from lane.
+    // Lanes 12..31 are inactive for this entire block.
+    if (lane < 12) {
+      const int kind = lane >> 2;      // 0 = lo, 1 = hi, 2 = kpe
+      const int gr   = lane & 3;       // row-group within descriptor
       const int rbase = gr * 4;
       const int r0 = s_gidx[k0 + rbase + 0];
       const int r1 = s_gidx[k0 + rbase + 1];
@@ -839,22 +854,17 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
       const int32_t sr2 = (r2 >= 0) ? r2 : 0;
       const int32_t sr3 = (r3 >= 0) ? r3 : 0;
 
-      // ckv lo: 4 rows × 256 bf16 = 2 KiB per gather4. gather4 packs them
-      // at 512 B stride; matching s_v_lo[r*256..r*256+256] row-indexed layout.
-      {
+      // Per-lane dst/tmap selection. `tmap` pointer is to __grid_constant__
+      // which lives in constant memory — loads are effectively free.
+      if (kind == 0) {
         uint32_t dst = smem_addr(lo_buf + rbase * D_HALF);
         tma_gather4_2d(dst, &tmap_ckv_lo, mbar, /*col=*/0, sr0, sr1, sr2, sr3);
-      }
-      // ckv hi: same but into s_v_hi (descriptor's base is ckv_flat + D_HALF
-      // bf16, so col=0 covers elements [D_HALF .. D_CK)).
-      {
+      } else if (kind == 1) {
         uint32_t dst = smem_addr(hi_buf + rbase * D_HALF);
         tma_gather4_2d(dst, &tmap_ckv_hi, mbar, /*col=*/0, sr0, sr1, sr2, sr3);
-      }
-      // kpe: 4 rows × 64 bf16 = 512 B per gather4.
-      {
+      } else {  // kind == 2
         uint32_t dst = smem_addr(kpe_buf + rbase * D_KP);
-        tma_gather4_2d(dst, &tmap_kpe, mbar, /*col=*/0, sr0, sr1, sr2, sr3);
+        tma_gather4_2d(dst, &tmap_kpe,    mbar, /*col=*/0, sr0, sr1, sr2, sr3);
       }
     }
   };
@@ -877,10 +887,6 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
   for (int p = 0; p < V_PIPE; ++p) {
     if (p < n_valid_tiles) issue_tile_tma(p, p);
   }
-
-  const int warp_id = tid >> 5;
-  const int lane = tid & (WARP - 1);
-  const int i = tid;
 
   const __nv_bfloat162* qn2 = reinterpret_cast<const __nv_bfloat162*>(s_qn);
   const __nv_bfloat162* qp2 = reinterpret_cast<const __nv_bfloat162*>(s_qp);
