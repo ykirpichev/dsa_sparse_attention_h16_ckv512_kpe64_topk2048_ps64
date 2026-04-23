@@ -47,6 +47,14 @@ _EXTRA_CFLAGS = [
     "-fPIC",
 ]
 
+# Link against the CUDA driver API (libcuda.so) so the kernel.cu host code can
+# call cuTensorMapEncodeTiled to build TMA descriptors for the sm_100a
+# gather4-based variant of the sparse-attn kernel. libcudart (implicit via
+# nvcc) does not expose these symbols; they live in libcuda.
+_EXTRA_LDFLAGS = [
+    "-lcuda",
+]
+
 
 def _build_and_load():
     """Compile kernel.cu with sm_100a SASS and load the resulting .so.
@@ -59,6 +67,7 @@ def _build_and_load():
         cuda_files=[_KERNEL_CU],
         extra_cuda_cflags=_EXTRA_CUDA_CFLAGS,
         extra_cflags=_EXTRA_CFLAGS,
+        extra_ldflags=_EXTRA_LDFLAGS,
         extra_include_paths=[str(_MOD_DIR)],
     )
     return tvm_ffi.load_module(lib_path)

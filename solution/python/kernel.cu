@@ -47,6 +47,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <mutex>
 #include <unordered_map>
 
@@ -653,6 +654,300 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
 }
 
 // ==========================================================================
+// TMA (gather4) variant — Phase 5 / Step 2.
+// ==========================================================================
+//
+// Same math as `mla_sparse_attn_kernel`, but the per-tile ckv + kpe loads go
+// through `cp.async.bulk.tensor.2d.tile::gather4` (sm_100a) instead of
+// per-thread `cp.async.ca.shared.global` copies. Key differences:
+//
+//   * ckv / kpe are addressed via pre-built CUtensorMap descriptors passed
+//     by value as __grid_constant__ kernel args (the driver API encodes the
+//     base pointer + row stride; dimension-0 is the row, dimension-1 is the
+//     element index, box = (boxW, 1) as required for gather4).
+//
+//   * Completion is tracked by a per-V_PIPE-slot mbarrier. Thread 0 issues
+//     one `arrive.expect_tx` for the combined ckv+kpe byte count, then the
+//     stream of gather4 instructions increments the mbarrier's tx counter
+//     via the `.mbarrier::complete_tx::bytes` completion mechanism. Every
+//     thread in the CTA waits on the mbarrier via `try_wait.parity` and
+//     tracks its own phase bit per slot.
+//
+//   * SMEM layout is rearranged so s_v_tile[0], s_v_tile[1], s_kpe_tile[0]
+//     and s_kpe_tile[1] all land at 128-B-aligned offsets (the gather4 dst
+//     alignment requirement). The rest of the layout (q, gidx, logits,
+//     reduce) is shifted after the tile buffers and mbarriers.
+//
+//   * Invalid rows (sparse_idx == -1) are replaced with row 0 at issue
+//     time (TMA requires in-bounds coordinates); the logit stage still
+//     writes -INFINITY for those rows based on the original s_gidx value,
+//     so the loaded junk row contributes zero after the softmax.
+//
+//   * The `__syncthreads` after the mbarrier wait still serves the dual
+//     role the old SYNC_A had: (a) block-wide observation point after TMA,
+//     (b) fence preventing iter N+1's s_logits_tile write from racing with
+//     iter N's readers.
+__global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
+    const __nv_bfloat16* __restrict__ q_nope,
+    const __nv_bfloat16* __restrict__ q_pe,
+    const __grid_constant__ CUtensorMap tmap_ckv,
+    const __grid_constant__ CUtensorMap tmap_kpe,
+    const int32_t* __restrict__ sparse_idx,
+    float sm_scale_log2e,
+    __nv_bfloat16* __restrict__ out,
+    float* __restrict__ lse_out,
+    int64_t H,
+    int64_t num_kv_rows) {
+  const int t = blockIdx.x;
+  const int h = blockIdx.y;
+  const int tid = threadIdx.x;
+
+  const int64_t qh_off = (t * H + h) * D_CK;
+  const int64_t qp_off = (t * H + h) * D_KP;
+  const int64_t si_off = t * TOPK;
+  const int64_t out_off = (t * H + h) * D_CK;
+  const int64_t lse_i = t * H + h;
+
+  // SMEM layout (TMA variant — 128-B-aligned tile bufs at the front).
+  //   s_v_tile      [V_PIPE][BK][D_CK] bf16  32 KiB   (offset 0, 128-B aligned)
+  //   s_kpe_tile    [V_PIPE][BK][D_KP] bf16   4 KiB   (offset 32 KiB, 128-B aligned)
+  //   s_tile_mbar   [V_PIPE]           u64    16 B    (offset 36 KiB)
+  //   s_logits_tile [BK]               fp32   64 B
+  //   s_qn          [D_CK]             bf16    1 KiB
+  //   s_qp          [D_KP]             bf16  128 B
+  //   s_gidx        [TOPK]             int32   8 KiB
+  //   s_reduce      [NUM_WARPS]        fp32   32 B
+  //   TOTAL ≈ 46 KiB (same as non-TMA variant, layout reordered).
+  extern __shared__ unsigned char raw[];
+  __nv_bfloat16* s_v_tile   = reinterpret_cast<__nv_bfloat16*>(raw);
+  __nv_bfloat16* s_kpe_tile = s_v_tile + V_PIPE * BK * D_CK;
+  uint64_t* s_tile_mbar     = reinterpret_cast<uint64_t*>(s_kpe_tile + V_PIPE * BK * D_KP);
+  float* s_logits_tile      = reinterpret_cast<float*>(s_tile_mbar + V_PIPE);
+  __nv_bfloat16* s_qn       = reinterpret_cast<__nv_bfloat16*>(s_logits_tile + BK);
+  __nv_bfloat16* s_qp       = s_qn + D_CK;
+  int* s_gidx               = reinterpret_cast<int*>(s_qp + D_KP);
+  float* s_reduce           = reinterpret_cast<float*>(s_gidx + TOPK);
+
+  // Init mbarriers: one arrival (thread 0) per phase; tx bytes accumulate
+  // via the gather4 completion mechanism. A proxy fence is required between
+  // the generic-proxy ST.shared of mbarrier.init and the async-proxy read
+  // the TMA engine performs; the __syncthreads inside block_reduce_max
+  // downstream provides the CTA-wide visibility, but we issue the fence
+  // explicitly so the intent is clear and not dependent on reduction
+  // internals.
+  if (tid < V_PIPE) {
+    mbarrier_init(&s_tile_mbar[tid], 1);
+  }
+  asm volatile("fence.mbarrier_init.release.cluster;\n" ::);
+
+  // Async Q issue (identical to the non-TMA variant — we keep Q on the old
+  // cp.async path because it's 1152 B total, not worth a TMA descriptor).
+  if (tid < Q_CK_CHUNKS) {
+    const uint4* src = reinterpret_cast<const uint4*>(q_nope + qh_off) + tid;
+    uint4* dst = reinterpret_cast<uint4*>(s_qn) + tid;
+    cp_async_16(__cvta_generic_to_shared(dst), src);
+  }
+  if (tid < Q_KP_CHUNKS) {
+    const uint4* src = reinterpret_cast<const uint4*>(q_pe + qp_off) + tid;
+    uint4* dst = reinterpret_cast<uint4*>(s_qp) + tid;
+    cp_async_16(__cvta_generic_to_shared(dst), src);
+  }
+  cp_async_commit_group();
+
+  // int4 prescan of sparse_idx (same as non-TMA variant).
+  int local_max_valid_k_p1 = 0;
+  const int4* sp_base = reinterpret_cast<const int4*>(sparse_idx + si_off);
+  int4* sg_base = reinterpret_cast<int4*>(s_gidx);
+  #pragma unroll
+  for (int c = 0; c < IDX_INT4_PER_THREAD; ++c) {
+    const int kb = tid + c * THREADS;
+    const int k0 = kb * 4;
+    const int4 g4 = sp_base[kb];
+    int4 s4;
+    s4.x = (g4.x >= 0 && static_cast<int64_t>(g4.x) < num_kv_rows) ? g4.x : -1;
+    s4.y = (g4.y >= 0 && static_cast<int64_t>(g4.y) < num_kv_rows) ? g4.y : -1;
+    s4.z = (g4.z >= 0 && static_cast<int64_t>(g4.z) < num_kv_rows) ? g4.z : -1;
+    s4.w = (g4.w >= 0 && static_cast<int64_t>(g4.w) < num_kv_rows) ? g4.w : -1;
+    sg_base[kb] = s4;
+    if (s4.x >= 0 && (k0 + 1) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 1;
+    if (s4.y >= 0 && (k0 + 2) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 2;
+    if (s4.z >= 0 && (k0 + 3) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 3;
+    if (s4.w >= 0 && (k0 + 4) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 4;
+  }
+  const float reduced_max = block_reduce_max(static_cast<float>(local_max_valid_k_p1), s_reduce);
+  const int n_valid_rows = static_cast<int>(reduced_max);
+  int n_valid_tiles = (n_valid_rows + BK - 1) / BK;
+  if (n_valid_tiles > NUM_V_TILES) n_valid_tiles = NUM_V_TILES;
+
+  if (n_valid_tiles == 0) {
+    cp_async_wait_group<0>();
+    if (tid == 0) lse_out[lse_i] = -INFINITY;
+    const __nv_bfloat162 zero = __halves2bfloat162(f_to_bf16(0.f), f_to_bf16(0.f));
+    reinterpret_cast<__nv_bfloat162*>(out + out_off)[tid] = zero;
+    return;
+  }
+
+  // gather4 tile issuer — runs on thread 0 only. Reads 16 (int32) row
+  // indices from s_gidx[tile*BK .. tile*BK+15], substitutes -1 with 0
+  // (the logit stage will mask those rows via the original s_gidx check),
+  // and fires 4 gather4s for ckv + 4 gather4s for kpe against the slot's
+  // mbarrier. One combined `arrive.expect_tx` accounts for all 8 loads.
+  constexpr uint32_t TILE_CKV_BYTES = BK * D_CK * sizeof(__nv_bfloat16);  // 16384
+  constexpr uint32_t TILE_KPE_BYTES = BK * D_KP * sizeof(__nv_bfloat16);  //  2048
+  constexpr uint32_t TILE_TX_BYTES  = TILE_CKV_BYTES + TILE_KPE_BYTES;    // 18432
+  auto issue_tile_tma = [&](int tile, int buf) {
+    if (tid != 0) return;
+    const int k0 = tile * BK;
+    __nv_bfloat16* ckv_buf = s_v_tile   + buf * (BK * D_CK);
+    __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
+    uint64_t* mbar = &s_tile_mbar[buf];
+    mbarrier_arrive_expect_tx(mbar, TILE_TX_BYTES);
+
+    // ckv: 4 gather4 × 4 rows × D_CK bf16 = 16 KiB total into ckv_buf.
+    #pragma unroll
+    for (int gr = 0; gr < BK / 4; ++gr) {
+      const int rbase = gr * 4;
+      const int r0 = s_gidx[k0 + rbase + 0];
+      const int r1 = s_gidx[k0 + rbase + 1];
+      const int r2 = s_gidx[k0 + rbase + 2];
+      const int r3 = s_gidx[k0 + rbase + 3];
+      const int32_t sr0 = (r0 >= 0) ? r0 : 0;
+      const int32_t sr1 = (r1 >= 0) ? r1 : 0;
+      const int32_t sr2 = (r2 >= 0) ? r2 : 0;
+      const int32_t sr3 = (r3 >= 0) ? r3 : 0;
+      uint32_t dst = smem_addr(ckv_buf + rbase * D_CK);
+      tma_gather4_2d(dst, &tmap_ckv, mbar, /*col=*/0, sr0, sr1, sr2, sr3);
+    }
+    // kpe: 4 gather4 × 4 rows × D_KP bf16 = 2 KiB total into kpe_buf.
+    #pragma unroll
+    for (int gr = 0; gr < BK / 4; ++gr) {
+      const int rbase = gr * 4;
+      const int r0 = s_gidx[k0 + rbase + 0];
+      const int r1 = s_gidx[k0 + rbase + 1];
+      const int r2 = s_gidx[k0 + rbase + 2];
+      const int r3 = s_gidx[k0 + rbase + 3];
+      const int32_t sr0 = (r0 >= 0) ? r0 : 0;
+      const int32_t sr1 = (r1 >= 0) ? r1 : 0;
+      const int32_t sr2 = (r2 >= 0) ? r2 : 0;
+      const int32_t sr3 = (r3 >= 0) ? r3 : 0;
+      uint32_t dst = smem_addr(kpe_buf + rbase * D_KP);
+      tma_gather4_2d(dst, &tmap_kpe, mbar, /*col=*/0, sr0, sr1, sr2, sr3);
+    }
+  };
+
+  static_assert(D_CK == 2 * THREADS, "packed output path requires D_CK == 2*THREADS");
+
+  float m = -INFINITY, l = 0.f, o0 = 0.f, o1 = 0.f;
+
+  // Per-slot phase bit tracker (thread-local; all threads stay in lockstep).
+  uint32_t tile_phase[V_PIPE];
+  #pragma unroll
+  for (int p = 0; p < V_PIPE; ++p) tile_phase[p] = 0;
+
+  // Prefetch: issue up to V_PIPE tiles ahead.
+  #pragma unroll
+  for (int p = 0; p < V_PIPE; ++p) {
+    if (p < n_valid_tiles) issue_tile_tma(p, p);
+  }
+
+  const int warp_id = tid >> 5;
+  const int lane = tid & (WARP - 1);
+  const int i = tid;
+
+  const __nv_bfloat162* qn2 = reinterpret_cast<const __nv_bfloat162*>(s_qn);
+  const __nv_bfloat162* qp2 = reinterpret_cast<const __nv_bfloat162*>(s_qp);
+
+  // Drain the Q cp.async now that we've also issued the V_PIPE tile
+  // prefetches — gives ~V_PIPE tiles worth of TMA in-flight overlap with
+  // the Q load. The SYNC_A-TMA __syncthreads inside the loop publishes Q
+  // to all threads block-wide before the first logit read.
+  cp_async_wait_group<0>();
+
+  for (int tile = 0; tile < n_valid_tiles; ++tile) {
+    const int buf = tile & 1;
+
+    // Wait for this tile's TMA load to complete.
+    mbarrier_wait(&s_tile_mbar[buf], tile_phase[buf]);
+    tile_phase[buf] ^= 1;
+    __syncthreads();  // SYNC_A-TMA: cross-thread fence + ordering for
+                      // iter+1's s_logits_tile reuse (no SYNC_C later).
+
+    // Issue V_PIPE ahead (same slot we just consumed).
+    const int pref_tile = tile + V_PIPE;
+    if (pref_tile < n_valid_tiles) {
+      issue_tile_tma(pref_tile, pref_tile & 1);
+    }
+
+    const __nv_bfloat16* ckv_buf = s_v_tile + buf * (BK * D_CK);
+    const __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
+
+    // --- Phase 1: logit compute (warp-parallel, 2 dots per warp) ---
+    #pragma unroll
+    for (int wr = 0; wr < 2; ++wr) {
+      const int r = warp_id * 2 + wr;
+      const int k = tile * BK + r;
+      const __nv_bfloat162* kc2 = reinterpret_cast<const __nv_bfloat162*>(ckv_buf + r * D_CK);
+      const __nv_bfloat162* kp2 = reinterpret_cast<const __nv_bfloat162*>(kpe_buf + r * D_KP);
+
+      float acc = 0.f;
+      #pragma unroll
+      for (int j = 0; j < D_CK / 2 / WARP; ++j) {
+        const int i2 = j * WARP + lane;
+        const float2 kf = __bfloat1622float2(kc2[i2]);
+        const float2 qf = __bfloat1622float2(qn2[i2]);
+        acc += qf.x * kf.x + qf.y * kf.y;
+      }
+      {
+        const float2 kf = __bfloat1622float2(kp2[lane]);
+        const float2 qf = __bfloat1622float2(qp2[lane]);
+        acc += qf.x * kf.x + qf.y * kf.y;
+      }
+      acc = warp_reduce_sum(acc);
+      if (lane == 0) {
+        const int g = s_gidx[k];
+        s_logits_tile[r] = (g >= 0) ? (acc * sm_scale_log2e) : -INFINITY;
+      }
+    }
+    __syncthreads();  // SYNC_B
+
+    // --- Phase 2: online-softmax rescale + V accumulate ---
+    float tile_max = -INFINITY;
+    #pragma unroll
+    for (int r = 0; r < BK; ++r) tile_max = fmaxf(tile_max, s_logits_tile[r]);
+
+    if (tile_max > -INFINITY) {
+      const float m_new = fmaxf(m, tile_max);
+      const float alpha = (m == -INFINITY) ? 0.f : exp2f(m - m_new);
+      l  *= alpha;
+      o0 *= alpha;
+      o1 *= alpha;
+
+      const __nv_bfloat162* tile_pairs = reinterpret_cast<const __nv_bfloat162*>(ckv_buf);
+      #pragma unroll
+      for (int r = 0; r < BK; ++r) {
+        const float logit = s_logits_tile[r];
+        const float p = exp2f(logit - m_new);
+        const float2 kf = __bfloat1622float2(tile_pairs[r * (D_CK / 2) + i]);
+        l  += p;
+        o0 += p * kf.x;
+        o1 += p * kf.y;
+      }
+      m = m_new;
+    }
+  }
+
+  // Invalidate mbarriers before CTA exit (recommended by PTX spec to allow
+  // the SMEM backing to be reused cleanly under launch_bounds).
+  if (tid < V_PIPE) mbarrier_inval(&s_tile_mbar[tid]);
+
+  const float inv_l = 1.f / l;
+  if (tid == 0) lse_out[lse_i] = m + log2f(l);
+  const __nv_bfloat162 packed =
+      __halves2bfloat162(f_to_bf16(o0 * inv_l), f_to_bf16(o1 * inv_l));
+  reinterpret_cast<__nv_bfloat162*>(out + out_off)[i] = packed;
+}
+
+// ==========================================================================
 // Phase-3 Split-K.
 // ==========================================================================
 //
@@ -1039,6 +1334,105 @@ struct SplitKScratch {
 
 static SplitKScratch g_split_scratch;
 
+// ---------------------------------------------------------------------------
+// TMA descriptor cache (host side).
+//
+// For each (base_ptr, num_kv_rows, boxW) triple the driver API's
+// `cuTensorMapEncodeTiled` call populates a 128-byte CUtensorMap. Encoding
+// costs a few microseconds per call — acceptable for long traces but a real
+// tax on tiny workloads. We cache by (ptr, rows, boxW) so each benchmark
+// only pays it once.
+//
+// Caveat: if a tensor pointer is freed and another tensor reallocates at
+// the same address with a different shape, the cache would return a stale
+// descriptor. We key on num_kv_rows and boxW to catch the shape-change case
+// but NOT a same-shape reallocation. Acceptable risk for the benchmark
+// scenario (tensors are allocated once and reused).
+// ---------------------------------------------------------------------------
+struct TmaDescKey {
+  uintptr_t ptr;
+  int64_t num_rows;
+  int32_t boxW;
+  bool operator==(const TmaDescKey& o) const noexcept {
+    return ptr == o.ptr && num_rows == o.num_rows && boxW == o.boxW;
+  }
+};
+struct TmaDescKeyHash {
+  size_t operator()(const TmaDescKey& k) const noexcept {
+    size_t h = std::hash<uintptr_t>()(k.ptr);
+    h ^= std::hash<int64_t>()(k.num_rows) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+    h ^= std::hash<int32_t>()(k.boxW)     + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+    return h;
+  }
+};
+
+struct TmaDescCache {
+  std::unordered_map<TmaDescKey, CUtensorMap, TmaDescKeyHash> map;
+  std::mutex mu;
+
+  const CUtensorMap* get_or_make(const void* base_ptr, int64_t num_rows, int32_t boxW) {
+    std::lock_guard<std::mutex> lk(mu);
+    TmaDescKey key{reinterpret_cast<uintptr_t>(base_ptr), num_rows, boxW};
+    auto it = map.find(key);
+    if (it != map.end()) return &it->second;
+
+    CUtensorMap tmap{};
+    // 2D tensor (num_rows × boxW); gather4 box is (boxW, 1).
+    uint64_t tensor_size[2] = {
+        static_cast<uint64_t>(boxW),
+        static_cast<uint64_t>(num_rows)
+    };
+    // Outer-dim stride in bytes: boxW bf16 = boxW * 2 B.
+    uint64_t tensor_stride[1] = {
+        static_cast<uint64_t>(boxW) * sizeof(__nv_bfloat16)
+    };
+    uint32_t box_size[2] = { static_cast<uint32_t>(boxW), 1u };
+    uint32_t elem_stride[2] = { 1u, 1u };
+    CUresult res = cuTensorMapEncodeTiled(
+        &tmap, CU_TENSOR_MAP_DATA_TYPE_BFLOAT16, 2,
+        const_cast<void*>(base_ptr),
+        tensor_size, tensor_stride, box_size, elem_stride,
+        CU_TENSOR_MAP_INTERLEAVE_NONE,
+        CU_TENSOR_MAP_SWIZZLE_NONE,
+        CU_TENSOR_MAP_L2_PROMOTION_NONE,
+        CU_TENSOR_MAP_FLOAT_OOB_FILL_NONE);
+    TVM_FFI_ICHECK_EQ(static_cast<int>(res), static_cast<int>(CUDA_SUCCESS))
+        << "cuTensorMapEncodeTiled failed (res=" << static_cast<int>(res) << ")";
+    auto ins = map.emplace(key, tmap);
+    return &ins.first->second;
+  }
+};
+
+static TmaDescCache g_tma_cache;
+
+// Kernel-attrs init for the TMA variant. Called from configure_kernel_attrs_once.
+static bool g_tma_attrs_ready = false;
+static void configure_tma_kernel_attrs() {
+  if (g_tma_attrs_ready) return;
+  g_tma_attrs_ready = true;
+  cudaFuncSetAttribute(mla_sparse_attn_kernel_tma,
+                       cudaFuncAttributeMaxDynamicSharedMemorySize,
+                       KERNEL_MAX_DYN_SMEM);
+  cudaFuncAttributes attrs{};
+  cudaFuncGetAttributes(&attrs, (const void*)mla_sparse_attn_kernel_tma);
+  fprintf(stderr,
+          "[mla_sparse_attn_tma] regs/thread=%d  static_smem=%zu  "
+          "max_dyn_smem=%d  max_threads=%d\n",
+          attrs.numRegs, (size_t)attrs.sharedSizeBytes,
+          attrs.maxDynamicSharedSizeBytes, attrs.maxThreadsPerBlock);
+}
+
+// Env-gated opt-in for the TMA path (default off during bring-up).
+static bool tma_enabled() {
+  static const bool enabled = []() {
+    const char* env = std::getenv("MLA_SPARSE_ATTN_TMA");
+    if (!env) return false;
+    return env[0] == '1' || env[0] == 't' || env[0] == 'T'
+        || env[0] == 'y' || env[0] == 'Y';
+  }();
+  return enabled;
+}
+
 void configure_kernel_attrs_once() {
   static std::once_flag once;
   std::call_once(once, []() {
@@ -1237,7 +1631,8 @@ void kernel_fn(
     //   s_reduce     : NUM_WARPS * fp32 (32 B)
     //   s_v_tile     : V_PIPE * BK * D_CK * bf16 (32 KiB)
     //   s_kpe_tile   : V_PIPE * BK * D_KP * bf16 (4 KiB)
-    const size_t shmem =
+    //   + TMA path only: 2 × u64 mbarriers (16 B, negligible).
+    const size_t shmem_base =
         static_cast<size_t>(BK) * sizeof(float)
         + static_cast<size_t>(D_CK + D_KP) * sizeof(__nv_bfloat16)
         + static_cast<size_t>(TOPK) * sizeof(int)
@@ -1245,9 +1640,20 @@ void kernel_fn(
         + static_cast<size_t>(V_PIPE) * BK * D_CK * sizeof(__nv_bfloat16)
         + static_cast<size_t>(V_PIPE) * BK * D_KP * sizeof(__nv_bfloat16);
     const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
-    mla_sparse_attn_kernel<<<grid, block, shmem, stream>>>(
-        q_nope_p, q_pe_p, ckv_p, kpe_p, si_p, sm_log2e,
-        out_p, lse_p, H, num_kv_rows);
+    if (tma_enabled()) {
+      configure_tma_kernel_attrs();
+      const CUtensorMap* tm_ckv = g_tma_cache.get_or_make(ckv_p, num_kv_rows, D_CK);
+      const CUtensorMap* tm_kpe = g_tma_cache.get_or_make(kpe_p, num_kv_rows, D_KP);
+      const size_t shmem_tma = shmem_base
+          + static_cast<size_t>(V_PIPE) * sizeof(uint64_t);
+      mla_sparse_attn_kernel_tma<<<grid, block, shmem_tma, stream>>>(
+          q_nope_p, q_pe_p, *tm_ckv, *tm_kpe, si_p, sm_log2e,
+          out_p, lse_p, H, num_kv_rows);
+    } else {
+      mla_sparse_attn_kernel<<<grid, block, shmem_base, stream>>>(
+          q_nope_p, q_pe_p, ckv_p, kpe_p, si_p, sm_log2e,
+          out_p, lse_p, H, num_kv_rows);
+    }
   } else if (G == 2) {
     launch_split_partial_and_reduce<2>(
         T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
