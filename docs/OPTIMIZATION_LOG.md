@@ -790,3 +790,88 @@ still a 100×+ speedup vs reference.
   had `nvt_slice==0` except one) would eliminate the `68d6817d`
   regression. Not free — requires a zero-copy flag. Defer.
 
+
+## Phase 5 — sm_100a specialization + TMA gather4 attempt (2026-04-22)
+
+### Phase 5 step 1 — `sm_100a`-only code hygiene
+
+Committed `kernel.cu: phase 5 step 1 — sm_100a cleanup + drop redundant pre-reduce sync`.
+
+- Added `#if __CUDA_ARCH__ < 1000 / #error` guard so the file only builds for
+  sm_100a (Blackwell B200).
+- Rewrote the file header to describe the sm_100a-only design, per-phase
+  invariants, and the terse history of ablations (UMMA, H-fast grid, cond
+  rescale, heads-fused v8) as inline rationales instead of verbose blocks.
+- Dropped two redundant `__syncthreads()` before `block_reduce_max` (the
+  reduction primitive barriers internally).
+- Removed the `require_b200()` runtime probe — static compile-time guard
+  makes it impossible to hit the non-sm_100a code path.
+
+Perf: neutral across full bench (hygiene win, not a latency win).
+
+### Phase 5 step 2 — TMA gather4 variant (half-row SMEM)
+
+Scaffolded on branch `phase5-tma`. Commits:
+- `phase 5 step 2a — TMA device-side helpers (unused scaffolding)`
+- `phase 5 step 2b — gather4 TMA variant of main kernel (opt-in)`
+- `phase 5 step 2c — half-row TMA (2× boxW=256 ckv + kpe)`
+- `phase 5 step 2d — fix TMA prefetch race on slot reuse`
+
+Design:
+- Replaced the `G==1` kernel’s per-tile `cp.async.ca.shared.global` loops
+  (≈1280 instructions per tile) with `cp.async.bulk.tensor.2d.tile::gather4`
+  issued by thread 0 only (12 instructions per tile: 4 ckv-lo + 4 ckv-hi
+  + 4 kpe). Completion tracked via per-slot `mbarrier` with phase-parity
+  wait.
+- `cuTensorMapEncodeTiled` caps `boxDim[i] ≤ 256`, but `D_CK = 512`, so
+  `ckv_flat` is encoded as two strided half-row descriptors — `lo` at base
+  `ckv_flat` covering cols [0, 256), `hi` at base `ckv_flat + D_HALF`
+  covering cols [256, 512). SMEM layout splits the value arena into two
+  separate `[V_PIPE][BK][D_HALF]` bf16 regions. Both halves share row-stride
+  `D_CK * sizeof(bf16) = 1024 B` in the descriptor.
+- Logit compute does two 128-bf162 inner sweeps (lo + hi) instead of one
+  256-bf162 sweep. V-accumulate becomes warp-uniform: warps 0..3 (tid < 128)
+  consume lo, warps 4..7 consume hi.
+- Host-side `TmaDescCache` keys on `(ptr, rows, boxW, row_stride)`; each
+  (`ckv_flat`, hi-offset, kpe_flat) descriptor built once per unique
+  tensor layout.
+
+Bug found and fixed (step 2d):
+- First correctness run showed 3/10 smoke workloads with `abs_err ≈ 3-4`.
+  Root cause: the prefetch `issue_tile_tma(tile+V_PIPE, ...)` was called
+  immediately after `mbarrier_wait`, into the SAME slot we were about to
+  read in the logit + V-accum phases — TMA writes land in SMEM via the
+  async proxy as they arrive, so the producer was overwriting a slot
+  while consumers were still reading it.
+- Fix: move the prefetch issue to the END of the iteration, gated by an
+  extra `__syncthreads` (SYNC_C-TMA) acting as a read-before-rewrite
+  fence.
+
+A/B (FULL bench, Modal B200, 23 workloads, `MLA_SPARSE_ATTN_TMA=1` vs off):
+
+| regime | n | base geomean (ms) | TMA geomean (ms) | Δ |
+| --- | ---: | ---: | ---: | ---: |
+| all workloads | 23 | 0.0270 | 0.0274 | **+1.68 %** |
+| short, G=1 TMA-path | 8 | 0.0093 | 0.0097 | **+4.40 %** |
+| long, split-K | 15 | 0.0477 | 0.0478 | +0.25 % (noise) |
+
+All 23 workloads remain correct. Full report: `artifacts/p5b/ab_report.md`;
+raw logs: `artifacts/p5b/full_tma.log`, `artifacts/p5b/full_nontma.log`.
+
+Verdict: TMA regresses the latency-critical G=1 path by +4.4 % and is
+neutral on split-K (which does not use TMA anyway). Kept the code on
+`phase5-tma` behind the `MLA_SPARSE_ATTN_TMA` env toggle as reference,
+but do NOT enable by default. Reasons TMA does not win here:
+- Per-tile setup cost (12 serialized gather4s + mbarrier dance) is fixed,
+  but TOPK=2048 / BK=16 gives at most 128 tiles — not enough to amortize.
+- The race fix added one extra `__syncthreads` per tile that the cp.async
+  baseline does not need (cp.async writes are invisible to the generic
+  proxy until `cp.async.wait_group`, so no producer-vs-consumer fence).
+- `D_CK = 512 > 256` cap forced two ckv descriptors (8 → 12 gather4s per
+  tile), halving the "one instruction, many bytes" advantage.
+
+Future directions that could flip the verdict: warp-specialized producer
+/consumer (split threadblock into TMA-issuer warp + compute warps,
+pipeline depth ≥ 4) or longer sequences (TOPK ≥ 4096 / BK ≥ 32) where
+the per-tile overhead is amortized better. Not pursued here.
+
