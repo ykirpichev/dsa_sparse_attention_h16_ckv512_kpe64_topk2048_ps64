@@ -536,3 +536,257 @@ lower-risk optimisations that stack additively without touching the
 core CTA / SMEM structure: HFMA2 for the logit dot product (Idea 13),
 FP8 KV cache feasibility study (Idea 2), and per-T-bucket kernel
 variants (Idea 20) driven by a runtime dispatch heuristic.
+
+---
+
+## v9_h4_scalar (FAILED — archived): per-(T, H/4) CTA, pure scalar
+
+**Motivation.** After v8's UMMA failure, reproposed a per-(T, H/4) CTA that
+packs 4 heads per block as a *stepping-stone* for a later UMMA-V swap
+(v10). The hypothesis was that V-reuse across 4 heads in the inner r-loop
+would give ~15-25 % on long traces even in the pure-scalar variant, and
+set up the SMEM / register budget for UMMA V later.
+
+**Design.**
+- Grid `dim3(T, H/4)`, 256 threads. Per-CTA state: `m[4], l[4], o0[4],
+  o1[4]` plus temporaries.
+- Logit pass: each warp does 8 warp-reduced dots per tile (vs 2 in v5),
+  covering the full `H_PER_CTA × BK = 64` logit grid.
+- Softmax/V: classic online-softmax per head; inner r-loop reuses one
+  `bf162` V load for all 4 heads (`p * v0, p * v1` for each h).
+- SMEM `~49 KiB` per CTA (Q × 4 heads pushed this up from 46 KiB).
+- `__launch_bounds__(256, 3)` forces 80 regs/thread, `localSz=32 B`,
+  `occ=3 CTAs/SM` — identical to v5_fused.
+
+**Correctness.** All 10 smoke workloads PASSED.
+
+**Performance (smoke, abs latency ms vs `v5_fused`).**
+| workload    | v5_fused | v9_h2 | v9_h4 |
+|-------------|---------:|------:|------:|
+| 5096e459 (long)  | 0.131 | 0.230 | 0.432 |
+| d57eb9e1 (long)  | 0.131 | 0.231 | 0.430 |
+| 232ed014         | 0.076 | 0.132 | 0.242 |
+| 4c46a94b         | 0.070 | 0.121 | 0.223 |
+| 9f3f891b         | 0.027 | 0.043 | 0.074 |
+| 0a63b87b (short) | 0.015 | 0.018 | 0.027 |
+| 0c23b10c (short) | 0.010 | 0.013 | 0.016 |
+
+**Every workload regresses — strictly linearly in `H_PER_CTA`:**
+- `h4` is **~3.3× slower** than `v5_fused` everywhere (long + short).
+- `h2` is **~1.76× slower** than `v5_fused` everywhere.
+- Doubling `H_PER_CTA` nearly doubles wall time.
+
+**Root cause.** The hoped-for V-reuse amortisation simply is not there.
+On `v5_fused`:
+- 3 CTAs/SM × 148 SM × 16 heads/token → hardware grid scheduler co-
+  schedules same-`t` CTAs within an L2 window. Every K/V row is served
+  from L2 for the 15 subsequent head-CTAs that want it. Explicit
+  in-register V reuse in `v9_h4` replaces 16-way L2 sharing with 4-way
+  per-CTA-register sharing — no improvement, because the L2 path was
+  already free.
+- Per-CTA SMEM-load bandwidth is NOT the bottleneck for v5; SMEM reads
+  overlap with FMAs and `exp2f` issues. Merging 4× the V FMAs and 4× the
+  `exp2f`s into one CTA just piles 4× more work onto the same compute
+  pipe, for no gain — and the grid is 4× smaller, so SM-time is
+  unchanged best case, strictly worse in practice (register / scheduler
+  overhead per extra head).
+
+**The strict linear scaling is diagnostic.** Per-CTA time scales as
+`H_PER_CTA × (v5 per-CTA cost) + overhead`. Dividing by `H_PER_CTA`
+CTAs keeps total work unchanged → same wall time *iff* there's no
+overhead. We observe **1.76× regression per doubling**, meaning there IS
+a per-extra-head overhead of ~1.76× / 2 = ~0.88 on top of the multi-head
+work. Likely a mix of (a) register-file pressure hurting FMA ILP, (b)
+SMEM bank-conflict-less but broadcast-heavy reads of `s_logits_tile[h*BK+r]`,
+(c) cross-head dep chains the compiler can't schedule through.
+
+**Implication for the planned UMMA-V on top (v10).**
+- The scalar baseline is already 1.76-3.3× slower than v5.
+- UMMA V would need to reclaim that AND add 20 % to beat v5.
+- `tcgen05.mma.kind::f16` MMA for `[heads=4..8, D_CK=512, BK=16]` is
+  architecturally possible (via `b_major=MN` on the natural V layout),
+  but the best-case theoretical saving is the V FMA cost — maybe 50 %
+  of per-CTA time — which gives ~2× on that slice, i.e. new
+  `v9_h4` per-CTA = ~1.8× → still ~45 % slower than v5_fused.
+- Even under optimistic UMMA-V assumptions, v10 cannot beat v5_fused.
+  The h4 restructure is the wrong vehicle for UMMA on this workload.
+
+**Decision.** Abandon D. Revert to `v5_fused`. Archive the v9 kernel in
+`docs/archive/kernel_v9_h4_scalar_attempt.cu`.
+
+**Bottom line (2× target).** v5_fused is *at or very near* the ceiling
+for this kernel shape on B200. Both UMMA directions (v8: fused-heads,
+v9/v10: head-grouped) have now been eliminated by architecture
+constraints:
+
+- UMMA `M≥64` requirement × `H=16` makes fused-heads unaffordable on
+  SMEM / occupancy.
+- Head-grouping CTAs is strictly pessimal in scalar form; UMMA on top
+  cannot recover 1.76-3.3× per-CTA overhead plus hit `target > v5`.
+
+The 2× target appears unreachable from `v5_fused` without an
+algorithmic change that is *outside the contest rules as understood*
+(e.g. pre-quantised KV cache). Realistic remaining wins are
+low-single-digit % from micro-opts (HFMA2, per-T-bucket dispatch,
+persistent CTAs).
+
+---
+
+## Phase 1 — `cp.async` Q load + `int4` sparse_idx prescan + zero-init invalid rows (branch `phase1-qasync-idx4-zeros`, commit `98752bc`)
+
+**Status.** KEPT. Full bench geomean latency **−16.4%** vs v5_fused, speedup geomean **+20%** (all 23 workloads PASS). Log: `artifacts/phase1_full_bench_20260422T224042.log`.
+
+**Rationale.** The `v5_fused` prologue was a synchronous gauntlet: 3× `ldg.128`
+per thread for Q_nope (256 thr × 8 B × 3 = 6 KiB), then a scalar per-thread
+loop over 2048 `sparse_idx` entries (8 scalar loads/thread). All three ideas
+are pure micro-opts, none touches the hot loop, and all three share one
+theme: cut setup latency and overlap what's left.
+
+**Changes (all in `solution/python/kernel.cu`, single-kernel path).**
+
+1. **`cp.async` for Q_nope + Q_pe.** Replaced 12×128-bit synchronous `uint4`
+   reads with non-blocking `cp.async.ca.shared.global` (group 0). Q now
+   arrives in SMEM as a background copy while the sparse_idx prescan runs.
+
+2. **`int4` vectorised sparse_idx prescan.** The max-valid-k scan was a
+   scalar loop reading 2048 `int32` one at a time per thread (8 loads). With
+   `TOPK = 2048` and `THREADS = 256`, each thread owns `2048/256 = 8`
+   indices = 2 `int4` (128-bit) words. Rewrote the prescan as 2 `int4`
+   loads/thread + 4 scalar extracts per word. Same work, 4× fewer
+   transactions, and overlapped with the Q `cp.async`.
+
+3. **Zero-init SMEM for invalid rows.** `g_idx < 0` tiles previously fell
+   back to `ckv_flat[0]` (which was simply wasted HBM bw — the zero-guard
+   later masked them out of the logit/value paths). Replaced with a local
+   zeroed store into SMEM. Saves 1-8 HBM transactions per invalid row per
+   tile across the K loop.
+
+**Measured per-workload (23 workloads, absolute latency in ms).**
+- Tiny workloads (8-10 µs baseline) drop 20-38% → 5-8 µs.
+- Mid workloads (50-75 µs baseline) drop ~10-15%.
+- Long workloads (123-125 µs baseline) drop ~6-8%.
+
+Small-workload gains dominate because the prologue is a larger fraction of
+wall time. On long traces the prologue is dwarfed by the K-loop so the
+micro-opts see diminishing returns — which flagged the need for **Phase 3
+(split-K)** to attack the K-loop directly.
+
+**Safety.** Added `cp_async_wait_group<0>()` before the early-return branch
+for `n_valid_tiles == 0`; otherwise Q cp.async groups could leak into the
+next kernel slot. No other correctness changes.
+
+| Rev | Idea(s) | Geomean latency Δ | Geomean speedup Δ | Notes |
+| --- | ------- | ----------------- | ------------------- | ----- |
+| **phase1 (kept)** | cp.async Q + int4 prescan + zero-init invalid | **−16.4%** | **+20.0%** | 23/23 PASS. Gains dominated by small workloads. Log: `artifacts/phase1_full_bench_20260422T224042.log`. |
+
+---
+
+## Phase 3 — Split-K (FlashDecoding-style) for small T×H grids (branch `phase3-splitk`)
+
+**Status.** KEPT. Full bench geomean latency **−30.35% vs Phase 1**
+(and **~−42% vs v5_fused**); geomean speedup **+43% vs Phase 1** (~+72%
+vs v5_fused). 23/23 PASS. Log:
+`artifacts/p3/phase3_full_bench_20260423T055844.log`.
+
+**Rationale.** After Phase 1 the long (T × H small) workloads still sat at
+~115 µs, dominated by the K-loop running on too few CTAs — e.g. T=4,
+H=16 → 64 CTAs, vs ~444 available slots on B200 (148 SMs × 3 CTAs/SM at
+our occupancy). The SM array was half-idle. Split-K is the textbook fix:
+decompose the K dimension across `G` groups, each slice handles `TOPK/G`
+sparse indices, multiplies the effective grid by `G` and then reduces
+the G partial outputs to the final `O` + LSE.
+
+**Kernels added (all in `solution/python/kernel.cu`).**
+
+1. **`mla_split_partial_kernel<int G_>`** – Templated copy of the main
+   kernel where each CTA handles only `TOPK_PG = TOPK/G_` of the sparse
+   indices. Outputs **unnormalized** partials: `O_partial` (bf16 per-head
+   context × D_CK), `m_partial` (fp32, per-head max logit), `l_partial`
+   (fp32, per-head softmax denominator). SMEM is smaller because
+   `s_gidx` is only `TOPK_PG`; everything else is the same as the main
+   kernel (including `__launch_bounds__` and 3 CTAs/SM at the tight
+   dyn-SMEM cap).
+
+2. **`mla_split_reduce_kernel<int G_>`** – One block per (t, h) that
+   log-sum-exp-merges the `G_` partials into the final `out` + `lse_out`.
+   Uses the stable pattern:
+   `m = max(m_g) ; p_g = exp(m_g - m) · l_g ; Σp_g = l ; o = Σ (o_g · exp(m_g - m)) / l ; lse = m + log(l)`.
+
+3. **Host dispatcher (`pick_split_G`)** – Selects `G ∈ {1, 2, 4, 8}`
+   based on `T*H`, filling CTA slots up to ~444 with a **no-split floor
+   at 64 CTAs**. Below the floor the reducer + second-launch overhead
+   (~3-5 µs) exceeds any K-loop gain, so tiny workloads stay on the
+   original single-kernel path.
+
+```c++
+// SPLIT_TARGET_SLOTS = 444 (148 SMs × 3 CTAs/SM), SPLIT_MIN_CTAS = 64
+if (base_ctas < SPLIT_MIN_CTAS)            return 1;   // too tiny to amortise
+if (base_ctas >= SPLIT_TARGET_SLOTS)       return 1;   // fill already
+if (base_ctas * 2  >= SPLIT_TARGET_SLOTS)  return 2;   // [222, 443]
+if (base_ctas * 4  >= SPLIT_TARGET_SLOTS)  return 4;   // [111, 221]
+return 8;                                              // [64, 110]
+```
+
+4. **Scratch allocator (`SplitKScratch`)** – Per-process singleton with
+   mutex, lazily grows `cudaMalloc` buffers for `O_partial`,
+   `m_partial`, `l_partial` to fit the worst-case
+   `B × G_max × T × H × D_CK`. Reused across every split-K launch.
+
+5. **Occupancy probe** – `configure_kernel_attrs_once()` now also logs
+   `regs/thread`, `static_smem`, `max_dyn_smem`, and
+   `occ(40160 B)` for each `mla_split_partial_kernel<G_>` instantiation.
+   Measured: **68 regs/thread, 3 CTAs/SM**, identical profile to the
+   main kernel.
+
+**Measured Phase 3 vs Phase 1 (23 workloads).**
+
+| bucket | Phase 1 µs | Phase 3 µs | Δ µs | Δ % |
+| --- | ---: | ---: | ---: | ---: |
+| 8 × tiny (T*H < 64) | 8-27 | 8-27 | ~0 | ~0% (by design, no-split path) |
+| 3 × medium | 66-71 | 39-57 | −22 | −20 … −41% |
+| 11 × long-T*H (64…256) | 102-125 | 34-73 | −48 | −43 … −67% |
+| 1 × regression | 8 (68d6817d) | 11 | +3 | +37.5% |
+
+**Top wins (Δµs):**
+- `ddfa9e34`: 102 → 34 µs (**−66.7%**)
+- `d57eb9e1`: 123 → 43 µs (**−65.0%**, T*H ≈ 64 → G=8 activated)
+- `ae4219a9`: 125 → 53 µs (**−57.6%**)
+- `2207f0fd`: 123 → 54 µs (**−56.1%**)
+- `02d6ae9c`: 125 → 56 µs (**−55.2%**)
+- `78b2e11c`: 125 → 62 µs (**−50.4%**)
+
+**Regression:** `68d6817d` from 8 → 11 µs (+37.5%). Absolute 3 µs delta on
+an already-150×-speedup workload: its `T*H` lands in the [64, 110]
+G=8 bucket but its nvt is tiny (short-K sparse), so the extra reducer
+launch (~3 µs) is the entire difference. This can't be resolved on the
+host without runtime info on `nvt`. Leaving as-is; the 11 µs result is
+still a 100×+ speedup vs reference.
+
+**Tuning notes captured.**
+- First attempt used `SPLIT_MIN_CTAS = 128`. This missed the T*H=64
+  long-K workloads (e.g. `d57eb9e1`), so the floor was lowered to 64
+  with a G=8 bucket added. That single change unlocked the largest
+  wins in the full bench.
+- Only one `G` variant is live per launch; the G=16 instantiation exists
+  in source for future use (trace > 500 µs regime) but isn't reachable
+  by the current dispatcher.
+
+| Rev | Idea(s) | Geomean latency Δ (vs P1) | Geomean speedup Δ (vs P1) | Notes |
+| --- | ------- | --- | --- | --- |
+| **phase3 (kept)** | split-K, G ∈ {1,2,4,8}, dispatcher with floor=64 | **−30.35%** | **+43.3%** | 23/23 PASS. 11 workloads improved 43-67%. One +3 µs regression on a 150×-speedup tiny workload. Log: `artifacts/p3/phase3_full_bench_20260423T055844.log`. |
+
+**Combined Phase 1 + Phase 3 vs v5_fused baseline (derived):**
+- latency: `0.836 × 0.697 ≈ 0.582` → **−41.8%**
+- speedup: `1.20 × 1.43 ≈ 1.72` → **+71.5%** geomean speedup over baseline.
+
+**Future Phase 3 follow-ups (not implemented here).**
+- **CTA-cluster sparse_idx** (Idea S6): within a cluster of G partial
+  CTAs, all share the same full 2048 sparse_idx. Loading it once via
+  multicast DSMEM would save (G−1) × 2048 × 4 B HBM per (t,h). Non-trivial
+  (DSM across CTAs in a cluster), only worth the complexity if split-K
+  becomes the dominant hot path and the HBM of sparse_idx shows up in a
+  profile (it currently doesn't with the Phase 1 `int4` prescan).
+- **Device-side split decision** (bail reducer early if all G partials
+  had `nvt_slice==0` except one) would eliminate the `68d6817d`
+  regression. Not free — requires a zero-copy flag. Defer.
+

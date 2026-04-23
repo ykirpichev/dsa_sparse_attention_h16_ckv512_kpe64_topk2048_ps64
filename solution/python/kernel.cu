@@ -600,6 +600,315 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
               gridDim.x, H, n_valid_tiles);
 }
 
+// ==========================================================================
+// Phase-3 Split-K.
+// ==========================================================================
+//
+// Workload shape analysis (see OPTIMIZATION_LOG.md) showed the 7 largest
+// traces (T≈16, H=16 ⇒ T*H≈256, long nvt=26) only fill 256/(148 SM ×
+// 3 CTA/SM = 444) ≈ 58 % of the GPU's CTA slots.  `mla_sparse_attn_kernel`
+// processes one (token, head) per CTA, so there is no way for a single
+// (t,h) to scale up.  We add a FlashDecoding-style split over the K
+// dimension: launch G extra "K-groups" per (t,h) such that
+// T*H*G ≥ target_slots, each group covering TOPK/G sparse indices and
+// emitting the un-normalised online-softmax state (O_g, m_g, l_g).
+// A small reducer kernel then combines the G partials into the final
+// out / lse tensor.
+//
+// Only workloads with T*H < 444 take this path; for larger launches the
+// original kernel is launched directly (G=1) with zero overhead.
+//
+// Shared-memory footprint of the partial kernel is SMALLER than the main
+// kernel because s_gidx shrinks to TOPK/G.  Occupancy stays at 3 CTAs/SM
+// (register-bound — compiler allocated 69 regs/thread for both kernels).
+
+template <int G_>
+__global__ __launch_bounds__(THREADS, 2) void mla_split_partial_kernel(
+    const __nv_bfloat16* __restrict__ q_nope,
+    const __nv_bfloat16* __restrict__ q_pe,
+    const __nv_bfloat16* __restrict__ ckv_flat,
+    const __nv_bfloat16* __restrict__ kpe_flat,
+    const int32_t* __restrict__ sparse_idx,
+    float sm_scale_log2e,
+    __nv_bfloat16* __restrict__ O_partial,   // [T, H, G, D_CK]
+    float* __restrict__ m_partial,           // [T, H, G]
+    float* __restrict__ l_partial,           // [T, H, G]
+    int64_t H,
+    int64_t num_kv_rows) {
+  constexpr int TOPK_PG = TOPK / G_;
+  constexpr int NUM_V_TILES_PG = TOPK_PG / BK;
+  constexpr int IDX_INT4_CHUNKS_PG = TOPK_PG / 4;
+  static_assert(TOPK_PG >= BK, "TOPK_PG must be >= BK");
+  static_assert(TOPK_PG % 4 == 0, "TOPK_PG must be divisible by 4 for int4 prescan");
+
+  const int t = blockIdx.x;
+  const int h = blockIdx.y;
+  const int g = blockIdx.z;
+  const int tid = threadIdx.x;
+
+  const int64_t qh_off = (t * H + h) * D_CK;
+  const int64_t qp_off = (t * H + h) * D_KP;
+  const int64_t si_off = t * TOPK + g * TOPK_PG;
+  const int64_t o_part_off = ((t * H + h) * G_ + g) * D_CK;
+  const int64_t ml_part_i = (t * H + h) * G_ + g;
+
+  extern __shared__ unsigned char raw[];
+  float* s_logits_tile = reinterpret_cast<float*>(raw);
+  __nv_bfloat16* s_qn = reinterpret_cast<__nv_bfloat16*>(s_logits_tile + BK);
+  __nv_bfloat16* s_qp = s_qn + D_CK;
+  int* s_gidx = reinterpret_cast<int*>(s_qp + D_KP);
+  float* s_reduce = reinterpret_cast<float*>(s_gidx + TOPK_PG);
+  __nv_bfloat16* s_v_tile = reinterpret_cast<__nv_bfloat16*>(s_reduce + NUM_WARPS);
+  __nv_bfloat16* s_kpe_tile = s_v_tile + V_PIPE * BK * D_CK;
+
+  // Async Q load (group 0).
+  if (tid < Q_CK_CHUNKS) {
+    const uint4* src = reinterpret_cast<const uint4*>(q_nope + qh_off) + tid;
+    uint4* dst = reinterpret_cast<uint4*>(s_qn) + tid;
+    cp_async_16(__cvta_generic_to_shared(dst), src);
+  }
+  if (tid < Q_KP_CHUNKS) {
+    const uint4* src = reinterpret_cast<const uint4*>(q_pe + qp_off) + tid;
+    uint4* dst = reinterpret_cast<uint4*>(s_qp) + tid;
+    cp_async_16(__cvta_generic_to_shared(dst), src);
+  }
+  cp_async_commit_group();
+
+  // int4 prescan of the K-group slice.
+  int local_max_valid_k_p1 = 0;
+  const int4* sp_base = reinterpret_cast<const int4*>(sparse_idx + si_off);
+  int4* sg_base = reinterpret_cast<int4*>(s_gidx);
+  #pragma unroll
+  for (int kb = tid; kb < IDX_INT4_CHUNKS_PG; kb += THREADS) {
+    const int k0 = kb * 4;
+    const int4 g4 = sp_base[kb];
+    int4 s4;
+    s4.x = (g4.x >= 0 && static_cast<int64_t>(g4.x) < num_kv_rows) ? g4.x : -1;
+    s4.y = (g4.y >= 0 && static_cast<int64_t>(g4.y) < num_kv_rows) ? g4.y : -1;
+    s4.z = (g4.z >= 0 && static_cast<int64_t>(g4.z) < num_kv_rows) ? g4.z : -1;
+    s4.w = (g4.w >= 0 && static_cast<int64_t>(g4.w) < num_kv_rows) ? g4.w : -1;
+    sg_base[kb] = s4;
+    if (s4.x >= 0 && (k0 + 1) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 1;
+    if (s4.y >= 0 && (k0 + 2) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 2;
+    if (s4.z >= 0 && (k0 + 3) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 3;
+    if (s4.w >= 0 && (k0 + 4) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 4;
+  }
+  __syncthreads();
+  const float reduced_max = block_reduce_max(static_cast<float>(local_max_valid_k_p1), s_reduce);
+  const int n_valid_rows = static_cast<int>(reduced_max);
+  int n_valid_tiles = (n_valid_rows + BK - 1) / BK;
+  if (n_valid_tiles > NUM_V_TILES_PG) n_valid_tiles = NUM_V_TILES_PG;
+
+  if (n_valid_tiles == 0) {
+    cp_async_wait_group<0>();
+    if (tid == 0) {
+      m_partial[ml_part_i] = -INFINITY;
+      l_partial[ml_part_i] = 0.f;
+    }
+    const __nv_bfloat162 zero =
+        __halves2bfloat162(f_to_bf16(0.f), f_to_bf16(0.f));
+    reinterpret_cast<__nv_bfloat162*>(O_partial + o_part_off)[tid] = zero;
+    return;
+  }
+
+  auto issue_tile = [&](int tile, int buf) {
+    const int k0 = tile * BK;
+    __nv_bfloat16* ckv_buf = s_v_tile + buf * (BK * D_CK);
+    __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
+
+    #pragma unroll
+    for (int c = 0; c < CHUNKS_PER_THREAD; ++c) {
+      const int chunk = tid + c * THREADS;
+      const int r = chunk / (D_CK / 8);
+      const int ch16 = chunk % (D_CK / 8);
+      const int k = k0 + r;
+      const int g_idx = s_gidx[k];
+      uint4* dst = reinterpret_cast<uint4*>(ckv_buf + r * D_CK) + ch16;
+      if (g_idx >= 0) {
+        const uint4* src =
+            reinterpret_cast<const uint4*>(ckv_flat + static_cast<int64_t>(g_idx) * D_CK) + ch16;
+        cp_async_16(__cvta_generic_to_shared(dst), src);
+      } else {
+        const uint4 zero = {0u, 0u, 0u, 0u};
+        *dst = zero;
+      }
+    }
+
+    {
+      const int chunk = tid;
+      const int r = chunk / (D_KP / 4);
+      const int ch8 = chunk % (D_KP / 4);
+      const int k = k0 + r;
+      const int g_idx = s_gidx[k];
+      uint2* dst = reinterpret_cast<uint2*>(kpe_buf + r * D_KP) + ch8;
+      if (g_idx >= 0) {
+        const uint2* src =
+            reinterpret_cast<const uint2*>(kpe_flat + static_cast<int64_t>(g_idx) * D_KP) + ch8;
+        cp_async_8(__cvta_generic_to_shared(dst), src);
+      } else {
+        const uint2 zero = {0u, 0u};
+        *dst = zero;
+      }
+    }
+  };
+
+  float m = -INFINITY, l = 0.f, o0 = 0.f, o1 = 0.f;
+  issue_tile(0, 0);
+  cp_async_commit_group();
+
+  const int warp_id = tid >> 5;
+  const int lane = tid & (WARP - 1);
+  const int i = tid;
+  const __nv_bfloat162* qn2 = reinterpret_cast<const __nv_bfloat162*>(s_qn);
+  const __nv_bfloat162* qp2 = reinterpret_cast<const __nv_bfloat162*>(s_qp);
+
+  for (int tile = 0; tile < n_valid_tiles; ++tile) {
+    const int buf = tile & 1;
+    const int next_tile = tile + 1;
+
+    if (next_tile < n_valid_tiles) {
+      issue_tile(next_tile, next_tile & 1);
+      cp_async_commit_group();
+      cp_async_wait_group<1>();
+    } else {
+      cp_async_wait_group<0>();
+    }
+    __syncthreads();
+
+    const __nv_bfloat16* ckv_buf = s_v_tile + buf * (BK * D_CK);
+    const __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
+
+    #pragma unroll
+    for (int wr = 0; wr < 2; ++wr) {
+      const int r = warp_id * 2 + wr;
+      const int k = tile * BK + r;
+      const __nv_bfloat162* kc2 =
+          reinterpret_cast<const __nv_bfloat162*>(ckv_buf + r * D_CK);
+      const __nv_bfloat162* kp2 =
+          reinterpret_cast<const __nv_bfloat162*>(kpe_buf + r * D_KP);
+      float acc = 0.f;
+      #pragma unroll
+      for (int j = 0; j < D_CK / 2 / WARP; ++j) {
+        const int i2 = j * WARP + lane;
+        const float2 kf = __bfloat1622float2(kc2[i2]);
+        const float2 qf = __bfloat1622float2(qn2[i2]);
+        acc += qf.x * kf.x + qf.y * kf.y;
+      }
+      {
+        const float2 kf = __bfloat1622float2(kp2[lane]);
+        const float2 qf = __bfloat1622float2(qp2[lane]);
+        acc += qf.x * kf.x + qf.y * kf.y;
+      }
+      acc = warp_reduce_sum(acc);
+      if (lane == 0) {
+        const int g_idx = s_gidx[k];
+        s_logits_tile[r] = (g_idx >= 0) ? (acc * sm_scale_log2e) : -INFINITY;
+      }
+    }
+    __syncthreads();
+
+    float tile_max = -INFINITY;
+    #pragma unroll
+    for (int r = 0; r < BK; ++r) tile_max = fmaxf(tile_max, s_logits_tile[r]);
+
+    if (tile_max > -INFINITY) {
+      const float m_new = fmaxf(m, tile_max);
+      const float alpha = (m == -INFINITY) ? 0.f : exp2f(m - m_new);
+      l  *= alpha;
+      o0 *= alpha;
+      o1 *= alpha;
+
+      const __nv_bfloat162* tile_pairs =
+          reinterpret_cast<const __nv_bfloat162*>(ckv_buf);
+      #pragma unroll
+      for (int r = 0; r < BK; ++r) {
+        const float logit = s_logits_tile[r];
+        const float p = exp2f(logit - m_new);
+        const float2 kf = __bfloat1622float2(tile_pairs[r * (D_CK / 2) + i]);
+        l  += p;
+        o0 += p * kf.x;
+        o1 += p * kf.y;
+      }
+      m = m_new;
+    }
+  }
+
+  // Write UN-NORMALISED partial state (no /l divide); the reducer will do it.
+  if (tid == 0) {
+    m_partial[ml_part_i] = m;
+    l_partial[ml_part_i] = l;
+  }
+  const __nv_bfloat162 packed =
+      __halves2bfloat162(f_to_bf16(o0), f_to_bf16(o1));
+  reinterpret_cast<__nv_bfloat162*>(O_partial + o_part_off)[i] = packed;
+}
+
+// Reducer: combines G partial (m, l, O_unnorm) states into the final
+// (out, lse).  Grid = (T, H), block = THREADS (one thread per 2-channel
+// output slot).  G is a compile-time template param so the inner loops
+// fully unroll and the compiler keeps s_m/s_l in registers if needed.
+template <int G_>
+__global__ void mla_split_reduce_kernel(
+    const __nv_bfloat16* __restrict__ O_partial,
+    const float* __restrict__ m_partial,
+    const float* __restrict__ l_partial,
+    __nv_bfloat16* __restrict__ out,
+    float* __restrict__ lse_out,
+    int64_t H) {
+  const int t = blockIdx.x;
+  const int h = blockIdx.y;
+  const int tid = threadIdx.x;
+
+  const int64_t out_off = (t * H + h) * D_CK;
+  const int64_t lse_i = t * H + h;
+  const int64_t o_part_base = ((t * H + h) * G_) * D_CK;
+  const int64_t ml_base = (t * H + h) * G_;
+
+  __shared__ float s_m[G_];
+  __shared__ float s_l[G_];
+  if (tid < G_) {
+    s_m[tid] = m_partial[ml_base + tid];
+    s_l[tid] = l_partial[ml_base + tid];
+  }
+  __syncthreads();
+
+  float m_final = -INFINITY;
+  #pragma unroll
+  for (int g = 0; g < G_; ++g) m_final = fmaxf(m_final, s_m[g]);
+
+  if (m_final == -INFINITY) {
+    const __nv_bfloat162 zero =
+        __halves2bfloat162(f_to_bf16(0.f), f_to_bf16(0.f));
+    reinterpret_cast<__nv_bfloat162*>(out + out_off)[tid] = zero;
+    if (tid == 0) lse_out[lse_i] = -INFINITY;
+    return;
+  }
+
+  float l_final = 0.f;
+  #pragma unroll
+  for (int g = 0; g < G_; ++g) {
+    l_final += s_l[g] * exp2f(s_m[g] - m_final);
+  }
+  const float inv_l = 1.f / l_final;
+
+  float o0 = 0.f, o1 = 0.f;
+  const int i = tid;
+  #pragma unroll
+  for (int g = 0; g < G_; ++g) {
+    const float alpha = exp2f(s_m[g] - m_final);
+    const __nv_bfloat162* op2 =
+        reinterpret_cast<const __nv_bfloat162*>(O_partial + o_part_base + g * D_CK);
+    const float2 of = __bfloat1622float2(op2[i]);
+    o0 += of.x * alpha;
+    o1 += of.y * alpha;
+  }
+
+  const __nv_bfloat162 packed =
+      __halves2bfloat162(f_to_bf16(o0 * inv_l), f_to_bf16(o1 * inv_l));
+  reinterpret_cast<__nv_bfloat162*>(out + out_off)[i] = packed;
+  if (tid == 0) lse_out[lse_i] = m_final + log2f(l_final);
+}
+
 void require_b200() {
   int dev = -1;
   cudaGetDevice(&dev);
@@ -625,6 +934,71 @@ void require_b200() {
 //   Total ≈ 46304 B ≈ 45.2 KiB.
 constexpr int KERNEL_MAX_DYN_SMEM = 47 * 1024;
 
+// Split-K partial-kernel SMEM footprint (bytes) for each compile-time G.
+//   base = s_logits_tile(64) + (s_qn+s_qp)(1152) + s_reduce(32)
+//        + s_v_tile(32768) + s_kpe_tile(4096) = 38112
+//   + s_gidx (TOPK/G * int) = 8192 / G
+template <int G_>
+constexpr size_t split_partial_shmem() {
+  return 38112ULL + (static_cast<size_t>(TOPK) * sizeof(int)) / G_;
+}
+constexpr size_t SPLIT_PARTIAL_MAX_DYN_SMEM = 47 * 1024;
+
+// Target CTA occupancy used by the dispatcher to pick G. B200 has 148 SMs.
+// The main kernel runs at 3 CTAs/SM (register-bound), so we aim to fill
+// 148 * 3 = 444 CTA slots across the whole grid.  Any (T*H) smaller than
+// this leaves part of the GPU idle and is a candidate for split-K.
+constexpr int SPLIT_TARGET_SLOTS = 444;
+// Floor on T*H below which split-K is NEVER profitable: the reducer +
+// double-launch overhead (~3–5 µs on B200) exceeds any gain when the
+// non-split kernel itself is already sub-20 µs.  Tiny workloads (T ≤ 2 with
+// short-K sparse patterns) all fall here and stay on the single-kernel path.
+// Empirically (smoke bench with floor=128): the 123 µs workload "d57eb9e1"
+// was NOT split and stayed at 123 µs while the equivalent-latency "5096e459"
+// (T*H ≥ 128) split to 67 µs — so the 123 µs tier has two sub-families at
+// T*H around 64 vs 256 and the 64-family was being left out.  Lowering the
+// floor to 64 with G=8 added brings them in.
+constexpr int SPLIT_MIN_CTAS = 64;
+
+static int pick_split_G(int base_ctas) {
+  if (base_ctas < SPLIT_MIN_CTAS)                return 1;   // too tiny to amortise
+  if (base_ctas >= SPLIT_TARGET_SLOTS)           return 1;   // fill already
+  if (base_ctas * 2  >= SPLIT_TARGET_SLOTS)      return 2;   // [222, 443]
+  if (base_ctas * 4  >= SPLIT_TARGET_SLOTS)      return 4;   // [111, 221]
+  return 8;                                                 // [64, 110]
+}
+
+// Per-process scratch cache for split-K partials.  Resized on first use and
+// whenever a larger workload comes in; never shrunk.  A single mutex keeps
+// concurrent invocations from stomping on each other.  cudaFree on grow is
+// synchronous but happens only O(log max_bytes) times across the run.
+struct SplitKScratch {
+  void* O = nullptr;   // bf16, max [T*H*G*D_CK]
+  float* m = nullptr;  // fp32, max [T*H*G]
+  float* l = nullptr;  // fp32, max [T*H*G]
+  size_t O_bytes = 0;
+  size_t ml_bytes = 0;
+  std::mutex mu;
+
+  void ensure(size_t new_O_bytes, size_t new_ml_bytes) {
+    std::lock_guard<std::mutex> lk(mu);
+    if (new_O_bytes > O_bytes) {
+      if (O) cudaFree(O);
+      cudaMalloc(&O, new_O_bytes);
+      O_bytes = new_O_bytes;
+    }
+    if (new_ml_bytes > ml_bytes) {
+      if (m) cudaFree(m);
+      if (l) cudaFree(l);
+      cudaMalloc(reinterpret_cast<void**>(&m), new_ml_bytes);
+      cudaMalloc(reinterpret_cast<void**>(&l), new_ml_bytes);
+      ml_bytes = new_ml_bytes;
+    }
+  }
+};
+
+static SplitKScratch g_split_scratch;
+
 void configure_kernel_attrs_once() {
   static std::once_flag once;
   std::call_once(once, []() {
@@ -632,17 +1006,36 @@ void configure_kernel_attrs_once() {
                          cudaFuncAttributeMaxDynamicSharedMemorySize,
                          KERNEL_MAX_DYN_SMEM);
 
-    // Log register / SMEM / occupancy once per process so we can verify
-    // future optimization experiments against this baseline.
+    // Split-K: instantiate & configure attrs for every G we might dispatch.
+    cudaFuncSetAttribute(mla_split_partial_kernel<2>,
+                         cudaFuncAttributeMaxDynamicSharedMemorySize,
+                         SPLIT_PARTIAL_MAX_DYN_SMEM);
+    cudaFuncSetAttribute(mla_split_partial_kernel<4>,
+                         cudaFuncAttributeMaxDynamicSharedMemorySize,
+                         SPLIT_PARTIAL_MAX_DYN_SMEM);
+    cudaFuncSetAttribute(mla_split_partial_kernel<8>,
+                         cudaFuncAttributeMaxDynamicSharedMemorySize,
+                         SPLIT_PARTIAL_MAX_DYN_SMEM);
+    cudaFuncSetAttribute(mla_split_partial_kernel<16>,
+                         cudaFuncAttributeMaxDynamicSharedMemorySize,
+                         SPLIT_PARTIAL_MAX_DYN_SMEM);
+
     cudaFuncAttributes attrs{};
     cudaFuncGetAttributes(&attrs, (const void*)mla_sparse_attn_kernel);
     int occ_full_cap = 0;
     int occ_actual = 0;
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &occ_full_cap, mla_sparse_attn_kernel, THREADS, KERNEL_MAX_DYN_SMEM);
-    // ~46 KiB is the actual launch-time footprint for v5_fused.
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &occ_actual, mla_sparse_attn_kernel, THREADS, 46 * 1024);
+
+    cudaFuncAttributes split4_attrs{};
+    cudaFuncGetAttributes(&split4_attrs, (const void*)mla_split_partial_kernel<4>);
+    int occ_split4 = 0;
+    cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+        &occ_split4, mla_split_partial_kernel<4>, THREADS,
+        static_cast<int>(split_partial_shmem<4>()));
+
     fprintf(stderr,
             "[mla_sparse_attn] regs/thread=%d  localSz=%d  "
             "static_smem=%zu  max_dyn_smem=%d  max_threads=%d  "
@@ -650,7 +1043,52 @@ void configure_kernel_attrs_once() {
             attrs.numRegs, (int)attrs.localSizeBytes,
             (size_t)attrs.sharedSizeBytes, attrs.maxDynamicSharedSizeBytes,
             attrs.maxThreadsPerBlock, occ_full_cap, occ_actual);
+    fprintf(stderr,
+            "[mla_split_partial<4>] regs/thread=%d  static_smem=%zu  "
+            "max_dyn_smem=%d  occ(%zu B)=%d blocks/SM\n",
+            split4_attrs.numRegs,
+            (size_t)split4_attrs.sharedSizeBytes,
+            split4_attrs.maxDynamicSharedSizeBytes,
+            split_partial_shmem<4>(), occ_split4);
   });
+}
+
+template <int G_>
+static void launch_split_partial_and_reduce(
+    int64_t T, int64_t H,
+    const __nv_bfloat16* q_nope,
+    const __nv_bfloat16* q_pe,
+    const __nv_bfloat16* ckv_flat,
+    const __nv_bfloat16* kpe_flat,
+    const int32_t* sparse_idx,
+    float sm_log2e,
+    __nv_bfloat16* out,
+    float* lse,
+    int64_t num_kv_rows,
+    cudaStream_t stream) {
+  const size_t O_bytes =
+      static_cast<size_t>(T) * H * G_ * D_CK * sizeof(__nv_bfloat16);
+  const size_t ml_bytes =
+      static_cast<size_t>(T) * H * G_ * sizeof(float);
+  g_split_scratch.ensure(O_bytes, ml_bytes);
+
+  const dim3 part_grid(static_cast<unsigned>(T),
+                       static_cast<unsigned>(H),
+                       static_cast<unsigned>(G_));
+  const dim3 block(THREADS);
+  const size_t part_shmem = split_partial_shmem<G_>();
+
+  mla_split_partial_kernel<G_><<<part_grid, block, part_shmem, stream>>>(
+      q_nope, q_pe, ckv_flat, kpe_flat, sparse_idx, sm_log2e,
+      static_cast<__nv_bfloat16*>(g_split_scratch.O),
+      g_split_scratch.m, g_split_scratch.l,
+      H, num_kv_rows);
+
+  const dim3 red_grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
+  mla_split_reduce_kernel<G_><<<red_grid, block, 0, stream>>>(
+      static_cast<__nv_bfloat16*>(g_split_scratch.O),
+      g_split_scratch.m, g_split_scratch.l,
+      out, lse, H);
 }
 
 }  // namespace
@@ -735,39 +1173,60 @@ void kernel_fn(
   const float sm = static_cast<float>(sm_scale);
   const float sm_log2e = sm * LOG2E_F;
 
-  const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
   const dim3 block(THREADS);
-  // v5_fused (Idea 5): s_logits[TOPK] replaced by s_logits_tile[BK] — saves
-  //                    ~8 KiB per CTA. Total ≈ 46 KiB.
-  //   s_logits_tile: BK * fp32 (64 B)
-  //   s_qn + s_qp  : (D_CK + D_KP) * bf16 (1152 B)
-  //   s_gidx       : TOPK * int32 (8 KiB)
-  //   s_reduce     : NUM_WARPS * fp32 (32 B)
-  //   s_v_tile     : V_PIPE * BK * D_CK * bf16 (32 KiB)
-  //   s_kpe_tile   : V_PIPE * BK * D_KP * bf16 (4 KiB)
-  const size_t shmem =
-      static_cast<size_t>(BK) * sizeof(float)
-      + static_cast<size_t>(D_CK + D_KP) * sizeof(__nv_bfloat16)
-      + static_cast<size_t>(TOPK) * sizeof(int)
-      + static_cast<size_t>(NUM_WARPS) * sizeof(float)
-      + static_cast<size_t>(V_PIPE) * BK * D_CK * sizeof(__nv_bfloat16)
-      + static_cast<size_t>(V_PIPE) * BK * D_KP * sizeof(__nv_bfloat16);
 
   const DLDevice dev = q_nope.device();
   cudaStream_t stream = static_cast<cudaStream_t>(
       TVMFFIEnvGetStream(dev.device_type, dev.device_id));
 
-  mla_sparse_attn_kernel<<<grid, block, shmem, stream>>>(
-      static_cast<const __nv_bfloat16*>(q_nope.data_ptr()),
-      static_cast<const __nv_bfloat16*>(q_pe.data_ptr()),
-      static_cast<const __nv_bfloat16*>(ckv_cache.data_ptr()),
-      static_cast<const __nv_bfloat16*>(kpe_cache.data_ptr()),
-      static_cast<const int32_t*>(sparse_indices.data_ptr()),
-      sm_log2e,
-      static_cast<__nv_bfloat16*>(out.data_ptr()),
-      static_cast<float*>(lse.data_ptr()),
-      H,
-      num_kv_rows);
+  const int base_ctas = static_cast<int>(T * H);
+  const int G = pick_split_G(base_ctas);
+
+  const auto* q_nope_p = static_cast<const __nv_bfloat16*>(q_nope.data_ptr());
+  const auto* q_pe_p   = static_cast<const __nv_bfloat16*>(q_pe.data_ptr());
+  const auto* ckv_p    = static_cast<const __nv_bfloat16*>(ckv_cache.data_ptr());
+  const auto* kpe_p    = static_cast<const __nv_bfloat16*>(kpe_cache.data_ptr());
+  const auto* si_p     = static_cast<const int32_t*>(sparse_indices.data_ptr());
+  auto* out_p          = static_cast<__nv_bfloat16*>(out.data_ptr());
+  auto* lse_p          = static_cast<float*>(lse.data_ptr());
+
+  if (G == 1) {
+    // Default path: one CTA per (t, h), matches legacy v5_fused layout.
+    //   s_logits_tile: BK * fp32 (64 B)
+    //   s_qn + s_qp  : (D_CK + D_KP) * bf16 (1152 B)
+    //   s_gidx       : TOPK * int32 (8 KiB)
+    //   s_reduce     : NUM_WARPS * fp32 (32 B)
+    //   s_v_tile     : V_PIPE * BK * D_CK * bf16 (32 KiB)
+    //   s_kpe_tile   : V_PIPE * BK * D_KP * bf16 (4 KiB)
+    const size_t shmem =
+        static_cast<size_t>(BK) * sizeof(float)
+        + static_cast<size_t>(D_CK + D_KP) * sizeof(__nv_bfloat16)
+        + static_cast<size_t>(TOPK) * sizeof(int)
+        + static_cast<size_t>(NUM_WARPS) * sizeof(float)
+        + static_cast<size_t>(V_PIPE) * BK * D_CK * sizeof(__nv_bfloat16)
+        + static_cast<size_t>(V_PIPE) * BK * D_KP * sizeof(__nv_bfloat16);
+    const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
+    mla_sparse_attn_kernel<<<grid, block, shmem, stream>>>(
+        q_nope_p, q_pe_p, ckv_p, kpe_p, si_p, sm_log2e,
+        out_p, lse_p, H, num_kv_rows);
+  } else if (G == 2) {
+    launch_split_partial_and_reduce<2>(
+        T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
+        sm_log2e, out_p, lse_p, num_kv_rows, stream);
+  } else if (G == 4) {
+    launch_split_partial_and_reduce<4>(
+        T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
+        sm_log2e, out_p, lse_p, num_kv_rows, stream);
+  } else if (G == 8) {
+    launch_split_partial_and_reduce<8>(
+        T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
+        sm_log2e, out_p, lse_p, num_kv_rows, stream);
+  } else {
+    // G == 16 (the cap).
+    launch_split_partial_and_reduce<16>(
+        T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
+        sm_log2e, out_p, lse_p, num_kv_rows, stream);
+  }
 
   const cudaError_t err = cudaGetLastError();
   TVM_FFI_ICHECK_EQ(err, cudaSuccess) << "mla_sparse_attn_kernel: " << cudaGetErrorString(err);
