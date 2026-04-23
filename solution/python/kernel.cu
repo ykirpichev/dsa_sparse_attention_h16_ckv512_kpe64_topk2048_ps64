@@ -1,60 +1,35 @@
 /*
- * DSA sparse MLA — custom CUDA (B200 / sm_100, capability 10.0).
- * One CUDA block per (token, head): gather K rows, logits, stable softmax, LSE base-2, weighted cKV.
+ * DSA sparse MLA — custom CUDA kernel, **sm_100a / B200 only** (CC 10.0).
  *
- * Stage-1 optimizations (batched):
- *   - Packed BF16 loads: __nv_bfloat162 (2 bf16 per 32-bit load) via __bfloat1622float2.
- *   - Cached sparse_idx per block in shared memory (avoid re-reading in value projection).
- *   - Warp + block parallel softmax (max / sum) instead of serial thread-0 loops.
- *   - exp2f with pre-fused sm_scale * log2e so LSE is base-2 without a final /log(2).
+ * One CTA per (token, head, [split-K group]). Each CTA:
+ *   1. Loads Q (NoPE + PE) and prescans sparse_idx (int4-vectorised) in SMEM.
+ *   2. Iterates BK=16 K-rows per tile with cp.async double-buffered ckv+kpe.
+ *   3. Runs a fused single-pass online-softmax K loop (logit → rescale →
+ *      V-accumulate) so each HBM byte is consumed exactly once per token.
+ *   4. Writes BF16 weighted-cKV output and fp32 base-2 LSE.
  *
- * Stage-2 (additive, keeps the high-MLP structure of Stage 1):
- *   - Packed bf162 loads AND stores in the value projection: each thread owns
- *     exactly one packed output slot (d = 2*tid, 2*tid+1), so every k in the
- *     inner loop becomes 1 packed GMEM load + 2 FMAs instead of 2 scalar
- *     loads + 2 FMAs. Halves the number of memory instructions in the hot loop
- *     and eliminates the outer d-stride.
- *   - Fold the softmax normalization (division by sum) into the final bf16 write,
- *     so we skip the `s_logits[k] *= inv` pass entirely.
- *   - Earlier tiled-SMEM fusion (Stage-2 v1) regressed ~2x: the per-tile
- *     __syncthreads chopped up the memory pipeline that Stage 1 kept fully
- *     parallelized. Kept the sync-light single-pass design and optimized the
- *     instruction mix instead.
+ * A FlashDecoding-style split-K variant (G ∈ {1,2,4,8}) is dispatched when
+ * the base grid (T*H) would underfill the SM array; a cheap reducer kernel
+ * combines per-G partials into the final output (identical online-softmax
+ * math on the G axis).
  *
- * Stage-3b: cp.async double-buffered value-projection tile prefetch.
- *   - Stage-3 (head tiling) was a measured negative result: our bottleneck is
- *     NOT K-side HBM bandwidth (effective ~1.6 TB/s vs 7.5 TB/s peak on B200)
- *     but per-block stall time on dependent K loads in the value projection —
- *     every inner iteration had a ~400-cycle serial dependent GMEM load that
- *     the compiler couldn't pipeline across the `if (g < 0) continue;` branch.
- *   - Simpler attempts (branch-free clamp; `#pragma unroll 4`) either wasted
- *     BW on fake loads for short-sequence traces or failed to break the
- *     serial-load dependence.
- *   - Final Stage-3b pipeline: load BK=16 K rows at a time into SMEM with
- *     `cp.async.ca.shared.global` 16-byte copies, double-buffered across two
- *     SMEM tile slots. While the value FMAs for tile `t` run from SMEM, the
- *     next tile's HBM reads (tile `t+1`) are already in flight. This turns
- *     the inner FMA loop into SMEM reads (~20 cycle) backed by an
- *     asynchronous memory pipeline, directly attacking the per-block stall-
- *     bound diagnosis.
- *   - Short-sequence traces: rows with `g < 0` are issued from `ckv_flat[0]`
- *     (safe fallback) and then masked at compute time by `continue`. The
- *     wasted HBM is cached in L2 and does not dominate.
+ * Target arch: sm_100a exclusively. Compile flags (see kernel.py):
+ *   -gencode=arch=compute_100a,code=sm_100a -O3 --use_fast_math
  *
- * Stage-3c: cp.async double-buffered LOGIT tile prefetch.
- *   - The Stage-3b value projection is now ~186 us/trace mean. The remaining
- *     time is dominated by the logit pass (each thread streams its own 8 K
- *     rows from HBM in a serial unrolled dot). We apply the same tile-based
- *     async pipeline: load BK=16 rows of (ckv, kpe) into SMEM with cp.async,
- *     double-buffered, and have 8 warps each compute 2 logits per tile via
- *     warp-reduce over D_CK+D_KP = 576 packed elements from SMEM.
- *   - `s_v_tile` is idle during the logit phase, so we alias it as the
- *     per-tile ckv buffer (same 32 KiB, same layout). Only +4 KiB extra
- *     SMEM for a dedicated kpe tile (2 buffers × 16 rows × 64 bf16).
- *   - The same `n_valid_tiles` truncation as Stage 3b avoids doing cp.async
- *     for all-invalid tiles on short-sequence traces. s_logits is
- *     pre-initialised to -INFINITY so skipped tiles/rows remain correctly
- *     masked for the downstream softmax.
+ * Key sm_100a invariants leaned on here (not portable to pre-sm_100a):
+ *   - cp.async family (`cp.async.ca.shared.global`, `cp.async.commit_group`,
+ *     `cp.async.wait_group`) is always available — no fallback loads.
+ *   - 227 KiB opt-in dynamic SMEM per CTA (attribute raised at init).
+ *   - 2-way grid-wide SM occupancy target of 444 CTAs (148 SMs × 3).
+ *
+ * History / ablations that informed the current design (kept for context,
+ * deliberately terse — see docs/OPTIMIZATION_LOG.md for full data):
+ *   - Head tiling (H_PER_CTA>1): regressed — long traces are FMA-bound,
+ *     not HBM-bound, so consolidating heads hurt ILP.
+ *   - Per-tile rescale with saturating `-87` clamp: regressed — the current
+ *     logit scale never overflows exp2f in practice.
+ *   - Stage-2 tiled-SMEM fusion with mid-tile __syncthreads: regressed ~2×
+ *     because the syncs chopped up the memory pipeline.
  */
 
 #include <cuda_bf16.h>
@@ -63,6 +38,10 @@
 #include <tvm/ffi/error.h>
 #include <tvm/ffi/extra/c_env_api.h>
 #include <tvm/ffi/function.h>
+
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ < 1000
+#error "mla_sparse_attn: sm_100a is required (build with -gencode=arch=compute_100a,code=sm_100a)."
+#endif
 
 #include <cmath>
 #include <cstdint>
@@ -98,16 +77,16 @@ constexpr int NUM_V_TILES = TOPK / BK;                               // 128
 constexpr int TILE_CHUNKS_16B = BK * D_CK * sizeof(__nv_bfloat16) / 16;  // 1024
 constexpr int CHUNKS_PER_THREAD = TILE_CHUNKS_16B / THREADS;         // 4
 
-// Phase-1: cp.async Q load. Q_nope is D_CK=512 bf16 = 1024 B = 64 uint4; Q_pe
-// is D_KP=64 bf16 = 128 B = 8 uint4. Offsets qh_off/qp_off are multiples of
+// Async Q load: Q_nope is D_CK=512 bf16 = 1024 B = 64 uint4; Q_pe is
+// D_KP=64 bf16 = 128 B = 8 uint4. Offsets qh_off/qp_off are multiples of
 // D_CK/D_KP bf16 (i.e. 1024 B / 128 B) so always 16 B aligned.
 constexpr int Q_CK_CHUNKS = D_CK * sizeof(__nv_bfloat16) / 16;  // 64
 constexpr int Q_KP_CHUNKS = D_KP * sizeof(__nv_bfloat16) / 16;  //  8
 static_assert(D_CK * sizeof(__nv_bfloat16) % 16 == 0, "Q_nope row must be 16 B aligned");
 static_assert(D_KP * sizeof(__nv_bfloat16) % 16 == 0, "Q_pe row must be 16 B aligned");
 
-// Phase-1: int4 prescan of sparse_idx. TOPK int32s = 8 KB → TOPK/4 = 512 int4
-// chunks. Each thread handles TOPK/4/THREADS = 2 chunks.
+// int4 prescan of sparse_idx. TOPK int32s = 8 KB → TOPK/4 = 512 int4 chunks.
+// Each thread handles TOPK/4/THREADS = 2 chunks.
 constexpr int IDX_INT4_CHUNKS = TOPK / 4;            // 512
 constexpr int IDX_INT4_PER_THREAD = IDX_INT4_CHUNKS / THREADS;  // 2
 static_assert(TOPK % 4 == 0, "TOPK must be divisible by 4 for int4 prescan");
@@ -175,9 +154,9 @@ __device__ __forceinline__ void cp_async_16(unsigned smem_int, const void* gmem_
                : "r"(smem_int), "l"(gmem_src));
 }
 
-// 8-byte variant: used by the Stage-3c logit pass to stream D_KP=64 bf16 rows
-// (128 B / row) in a single issue per thread across 256 threads (16 rows × 16
-// 8-byte chunks = 256 chunks per tile).
+// 8-byte variant: used to stream D_KP=64 bf16 rows (128 B / row) in a single
+// issue per thread across 256 threads (16 rows × 16 8-byte chunks = 256 per
+// tile).
 __device__ __forceinline__ void cp_async_8(unsigned smem_int, const void* gmem_src) {
   asm volatile("cp.async.ca.shared.global [%0], [%1], 8;\n"
                :
@@ -251,18 +230,8 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     float* __restrict__ lse_out,
     int64_t H,
     int64_t num_kv_rows) {
-  // Grid-order trade-off (ATTEMPTED, REVERTED):
-  // Tried dim3(H, T) so all 16 heads of the same token are adjacent in
-  // launch order — the theory being that same-token CTAs gather the exact
-  // same ckv/kpe rows from HBM (sparse_indices is per-token, no head dim)
-  // so co-locating them gives H× L2 reuse on ckv. Full bench showed
-  // +1.70 % absolute latency geomean (consistent +1-2 % on all long
-  // traces). Probable cause: forcing 3 CTAs/SM to all want the same
-  // HBM addresses saturates the SM's MIO / L2 request path, and the
-  // original dim3(T, H) order already gets good L2 reuse via the
-  // hardware grid scheduler's tile-swizzle. The "+20 % speedup" seen in
-  // the sp column was pure FI-reference timing drift between Modal
-  // sessions (ref latency varied 15-30 % between runs).
+  // Grid order is dim3(T, H): the hardware grid scheduler's tile-swizzle
+  // already gives good L2 reuse on ckv; reordering to dim3(H, T) regressed.
   const int t = blockIdx.x;
   const int h = blockIdx.y;
   const int tid = threadIdx.x;
@@ -275,7 +244,7 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   const int64_t out_off = (t * H + h) * D_CK;
   const int64_t lse_i = t * H + h;
 
-  // SMEM layout (v5_fused: Idea 5 — fused single-pass K loop, no s_logits):
+  // SMEM layout (fused single-pass K loop — no full-TOPK s_logits):
   //   s_logits_tile [BK]             float   64 B   (was s_logits[TOPK] = 8 KiB)
   //   s_qn          [D_CK]           bf16    1 KiB
   //   s_qp          [D_KP]           bf16    128 B
@@ -301,21 +270,9 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   __nv_bfloat16* s_v_tile = reinterpret_cast<__nv_bfloat16*>(s_reduce + NUM_WARPS);
   __nv_bfloat16* s_kpe_tile = s_v_tile + V_PIPE * BK * D_CK;
 
-  // Phase-1 async Q: issue Q_nope + Q_pe via cp.async so the HBM load overlaps
-  // with the sparse_idx prescan (which doesn't touch Q SMEM). This becomes
-  // group 0 in the cp.async pipeline. The Q data is needed at the first logit
-  // dot product inside the tile loop, so it's waited-for by the first SYNC_A
-  // (wait_group<1> makes Q + tile 0 ready; see `issue_tile(0,0)` below).
-  //
-  // itemB-attempted: we tried replacing the block_reduce_max below with a
-  // warp-reduced + atomicMax to a single shared int slot (saves 2 syncs).
-  // Smoke phase timers showed −3.4% qload and −2.3% total, but the full
-  // bench regressed by ~2.5% consistently across 2 runs — long-trace
-  // workloads all went from 152-155us → 157-160us. Reason unclear (regs
-  // identical, CTAs/SM identical); best guess is that the removed syncs
-  // were serving as implicit pipeline barriers for HBM scheduling, and
-  // without them some downstream stall worsens. Change reverted; see
-  // `artifacts/full_bench_itemB_warpatomic_2026-04-22.log` for data.
+  // Async Q: issue Q_nope + Q_pe via cp.async so the HBM load overlaps with
+  // the sparse_idx prescan below (which doesn't touch Q SMEM). Group 0 in the
+  // cp.async pipeline; waited-for by the first SYNC_A inside the tile loop.
   if (tid < Q_CK_CHUNKS) {
     const uint4* src =
         reinterpret_cast<const uint4*>(q_nope + qh_off) + tid;
@@ -330,7 +287,7 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
   }
   cp_async_commit_group();  // group 0: Q
 
-  // Phase-1 int4 prescan of sparse_idx (4× fewer loop iters than scalar).
+  // int4 prescan of sparse_idx (4× fewer loop iters than scalar).
   // Each thread loads 2 int4 chunks (8 indices), validates, and int4-stores
   // the canonicalised result (invalid → -1) so the tile issuer downstream
   // only has to check `< 0`. Also tracks per-thread max_valid_k+1.
@@ -353,13 +310,16 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     if (s4.z >= 0 && (k0 + 3) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 3;
     if (s4.w >= 0 && (k0 + 4) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 4;
   }
-  __syncthreads();
+  // (P5/T1) No pre-reduce __syncthreads(): block_reduce_max starts with a
+  // CTA-wide __syncthreads() (see block_reduce_max line 1, smem[wid]=v → sync),
+  // which orders the preceding s_gidx stores. Issue-tile reads of s_gidx are
+  // additionally ordered by the per-tile SYNC_A barrier.
   const float reduced_max = block_reduce_max(static_cast<float>(local_max_valid_k_p1), s_reduce);
   const int n_valid_rows = static_cast<int>(reduced_max);
   int n_valid_tiles = (n_valid_rows + BK - 1) / BK;
   if (n_valid_tiles > NUM_V_TILES) n_valid_tiles = NUM_V_TILES;
 
-  // Fused single-pass K loop (Idea 5, v5_fused).
+  // Fused single-pass K loop.
   //
   // Each iteration loads ONE ckv+kpe tile (16 rows × D_CK+D_KP bf16), computes
   // the 16 logits via the same warp-cooperative dot as the logit pass, then
@@ -404,7 +364,7 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     return;
   }
 
-  // Single ckv+kpe tile issuer. Phase-1 change: invalid rows (g < 0) are
+  // Single ckv+kpe tile issuer. Invalid rows (g < 0) are
   // zero-initialised directly via ST.shared rather than cp.async'ing from
   // ckv_flat[0] / kpe_flat[0]. This skips ~1 KiB of wasted HBM per invalid
   // ckv row (and 128 B per kpe row). For partially-masked tiles on short-
@@ -542,16 +502,9 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
     // Skip fully-masked tiles (all 16 rows had g<0) — otherwise exp2(-INF -
     // (-INF)) = NaN would poison the accumulators. This branch is block-
     // uniform (tile_max is identical across all threads) so zero divergence.
-    //
-    // Idea 7 ATTEMPTED (REVERTED): wrapping the rescale in
-    //     `if (tile_max > m) { m_new = tile_max; ... }`
-    // to skip the 3× fp32 mults when m doesn't grow. Full bench showed
-    // +0.35 % geomean latency regression (see
-    // artifacts/full_bench_fused_condresc_2026-04-22.log). Reason: the
-    // extra block-uniform branch splits the CFG of the tight inner loop
-    // and inhibits the compiler's instruction scheduling. Keeping the
-    // unconditional rescale — 3 fp32 mults per thread are free next to
-    // a 16-iter exp2f + FMA chain.
+    // Unconditional rescale is retained: a cond-rescale variant (`if (tile_max
+    // > m)`) regressed +0.35 % geomean by splitting the CFG of the inner loop
+    // and defeating compiler scheduling.
     if (tile_max > -INFINITY) {
       const float m_new = fmaxf(m, tile_max);
       // First-valid-tile case: m == -INF ⇒ alpha = 0 (O, l are already 0,
@@ -693,7 +646,7 @@ __global__ __launch_bounds__(THREADS, 2) void mla_split_partial_kernel(
     if (s4.z >= 0 && (k0 + 3) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 3;
     if (s4.w >= 0 && (k0 + 4) > local_max_valid_k_p1) local_max_valid_k_p1 = k0 + 4;
   }
-  __syncthreads();
+  // (P5/T1) See rationale in mla_sparse_attn_kernel — no pre-reduce sync.
   const float reduced_max = block_reduce_max(static_cast<float>(local_max_valid_k_p1), s_reduce);
   const int n_valid_rows = static_cast<int>(reduced_max);
   int n_valid_tiles = (n_valid_rows + BK - 1) / BK;
@@ -909,17 +862,16 @@ __global__ void mla_split_reduce_kernel(
   if (tid == 0) lse_out[lse_i] = m_final + log2f(l_final);
 }
 
-// Dynamic SMEM cap sized exactly to actual kernel usage (~46 KiB for
-// v5_fused). A tight cap lets the GPU schedule 4 CTAs/SM (B200: 228 KiB
-// SMEM/SM → 4 × 46 = 184 KiB fits comfortably).
+// Dynamic SMEM cap sized exactly to the fused-K-loop kernel (~45 KiB). A
+// tight cap lets B200 schedule 4 CTAs/SM (228 KiB SMEM/SM → 4×46=184 KiB).
 //
-// Actual SMEM per CTA at launch (v5_fused: Idea 5, fused K loop):
-//   s_logits_tile (BK * fp32)            =    64 B   (was s_logits[TOPK]=8192)
-//   s_qn + s_qp ((D_CK+D_KP) * bf16)     =  1152 B
-//   s_gidx    (TOPK * int32)             =  8192 B
-//   s_reduce  (NUM_WARPS * fp32)         =    32 B
-//   s_v_tile  (V_PIPE*BK*D_CK * bf16)    = 32768 B
-//   s_kpe_tile(V_PIPE*BK*D_KP * bf16)    =  4096 B
+// Actual per-CTA breakdown (bytes):
+//   s_logits_tile (BK * fp32)            =    64
+//   s_qn + s_qp ((D_CK+D_KP) * bf16)     =  1152
+//   s_gidx    (TOPK * int32)             =  8192
+//   s_reduce  (NUM_WARPS * fp32)         =    32
+//   s_v_tile  (V_PIPE*BK*D_CK * bf16)    = 32768
+//   s_kpe_tile(V_PIPE*BK*D_KP * bf16)    =  4096
 //   Total ≈ 46304 B ≈ 45.2 KiB.
 constexpr int KERNEL_MAX_DYN_SMEM = 47 * 1024;
 
@@ -1179,7 +1131,7 @@ void kernel_fn(
   auto* lse_p          = static_cast<float*>(lse.data_ptr());
 
   if (G == 1) {
-    // Default path: one CTA per (t, h), matches legacy v5_fused layout.
+    // Default path: one CTA per (t, h).
     //   s_logits_tile: BK * fp32 (64 B)
     //   s_qn + s_qp  : (D_CK + D_KP) * bf16 (1152 B)
     //   s_gidx       : TOPK * int32 (8 KiB)
