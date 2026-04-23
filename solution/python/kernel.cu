@@ -900,12 +900,6 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
     __syncthreads();  // SYNC_A-TMA: cross-thread fence + ordering for
                       // iter+1's s_logits_tile reuse (no SYNC_C later).
 
-    // Issue V_PIPE ahead (same slot we just consumed).
-    const int pref_tile = tile + V_PIPE;
-    if (pref_tile < n_valid_tiles) {
-      issue_tile_tma(pref_tile, pref_tile & 1);
-    }
-
     const __nv_bfloat16* lo_buf  = s_v_lo     + buf * (BK * D_HALF);
     const __nv_bfloat16* hi_buf  = s_v_hi     + buf * (BK * D_HALF);
     const __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
@@ -983,6 +977,18 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
         o1 += p * kf.y;
       }
       m = m_new;
+    }
+
+    // Issue the next-next tile onto THIS slot now that all threads have
+    // finished reading it (logit + V-accum are fully done). A __syncthreads
+    // ensures the gather4 (which writes via the async proxy) doesn't start
+    // until all generic-proxy reads of slot `buf` have retired. V_PIPE=2
+    // means (tile+V_PIPE)&1 == tile&1 == buf — the "next-next" tile lands
+    // on the same slot we just emptied.
+    __syncthreads();  // SYNC_C-TMA: read-before-rewrite fence for slot `buf`.
+    const int pref_tile = tile + V_PIPE;
+    if (pref_tile < n_valid_tiles) {
+      issue_tile_tma(pref_tile, pref_tile & 1);
     }
   }
 
