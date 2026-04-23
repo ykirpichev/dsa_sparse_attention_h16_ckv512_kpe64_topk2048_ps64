@@ -687,10 +687,23 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
 //     role the old SYNC_A had: (a) block-wide observation point after TMA,
 //     (b) fence preventing iter N+1's s_logits_tile write from racing with
 //     iter N's readers.
+// D_CK=512 exceeds cuTensorMapEncodeTiled's boxDim ≤ 256-element cap, so
+// we encode ckv as two half-row descriptors (lo: elements [0..256),
+// hi: [256..512)) and lay ckv out in SMEM as two row-indexed arenas of
+// D_HALF=256 bf16 each. The gather4 dst stride (= boxW*elem_size = 512 B)
+// matches exactly one bf16 half-row, so 4-row-group gather4s land at
+// offsets `4g*256, (4g+1)*256, (4g+2)*256, (4g+3)*256` bf16 in the lo/hi
+// arenas with no interleaving. Logit + V-accumulate adapt to read lo and
+// hi halves separately (warp-uniform branch on tid < 128 for V-accum).
+constexpr int D_HALF = D_CK / 2;  // 256
+constexpr uint32_t TMA_CKV_BOXW = D_HALF;  // 256 — within the 256 cap
+constexpr uint32_t TMA_KPE_BOXW = D_KP;    //  64
+
 __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
     const __nv_bfloat16* __restrict__ q_nope,
     const __nv_bfloat16* __restrict__ q_pe,
-    const __grid_constant__ CUtensorMap tmap_ckv,
+    const __grid_constant__ CUtensorMap tmap_ckv_lo,
+    const __grid_constant__ CUtensorMap tmap_ckv_hi,
     const __grid_constant__ CUtensorMap tmap_kpe,
     const int32_t* __restrict__ sparse_idx,
     float sm_scale_log2e,
@@ -708,25 +721,27 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
   const int64_t out_off = (t * H + h) * D_CK;
   const int64_t lse_i = t * H + h;
 
-  // SMEM layout (TMA variant — 128-B-aligned tile bufs at the front).
-  //   s_v_tile      [V_PIPE][BK][D_CK] bf16  32 KiB   (offset 0, 128-B aligned)
-  //   s_kpe_tile    [V_PIPE][BK][D_KP] bf16   4 KiB   (offset 32 KiB, 128-B aligned)
-  //   s_tile_mbar   [V_PIPE]           u64    16 B    (offset 36 KiB)
-  //   s_logits_tile [BK]               fp32   64 B
-  //   s_qn          [D_CK]             bf16    1 KiB
-  //   s_qp          [D_KP]             bf16  128 B
-  //   s_gidx        [TOPK]             int32   8 KiB
-  //   s_reduce      [NUM_WARPS]        fp32   32 B
-  //   TOTAL ≈ 46 KiB (same as non-TMA variant, layout reordered).
+  // SMEM layout (TMA / half-row variant, all tile bufs 128-B aligned).
+  //   s_v_lo        [V_PIPE][BK][D_HALF]  bf16  16 KiB  (offset 0)
+  //   s_v_hi        [V_PIPE][BK][D_HALF]  bf16  16 KiB  (offset 16 KiB)
+  //   s_kpe_tile    [V_PIPE][BK][D_KP]    bf16   4 KiB  (offset 32 KiB)
+  //   s_tile_mbar   [V_PIPE]              u64    16 B   (offset 36 KiB)
+  //   s_logits_tile [BK]                  fp32   64 B
+  //   s_qn          [D_CK]                bf16    1 KiB
+  //   s_qp          [D_KP]                bf16  128 B
+  //   s_gidx        [TOPK]                int32   8 KiB
+  //   s_reduce      [NUM_WARPS]           fp32   32 B
+  //   TOTAL ≈ 46 KiB — same as non-TMA variant within 16 B.
   extern __shared__ unsigned char raw[];
-  __nv_bfloat16* s_v_tile   = reinterpret_cast<__nv_bfloat16*>(raw);
-  __nv_bfloat16* s_kpe_tile = s_v_tile + V_PIPE * BK * D_CK;
-  uint64_t* s_tile_mbar     = reinterpret_cast<uint64_t*>(s_kpe_tile + V_PIPE * BK * D_KP);
-  float* s_logits_tile      = reinterpret_cast<float*>(s_tile_mbar + V_PIPE);
-  __nv_bfloat16* s_qn       = reinterpret_cast<__nv_bfloat16*>(s_logits_tile + BK);
-  __nv_bfloat16* s_qp       = s_qn + D_CK;
-  int* s_gidx               = reinterpret_cast<int*>(s_qp + D_KP);
-  float* s_reduce           = reinterpret_cast<float*>(s_gidx + TOPK);
+  __nv_bfloat16* s_v_lo      = reinterpret_cast<__nv_bfloat16*>(raw);
+  __nv_bfloat16* s_v_hi      = s_v_lo + V_PIPE * BK * D_HALF;
+  __nv_bfloat16* s_kpe_tile  = s_v_hi + V_PIPE * BK * D_HALF;
+  uint64_t* s_tile_mbar      = reinterpret_cast<uint64_t*>(s_kpe_tile + V_PIPE * BK * D_KP);
+  float* s_logits_tile       = reinterpret_cast<float*>(s_tile_mbar + V_PIPE);
+  __nv_bfloat16* s_qn        = reinterpret_cast<__nv_bfloat16*>(s_logits_tile + BK);
+  __nv_bfloat16* s_qp        = s_qn + D_CK;
+  int* s_gidx                = reinterpret_cast<int*>(s_qp + D_KP);
+  float* s_reduce            = reinterpret_cast<float*>(s_gidx + TOPK);
 
   // Init mbarriers: one arrival (thread 0) per phase; tx bytes accumulate
   // via the gather4 completion mechanism. A proxy fence is required between
@@ -790,20 +805,28 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
   // gather4 tile issuer — runs on thread 0 only. Reads 16 (int32) row
   // indices from s_gidx[tile*BK .. tile*BK+15], substitutes -1 with 0
   // (the logit stage will mask those rows via the original s_gidx check),
-  // and fires 4 gather4s for ckv + 4 gather4s for kpe against the slot's
-  // mbarrier. One combined `arrive.expect_tx` accounts for all 8 loads.
-  constexpr uint32_t TILE_CKV_BYTES = BK * D_CK * sizeof(__nv_bfloat16);  // 16384
-  constexpr uint32_t TILE_KPE_BYTES = BK * D_KP * sizeof(__nv_bfloat16);  //  2048
-  constexpr uint32_t TILE_TX_BYTES  = TILE_CKV_BYTES + TILE_KPE_BYTES;    // 18432
+  // and fires 4 gather4s per descriptor (lo, hi, kpe) against the slot's
+  // mbarrier. One combined `arrive.expect_tx` accounts for all 12 loads.
+  //
+  // Per-tile byte budget:
+  //   ckv_lo:  BK rows × D_HALF bf16 = 16 * 256 * 2 =  8192 B
+  //   ckv_hi:  same                                = 8192 B
+  //   kpe:     BK rows × D_KP   bf16 = 16 *  64 * 2 = 2048 B
+  //                                      total     = 18432 B
+  constexpr uint32_t TILE_CKV_HALF_BYTES = BK * D_HALF * sizeof(__nv_bfloat16);  // 8192
+  constexpr uint32_t TILE_KPE_BYTES      = BK * D_KP   * sizeof(__nv_bfloat16);  // 2048
+  constexpr uint32_t TILE_TX_BYTES       = 2 * TILE_CKV_HALF_BYTES + TILE_KPE_BYTES;  // 18432
   auto issue_tile_tma = [&](int tile, int buf) {
     if (tid != 0) return;
     const int k0 = tile * BK;
-    __nv_bfloat16* ckv_buf = s_v_tile   + buf * (BK * D_CK);
+    __nv_bfloat16* lo_buf  = s_v_lo     + buf * (BK * D_HALF);
+    __nv_bfloat16* hi_buf  = s_v_hi     + buf * (BK * D_HALF);
     __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
     uint64_t* mbar = &s_tile_mbar[buf];
     mbarrier_arrive_expect_tx(mbar, TILE_TX_BYTES);
 
-    // ckv: 4 gather4 × 4 rows × D_CK bf16 = 16 KiB total into ckv_buf.
+    // Row indices in batches of 4, with -1 → 0 fixup (mask handled downstream
+    // by the logit stage writing -INFINITY when s_gidx[k] < 0).
     #pragma unroll
     for (int gr = 0; gr < BK / 4; ++gr) {
       const int rbase = gr * 4;
@@ -815,27 +838,32 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
       const int32_t sr1 = (r1 >= 0) ? r1 : 0;
       const int32_t sr2 = (r2 >= 0) ? r2 : 0;
       const int32_t sr3 = (r3 >= 0) ? r3 : 0;
-      uint32_t dst = smem_addr(ckv_buf + rbase * D_CK);
-      tma_gather4_2d(dst, &tmap_ckv, mbar, /*col=*/0, sr0, sr1, sr2, sr3);
-    }
-    // kpe: 4 gather4 × 4 rows × D_KP bf16 = 2 KiB total into kpe_buf.
-    #pragma unroll
-    for (int gr = 0; gr < BK / 4; ++gr) {
-      const int rbase = gr * 4;
-      const int r0 = s_gidx[k0 + rbase + 0];
-      const int r1 = s_gidx[k0 + rbase + 1];
-      const int r2 = s_gidx[k0 + rbase + 2];
-      const int r3 = s_gidx[k0 + rbase + 3];
-      const int32_t sr0 = (r0 >= 0) ? r0 : 0;
-      const int32_t sr1 = (r1 >= 0) ? r1 : 0;
-      const int32_t sr2 = (r2 >= 0) ? r2 : 0;
-      const int32_t sr3 = (r3 >= 0) ? r3 : 0;
-      uint32_t dst = smem_addr(kpe_buf + rbase * D_KP);
-      tma_gather4_2d(dst, &tmap_kpe, mbar, /*col=*/0, sr0, sr1, sr2, sr3);
+
+      // ckv lo: 4 rows × 256 bf16 = 2 KiB per gather4. gather4 packs them
+      // at 512 B stride; matching s_v_lo[r*256..r*256+256] row-indexed layout.
+      {
+        uint32_t dst = smem_addr(lo_buf + rbase * D_HALF);
+        tma_gather4_2d(dst, &tmap_ckv_lo, mbar, /*col=*/0, sr0, sr1, sr2, sr3);
+      }
+      // ckv hi: same but into s_v_hi (descriptor's base is ckv_flat + D_HALF
+      // bf16, so col=0 covers elements [D_HALF .. D_CK)).
+      {
+        uint32_t dst = smem_addr(hi_buf + rbase * D_HALF);
+        tma_gather4_2d(dst, &tmap_ckv_hi, mbar, /*col=*/0, sr0, sr1, sr2, sr3);
+      }
+      // kpe: 4 rows × 64 bf16 = 512 B per gather4.
+      {
+        uint32_t dst = smem_addr(kpe_buf + rbase * D_KP);
+        tma_gather4_2d(dst, &tmap_kpe, mbar, /*col=*/0, sr0, sr1, sr2, sr3);
+      }
     }
   };
 
   static_assert(D_CK == 2 * THREADS, "packed output path requires D_CK == 2*THREADS");
+  static_assert(D_HALF == D_CK / 2, "D_HALF derivation");
+  static_assert(THREADS == D_HALF,
+                "V-accum expects thread i ∈ [0, THREADS) to map to bf162 "
+                "column i within lo (i<128) or hi (i>=128) half-row");
 
   float m = -INFINITY, l = 0.f, o0 = 0.f, o1 = 0.f;
 
@@ -878,24 +906,38 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
       issue_tile_tma(pref_tile, pref_tile & 1);
     }
 
-    const __nv_bfloat16* ckv_buf = s_v_tile + buf * (BK * D_CK);
+    const __nv_bfloat16* lo_buf  = s_v_lo     + buf * (BK * D_HALF);
+    const __nv_bfloat16* hi_buf  = s_v_hi     + buf * (BK * D_HALF);
     const __nv_bfloat16* kpe_buf = s_kpe_tile + buf * (BK * D_KP);
 
     // --- Phase 1: logit compute (warp-parallel, 2 dots per warp) ---
+    //
+    // Under the half-row SMEM layout the K-side load becomes two 128-bf162
+    // inner sweeps (lo and hi) instead of one 256-bf162 sweep. Q is still
+    // row-contiguous in s_qn, so we split its index accordingly: lo uses
+    // qn2[i2], hi uses qn2[D_HALF/2 + i2].
     #pragma unroll
     for (int wr = 0; wr < 2; ++wr) {
       const int r = warp_id * 2 + wr;
       const int k = tile * BK + r;
-      const __nv_bfloat162* kc2 = reinterpret_cast<const __nv_bfloat162*>(ckv_buf + r * D_CK);
-      const __nv_bfloat162* kp2 = reinterpret_cast<const __nv_bfloat162*>(kpe_buf + r * D_KP);
+      const __nv_bfloat162* klo2 = reinterpret_cast<const __nv_bfloat162*>(lo_buf + r * D_HALF);
+      const __nv_bfloat162* khi2 = reinterpret_cast<const __nv_bfloat162*>(hi_buf + r * D_HALF);
+      const __nv_bfloat162* kp2  = reinterpret_cast<const __nv_bfloat162*>(kpe_buf + r * D_KP);
 
       float acc = 0.f;
       #pragma unroll
-      for (int j = 0; j < D_CK / 2 / WARP; ++j) {
-        const int i2 = j * WARP + lane;
-        const float2 kf = __bfloat1622float2(kc2[i2]);
-        const float2 qf = __bfloat1622float2(qn2[i2]);
-        acc += qf.x * kf.x + qf.y * kf.y;
+      for (int j = 0; j < D_HALF / 2 / WARP; ++j) {  // 4 per lane per half
+        const int i2 = j * WARP + lane;  // i2 ∈ [0, 128)
+        {
+          const float2 kf = __bfloat1622float2(klo2[i2]);
+          const float2 qf = __bfloat1622float2(qn2[i2]);
+          acc += qf.x * kf.x + qf.y * kf.y;
+        }
+        {
+          const float2 kf = __bfloat1622float2(khi2[i2]);
+          const float2 qf = __bfloat1622float2(qn2[D_HALF / 2 + i2]);
+          acc += qf.x * kf.x + qf.y * kf.y;
+        }
       }
       {
         const float2 kf = __bfloat1622float2(kp2[lane]);
@@ -911,6 +953,11 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
     __syncthreads();  // SYNC_B
 
     // --- Phase 2: online-softmax rescale + V accumulate ---
+    //
+    // Thread tid=i owns output pair (2i, 2i+1). With half-row SMEM, i < 128
+    // picks from the lo arena (bf162 column i), otherwise from the hi arena
+    // (bf162 column i-128). Branch is warp-uniform (warps 0..3 are all lo,
+    // warps 4..7 are all hi), so zero divergence penalty.
     float tile_max = -INFINITY;
     #pragma unroll
     for (int r = 0; r < BK; ++r) tile_max = fmaxf(tile_max, s_logits_tile[r]);
@@ -922,12 +969,15 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel_tma(
       o0 *= alpha;
       o1 *= alpha;
 
-      const __nv_bfloat162* tile_pairs = reinterpret_cast<const __nv_bfloat162*>(ckv_buf);
+      const bool in_lo = (i < D_HALF / 2);
+      const __nv_bfloat16* v_base = in_lo ? lo_buf : hi_buf;
+      const int col_bf162 = in_lo ? i : (i - D_HALF / 2);
+      const __nv_bfloat162* tile_pairs = reinterpret_cast<const __nv_bfloat162*>(v_base);
       #pragma unroll
       for (int r = 0; r < BK; ++r) {
         const float logit = s_logits_tile[r];
         const float p = exp2f(logit - m_new);
-        const float2 kf = __bfloat1622float2(tile_pairs[r * (D_CK / 2) + i]);
+        const float2 kf = __bfloat1622float2(tile_pairs[r * (D_HALF / 2) + col_bf162]);
         l  += p;
         o0 += p * kf.x;
         o1 += p * kf.y;
@@ -1353,15 +1403,18 @@ struct TmaDescKey {
   uintptr_t ptr;
   int64_t num_rows;
   int32_t boxW;
+  int32_t row_stride_elems;
   bool operator==(const TmaDescKey& o) const noexcept {
-    return ptr == o.ptr && num_rows == o.num_rows && boxW == o.boxW;
+    return ptr == o.ptr && num_rows == o.num_rows
+        && boxW == o.boxW && row_stride_elems == o.row_stride_elems;
   }
 };
 struct TmaDescKeyHash {
   size_t operator()(const TmaDescKey& k) const noexcept {
     size_t h = std::hash<uintptr_t>()(k.ptr);
-    h ^= std::hash<int64_t>()(k.num_rows) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
-    h ^= std::hash<int32_t>()(k.boxW)     + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+    h ^= std::hash<int64_t>()(k.num_rows)         + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+    h ^= std::hash<int32_t>()(k.boxW)             + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+    h ^= std::hash<int32_t>()(k.row_stride_elems) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
     return h;
   }
 };
@@ -1370,21 +1423,34 @@ struct TmaDescCache {
   std::unordered_map<TmaDescKey, CUtensorMap, TmaDescKeyHash> map;
   std::mutex mu;
 
-  const CUtensorMap* get_or_make(const void* base_ptr, int64_t num_rows, int32_t boxW) {
+  // Encode a 2D tiled descriptor over a (num_rows × row_stride_elems) tensor,
+  // gathering a (boxW, 1) box. Set `row_stride_elems` to the real HBM row
+  // pitch (=D_CK for lo/hi sub-descriptors where boxW=D_HALF), or == boxW
+  // when the descriptor covers a full contiguous row. `base_ptr` may point
+  // into the interior of a tensor row (e.g. ckv_flat + D_HALF for the hi
+  // half) — each half-descriptor therefore gets a distinct key.
+  const CUtensorMap* get_or_make(
+      const void* base_ptr,
+      int64_t num_rows,
+      int32_t boxW,
+      int32_t row_stride_elems) {
     std::lock_guard<std::mutex> lk(mu);
-    TmaDescKey key{reinterpret_cast<uintptr_t>(base_ptr), num_rows, boxW};
+    TmaDescKey key{reinterpret_cast<uintptr_t>(base_ptr), num_rows, boxW, row_stride_elems};
     auto it = map.find(key);
     if (it != map.end()) return &it->second;
 
     CUtensorMap tmap{};
-    // 2D tensor (num_rows × boxW); gather4 box is (boxW, 1).
+    // 2D tensor size: inner=col extent (=boxW), outer=row count. The logical
+    // tensor seen via this descriptor is (num_rows × boxW); the gather4 box
+    // is (boxW, 1).
     uint64_t tensor_size[2] = {
         static_cast<uint64_t>(boxW),
         static_cast<uint64_t>(num_rows)
     };
-    // Outer-dim stride in bytes: boxW bf16 = boxW * 2 B.
+    // Outer-dim stride in bytes. Must match real HBM row pitch (can be
+    // larger than boxW for half-row descriptors that strad­dle a wider row).
     uint64_t tensor_stride[1] = {
-        static_cast<uint64_t>(boxW) * sizeof(__nv_bfloat16)
+        static_cast<uint64_t>(row_stride_elems) * sizeof(__nv_bfloat16)
     };
     uint32_t box_size[2] = { static_cast<uint32_t>(boxW), 1u };
     uint32_t elem_stride[2] = { 1u, 1u };
@@ -1642,12 +1708,21 @@ void kernel_fn(
     const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
     if (tma_enabled()) {
       configure_tma_kernel_attrs();
-      const CUtensorMap* tm_ckv = g_tma_cache.get_or_make(ckv_p, num_kv_rows, D_CK);
-      const CUtensorMap* tm_kpe = g_tma_cache.get_or_make(kpe_p, num_kv_rows, D_KP);
+      // Half-row split: D_CK=512 exceeds cuTensorMapEncodeTiled's 256-element
+      // boxDim cap, so we encode two boxW=256 descriptors over the same
+      // ckv_flat base. The `hi` descriptor starts D_HALF bf16 elements into
+      // each row, so the TMA engine fetches the second half when col=0.
+      const auto* ckv_bf16 = reinterpret_cast<const __nv_bfloat16*>(ckv_p);
+      const CUtensorMap* tm_ckv_lo = g_tma_cache.get_or_make(
+          ckv_bf16,          num_kv_rows, /*boxW=*/D_HALF, /*row_stride=*/D_CK);
+      const CUtensorMap* tm_ckv_hi = g_tma_cache.get_or_make(
+          ckv_bf16 + D_HALF, num_kv_rows, /*boxW=*/D_HALF, /*row_stride=*/D_CK);
+      const CUtensorMap* tm_kpe    = g_tma_cache.get_or_make(
+          kpe_p,             num_kv_rows, /*boxW=*/D_KP,   /*row_stride=*/D_KP);
       const size_t shmem_tma = shmem_base
           + static_cast<size_t>(V_PIPE) * sizeof(uint64_t);
       mla_sparse_attn_kernel_tma<<<grid, block, shmem_tma, stream>>>(
-          q_nope_p, q_pe_p, *tm_ckv, *tm_kpe, si_p, sm_log2e,
+          q_nope_p, q_pe_p, *tm_ckv_lo, *tm_ckv_hi, *tm_kpe, si_p, sm_log2e,
           out_p, lse_p, H, num_kv_rows);
     } else {
       mla_sparse_attn_kernel<<<grid, block, shmem_base, stream>>>(

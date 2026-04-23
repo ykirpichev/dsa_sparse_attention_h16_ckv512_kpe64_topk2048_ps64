@@ -74,12 +74,22 @@ def run_benchmark(
     smoke: bool = False,
     smoke_workloads: int = SMOKE_WORKLOAD_COUNT_DEFAULT,
     smoke_seed: int = SMOKE_RANDOM_SEED,
+    tma: bool = False,
 ) -> dict:
     """Run benchmark on Modal B200 and return results.
 
     If ``smoke`` is True, randomly sample ``smoke_workloads`` workloads (seeded)
     and use warmup=1 / iterations=1 / num_trials=1 for a fast correctness pass.
+
+    If ``tma`` is True, sets MLA_SPARSE_ATTN_TMA=1 before the solution's
+    kernel.cu is imported, routing the G==1 path through the TMA-gather4
+    variant (Phase 5 step 2).
     """
+    import os as _os
+    if tma:
+        _os.environ["MLA_SPARSE_ATTN_TMA"] = "1"
+        print("  TMA enabled (MLA_SPARSE_ATTN_TMA=1)")
+
     if config is None:
         if smoke:
             config = BenchmarkConfig(warmup_runs=1, iterations=1, num_trials=1)
@@ -182,6 +192,7 @@ def main(
     smoke: bool = False,
     smoke_workloads: int = SMOKE_WORKLOAD_COUNT_DEFAULT,
     smoke_seed: int = SMOKE_RANDOM_SEED,
+    tma: bool = False,
 ):
     """Pack solution and run benchmark on Modal.
 
@@ -189,6 +200,8 @@ def main(
         smoke: If True, run on a random subset with minimal timing (fast correctness check).
         smoke_workloads: How many random workloads to run in smoke mode (default 10).
         smoke_seed: Random seed for the smoke workload sample (default 42).
+        tma: If True, sets MLA_SPARSE_ATTN_TMA=1 on the Modal worker before the
+            solution's kernel.cu is imported (Phase 5 step 2 gather4 path).
     """
     from scripts.pack_solution import pack_solution
 
@@ -201,14 +214,17 @@ def main(
 
     if smoke:
         print(f"\nRunning SMOKE benchmark on Modal B200 "
-              f"({smoke_workloads} random workloads, seed={smoke_seed})...")
+              f"({smoke_workloads} random workloads, seed={smoke_seed})"
+              + (" [TMA=1]" if tma else "") + "...")
     else:
-        print("\nRunning FULL benchmark on Modal B200...")
+        print("\nRunning FULL benchmark on Modal B200"
+              + (" [TMA=1]" if tma else "") + "...")
     results = run_benchmark.remote(
         solution,
         smoke=smoke,
         smoke_workloads=smoke_workloads,
         smoke_seed=smoke_seed,
+        tma=tma,
     )
 
     if not results:
