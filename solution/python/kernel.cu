@@ -909,17 +909,6 @@ __global__ void mla_split_reduce_kernel(
   if (tid == 0) lse_out[lse_i] = m_final + log2f(l_final);
 }
 
-void require_b200() {
-  int dev = -1;
-  cudaGetDevice(&dev);
-  cudaDeviceProp prop{};
-  cudaGetDeviceProperties(&prop, dev);
-  TVM_FFI_ICHECK_EQ(prop.major, 10) << "mla_cuda: requires B200-class GPU (compute capability 10.0), got "
-                                    << prop.major << "." << prop.minor;
-  TVM_FFI_ICHECK_EQ(prop.minor, 0) << "mla_cuda: requires B200-class GPU (compute capability 10.0), got "
-                                   << prop.major << "." << prop.minor;
-}
-
 // Dynamic SMEM cap sized exactly to actual kernel usage (~46 KiB for
 // v5_fused). A tight cap lets the GPU schedule 4 CTAs/SM (B200: 228 KiB
 // SMEM/SM → 4 × 46 = 184 KiB fits comfortably).
@@ -1108,7 +1097,6 @@ void kernel_fn(
     double sm_scale,
     tvm::ffi::TensorView out,
     tvm::ffi::TensorView lse) {
-  require_b200();
   configure_kernel_attrs_once();
 
   // Device checks.
