@@ -32,6 +32,7 @@
  *     because the syncs chopped up the memory pipeline.
  */
 
+#include <cuda.h>           // CUtensorMap, cuTensorMapEncodeTiled (driver API; sm_100a TMA)
 #include <cuda_bf16.h>
 #include <cuda_runtime.h>
 #include <tvm/ffi/container/tensor.h>
@@ -47,6 +48,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <mutex>
+#include <unordered_map>
 
 // diag02: set to 1 to enable in-kernel phase cycle timers. Block (0,0) prints
 // one line of cycle counts per kernel launch. Leave at 0 for benchmark runs.
@@ -189,6 +191,103 @@ __device__ __forceinline__ float block_reduce_sum(float v, float* smem) {
   r = smem[0];
   __syncthreads();
   return r;
+}
+
+// ---------------------------------------------------------------------------
+// TMA (Tensor Memory Accelerator) primitives — sm_100a gather4 variant.
+//
+// Used by mla_sparse_attn_kernel_tma to load the per-tile ckv / kpe rows in
+// bulk via `cp.async.bulk.tensor.2d.tile::gather4`, replacing the per-thread
+// cp.async.ca.shared.global loops (~1280 per tile → ~8 TMA instructions).
+// Completion is tracked via an mbarrier per V_PIPE slot.
+//
+// Layout invariants:
+//   * The TMA descriptor must be built with box = (boxW, 1) where boxW is the
+//     row element count (D_CK for ckv, D_KP for kpe). gather4 hardware only
+//     supports box dim1 = 1 (one row per tile).
+//   * Destination SMEM for each gather4 call must be 128-byte aligned.
+// ---------------------------------------------------------------------------
+
+__device__ __forceinline__ uint32_t smem_addr(const void* smem_generic) {
+  return static_cast<uint32_t>(__cvta_generic_to_shared(smem_generic));
+}
+
+__device__ __forceinline__ void mbarrier_init(uint64_t* bar, uint32_t count) {
+  uint32_t a = smem_addr(bar);
+  asm volatile("mbarrier.init.shared::cta.b64 [%0], %1;\n" :: "r"(a), "r"(count));
+}
+
+__device__ __forceinline__ void mbarrier_inval(uint64_t* bar) {
+  uint32_t a = smem_addr(bar);
+  asm volatile("mbarrier.inval.shared::cta.b64 [%0];\n" :: "r"(a));
+}
+
+__device__ __forceinline__ void fence_mbarrier_init_release_cluster() {
+  asm volatile("fence.mbarrier_init.release.cluster;\n" ::);
+}
+
+// Sets the expected tx-count on the mbarrier in bytes AND decrements the
+// pending-arrival count by 1 (combined arrive + expect_tx). Call once per
+// tile load from exactly one thread (the TMA issuer).
+__device__ __forceinline__ void mbarrier_arrive_expect_tx(uint64_t* bar, uint32_t tx_bytes) {
+  uint32_t a = smem_addr(bar);
+  asm volatile(
+      "mbarrier.arrive.expect_tx.release.cta.shared::cta.b64 _, [%0], %1;\n"
+      :: "r"(a), "r"(tx_bytes) : "memory");
+}
+
+// Blocks until the mbarrier phase-parity bit flips from the caller's current
+// `phase`. `phase` should be toggled (^= 1) after each successful wait.
+__device__ __forceinline__ void mbarrier_wait(uint64_t* bar, uint32_t phase) {
+  uint32_t a = smem_addr(bar);
+  uint32_t done = 0;
+  // mbarrier.try_wait.parity sometimes spuriously returns early; loop.
+  do {
+    asm volatile(
+        "{\n"
+        ".reg .pred p;\n"
+        "mbarrier.try_wait.parity.acquire.cta.shared::cta.b64 p, [%1], %2;\n"
+        "selp.u32 %0, 1, 0, p;\n"
+        "}\n"
+        : "=r"(done) : "r"(a), "r"(phase));
+  } while (!done);
+}
+
+// Issue a single gather4 TMA load: reads 4 rows (at row0..row3) of the 2D
+// tensor described by `tmap` into `dst_smem_i` (128-byte aligned SMEM addr).
+// Each row contributes `box_w` elements of the descriptor's dtype.
+__device__ __forceinline__ void tma_gather4_2d(
+    uint32_t dst_smem_i,
+    const CUtensorMap* tmap,
+    uint64_t mbar_gaddr,
+    int32_t col,
+    int32_t row0, int32_t row1, int32_t row2, int32_t row3) {
+  asm volatile(
+      "cp.async.bulk.tensor.2d.shared::cta.global.tile::gather4"
+      ".mbarrier::complete_tx::bytes"
+      " [%0], [%1, {%2, %3, %4, %5, %6}], [%7];\n"
+      :: "r"(dst_smem_i), "l"(tmap),
+         "r"(col), "r"(row0), "r"(row1), "r"(row2), "r"(row3),
+         "r"(static_cast<uint32_t>(mbar_gaddr))
+      : "memory");
+}
+
+// Overload: mbarrier addressed via smem-local pointer (we cast inside).
+__device__ __forceinline__ void tma_gather4_2d(
+    uint32_t dst_smem_i,
+    const CUtensorMap* tmap,
+    uint64_t* mbar_smem,
+    int32_t col,
+    int32_t row0, int32_t row1, int32_t row2, int32_t row3) {
+  uint32_t mb = smem_addr(mbar_smem);
+  asm volatile(
+      "cp.async.bulk.tensor.2d.shared::cta.global.tile::gather4"
+      ".mbarrier::complete_tx::bytes"
+      " [%0], [%1, {%2, %3, %4, %5, %6}], [%7];\n"
+      :: "r"(dst_smem_i), "l"(tmap),
+         "r"(col), "r"(row0), "r"(row1), "r"(row2), "r"(row3),
+         "r"(mb)
+      : "memory");
 }
 
 // Phase-timing instrumentation (diag02).
