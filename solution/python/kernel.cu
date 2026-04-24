@@ -1400,33 +1400,42 @@ static SplitKScratch g_split_scratch;
 // ---------------------------------------------------------------------------
 // CUDA-graph cache (feature/cuda-graph-cache).
 //
-// flashinfer-bench replays `kernel_fn` many times per workload with the same
-// input tensors (same pointers, shapes, and scalar args). On B200 the small
-// CPT_H workloads land in the 8-15 µs range, where ~3-7 µs per invocation is
-// pure CUDA-runtime launch / Torch framework overhead. Capturing the kernel
-// chain into a cudaGraph_t once and replaying it via cudaGraphLaunch on every
-// subsequent call with an identical key eliminates most of that overhead.
+// On B200 the small CPT_H workloads land in the 8-15 µs range, where ~3-7 µs
+// per invocation is pure CUDA-runtime launch / Torch framework overhead per
+// kernel. Our dispatch issues 2-3 kernels per call, so graph-capture savings
+// compound. flashinfer-bench's `do_bench` timing harness, however, calls the
+// solution once per timed iteration with FRESHLY CLONED input tensors (see
+// `_clone_args` + `setup=` callback in bench/timing.py). That means the
+// tensor data pointers change every iteration, but their shapes, dtypes, and
+// contents (clone of the same source) stay constant throughout the run.
+//
+// Caching strategy:
+//   - Cache is keyed on SHAPE ONLY: (stream, T, H, num_kv_rows, sm_log2e,
+//     path-verdict, G). Pointers are deliberately *not* part of the key.
+//   - On first call for a given key we capture a fresh cudaGraph_t, then
+//     `cudaGraphInstantiate` it and cache the resulting `cudaGraphExec_t`.
+//   - On every subsequent call we capture a fresh `cudaGraph_t` with the
+//     current pointers, then use `cudaGraphExecUpdate` to splice the new
+//     kernel-node parameters (i.e. the new pointers) into the cached
+//     `cudaGraphExec_t` in place. Instantiate is the expensive step
+//     (~hundreds of µs); update is a cheap in-place patch (~single-digit
+//     µs). Replay is then a single `cudaGraphLaunch`.
+//   - If `cudaGraphExecUpdate` reports a topology mismatch (shouldn't
+//     happen because the key pins the dispatch path and G), we destroy the
+//     cached exec and re-instantiate from scratch.
 //
 // Capture safety is guaranteed by running all potentially-syncing or
 // allocating setup (density count, split-K scratch alloc, kernel-attribute
 // configuration) OUTSIDE cudaStreamBeginCapture / cudaStreamEndCapture. Only
-// the kernel launches themselves (which during capture are just recorded into
-// the graph) run inside the captured region.
+// the kernel launches themselves (which during capture are just recorded
+// into the graph) run inside the captured region.
 //
-// The cache is a fixed-size LRU of 32 entries keyed on (stream, all tensor
-// pointers, T, H, num_kv_rows, sm_log2e, path-verdict, G). Across the 23
-// evaluator workloads this is ample headroom.
+// The cache is a fixed-size LRU of 32 entries — ample for the 23 evaluator
+// workloads.
 // ---------------------------------------------------------------------------
 
 struct GraphKey {
   cudaStream_t stream;
-  const void* q_nope;
-  const void* q_pe;
-  const void* ckv;
-  const void* kpe;
-  const void* si;
-  void* out;
-  void* lse;
   int64_t T;
   int64_t H;
   int64_t num_kv_rows;
@@ -1445,7 +1454,6 @@ static_assert(sizeof(GraphKey) % 8 == 0, "GraphKey must be 8-byte aligned for me
 
 struct GraphEntry {
   GraphKey key{};
-  cudaGraph_t graph = nullptr;
   cudaGraphExec_t exec = nullptr;
   bool valid = false;
 };
@@ -1455,33 +1463,40 @@ class GraphCache {
   static constexpr int N = 32;
 
   ~GraphCache() {
-    // Best-effort cleanup; the process is exiting so failures are ignored.
     for (auto& e : e_) {
       if (e.exec) cudaGraphExecDestroy(e.exec);
-      if (e.graph) cudaGraphDestroy(e.graph);
     }
   }
 
-  cudaGraphExec_t find(const GraphKey& k) {
+  // Returns a pointer to the matching slot (so callers can cudaGraphExec-
+  // Update it or invalidate it on topology mismatch). Holds no lock across
+  // the returned pointer: callers must not invoke cache-mutating methods
+  // concurrently. Safe under the single-threaded bench contract.
+  GraphEntry* find_slot(const GraphKey& k) {
     std::lock_guard<std::mutex> lk(mu_);
     for (auto& e : e_) {
-      if (e.valid && e.key == k) return e.exec;
+      if (e.valid && e.key == k) return &e;
     }
     return nullptr;
   }
 
-  void insert(const GraphKey& k, cudaGraph_t g, cudaGraphExec_t x) {
+  // Inserts a fresh exec. Evicts the oldest slot if the table is full.
+  void insert(const GraphKey& k, cudaGraphExec_t x) {
     std::lock_guard<std::mutex> lk(mu_);
     auto& slot = e_[head_];
-    if (slot.valid) {
-      if (slot.exec) cudaGraphExecDestroy(slot.exec);
-      if (slot.graph) cudaGraphDestroy(slot.graph);
-    }
+    if (slot.valid && slot.exec) cudaGraphExecDestroy(slot.exec);
     slot.key = k;
-    slot.graph = g;
     slot.exec = x;
     slot.valid = true;
     head_ = (head_ + 1) % N;
+  }
+
+  // Invalidates the given slot; caller is responsible for destroying its
+  // exec handle (we just drop the pointer).
+  void invalidate(GraphEntry* slot) {
+    std::lock_guard<std::mutex> lk(mu_);
+    slot->valid = false;
+    slot->exec = nullptr;
   }
 
  private:
@@ -1498,6 +1513,17 @@ static bool graph_cache_enabled() {
   static const bool v = []() {
     const char* s = std::getenv("WOMBAT_CUDA_GRAPH");
     return !(s && std::strcmp(s, "0") == 0);
+  }();
+  return v;
+}
+
+// WOMBAT_CUDA_GRAPH_DEBUG=1 enables verbose per-step error reporting from
+// the capture/update/launch path. Useful when diagnosing a capture failure
+// on a new harness.
+static bool graph_cache_debug() {
+  static const bool v = []() {
+    const char* s = std::getenv("WOMBAT_CUDA_GRAPH_DEBUG");
+    return s && std::strcmp(s, "0") != 0;
   }();
   return v;
 }
@@ -2091,15 +2117,11 @@ void kernel_fn(
     return;
   }
 
+  const bool dbg = graph_cache_debug();
+
   GraphKey k{};
+  std::memset(&k, 0, sizeof(k));  // zero any implicit padding
   k.stream = stream;
-  k.q_nope = q_nope_p;
-  k.q_pe = q_pe_p;
-  k.ckv = ckv_p;
-  k.kpe = kpe_p;
-  k.si = si_p;
-  k.out = out_p;
-  k.lse = lse_p;
   k.T = T;
   k.H = H;
   k.num_kv_rows = num_kv_rows;
@@ -2107,39 +2129,105 @@ void kernel_fn(
   k.path = path;
   k.G = (path == 1) ? G_cpt : static_cast<uint8_t>(G);
 
-  if (cudaGraphExec_t exec = g_graph_cache.find(k); exec != nullptr) {
-    const cudaError_t err = cudaGraphLaunch(exec, stream);
-    TORCH_CHECK(err == cudaSuccess,
-        "cudaGraphLaunch failed: ", cudaGetErrorString(err));
-    return;
+  // We cannot always capture on the caller-supplied stream: under some
+  // PyTorch configurations it may already be in a capture state, and
+  // nested captures are forbidden (cudaErrorIllegalState). To stay robust
+  // we own a dedicated internal stream for capture. The captured graph is
+  // topology-only (doesn't carry a stream identity), so replaying it on
+  // the caller's stream preserves ordering wrt. the caller's other work.
+  static thread_local cudaStream_t cap_stream = nullptr;
+  if (!cap_stream) {
+    cudaStreamCreateWithFlags(&cap_stream, cudaStreamNonBlocking);
   }
 
-  // Cache miss — record a new graph. `cudaStreamCaptureModeThreadLocal`
-  // keeps the capture scope isolated from any other PyTorch streams that
-  // might be live in the same thread (dataloader workers etc.) without
-  // blocking concurrent capture on other streams.
+  if (dbg) {
+    cudaStreamCaptureStatus st = cudaStreamCaptureStatusNone;
+    cudaStreamIsCapturing(stream, &st);
+    fprintf(stderr, "[cg] caller_stream=%p status=%d\n", (void*)stream, (int)st);
+    cudaStreamIsCapturing(cap_stream, &st);
+    fprintf(stderr, "[cg] cap_stream   =%p status=%d\n", (void*)cap_stream, (int)st);
+  }
+
+  // Capture on our dedicated stream. `Relaxed` allows cudaEvent ops and
+  // a wider set of APIs; `ThreadLocal` scopes it to this thread.
   cudaError_t cerr = cudaStreamBeginCapture(
-      stream, cudaStreamCaptureModeThreadLocal);
-  TORCH_CHECK(cerr == cudaSuccess,
-      "cudaStreamBeginCapture failed: ", cudaGetErrorString(cerr));
+      cap_stream, cudaStreamCaptureModeRelaxed);
+  if (cerr != cudaSuccess) {
+    if (dbg) fprintf(stderr, "[cg] BeginCapture failed: err=%d %s\n",
+                     (int)cerr, cudaGetErrorString(cerr));
+    // Fall back to direct launch on the caller's stream; drop the event
+    // sync we posted (no kernels were enqueued on cap_stream).
+    dispatch(stream);
+    const cudaError_t err2 = cudaGetLastError();
+    TORCH_CHECK(err2 == cudaSuccess,
+        "direct launch after capture failure: ", cudaGetErrorString(err2));
+    return;
+  }
+  dispatch(cap_stream);
+  cudaGraph_t new_graph = nullptr;
+  cerr = cudaStreamEndCapture(cap_stream, &new_graph);
+  if (cerr != cudaSuccess || new_graph == nullptr) {
+    if (dbg) fprintf(stderr, "[cg] EndCapture failed: %s\n", cudaGetErrorString(cerr));
+    TORCH_CHECK(false, "cudaStreamEndCapture failed: ", cudaGetErrorString(cerr));
+  }
 
-  dispatch(stream);
+  // Try to splice the new graph's kernel-node parameters into a cached
+  // cudaGraphExec_t (cheap in-place patch). On the first call for a given
+  // shape, or on topology mismatch, fall back to full instantiation.
+  GraphEntry* slot = g_graph_cache.find_slot(k);
+  if (slot != nullptr) {
+#if CUDART_VERSION >= 12000
+    cudaGraphExecUpdateResultInfo info{};
+    cerr = cudaGraphExecUpdate(slot->exec, new_graph, &info);
+    const bool updated = (cerr == cudaSuccess &&
+                          info.result == cudaGraphExecUpdateSuccess);
+#else
+    cudaGraphExecUpdateResult result = cudaGraphExecUpdateError;
+    cudaGraphNode_t err_node = nullptr;
+    cerr = cudaGraphExecUpdate(slot->exec, new_graph, &err_node, &result);
+    const bool updated = (cerr == cudaSuccess &&
+                          result == cudaGraphExecUpdateSuccess);
+#endif
+    if (updated) {
+      cudaGraphDestroy(new_graph);
+      cerr = cudaGraphLaunch(slot->exec, stream);
+      if (cerr != cudaSuccess) {
+        if (dbg) fprintf(stderr, "[cg] Launch(update) failed: %s\n", cudaGetErrorString(cerr));
+        TORCH_CHECK(false, "cudaGraphLaunch after update failed: ",
+                    cudaGetErrorString(cerr));
+      }
+      return;
+    }
+    // Update failed (topology mismatch or internal error). Nuke this slot
+    // and fall through to fresh instantiation below.
+    if (dbg) fprintf(stderr, "[cg] ExecUpdate fell back (err=%s); re-instantiating\n",
+                     cudaGetErrorString(cerr));
+    cudaGraphExecDestroy(slot->exec);
+    g_graph_cache.invalidate(slot);
+  }
 
-  cudaGraph_t graph = nullptr;
-  cerr = cudaStreamEndCapture(stream, &graph);
-  TORCH_CHECK(cerr == cudaSuccess && graph != nullptr,
-      "cudaStreamEndCapture failed: ", cudaGetErrorString(cerr));
-
+  // Cold slot: instantiate fresh.
   cudaGraphExec_t exec = nullptr;
-  cerr = cudaGraphInstantiate(&exec, graph, nullptr, nullptr, 0);
-  TORCH_CHECK(cerr == cudaSuccess && exec != nullptr,
-      "cudaGraphInstantiate failed: ", cudaGetErrorString(cerr));
+#if CUDART_VERSION >= 12000
+  cerr = cudaGraphInstantiate(&exec, new_graph, 0);
+#else
+  cerr = cudaGraphInstantiate(&exec, new_graph, nullptr, nullptr, 0);
+#endif
+  if (cerr != cudaSuccess || exec == nullptr) {
+    if (dbg) fprintf(stderr, "[cg] Instantiate failed: %s\n", cudaGetErrorString(cerr));
+    TORCH_CHECK(false, "cudaGraphInstantiate failed: ",
+                cudaGetErrorString(cerr));
+  }
+  cudaGraphDestroy(new_graph);  // exec owns its own copy of the topology
 
   cerr = cudaGraphLaunch(exec, stream);
-  TORCH_CHECK(cerr == cudaSuccess,
-      "cudaGraphLaunch (initial) failed: ", cudaGetErrorString(cerr));
+  if (cerr != cudaSuccess) {
+    if (dbg) fprintf(stderr, "[cg] Launch(cold) failed: %s\n", cudaGetErrorString(cerr));
+    TORCH_CHECK(false, "cudaGraphLaunch (initial) failed: ",
+                cudaGetErrorString(cerr));
+  }
 
-  g_graph_cache.insert(k, graph, exec);
+  g_graph_cache.insert(k, exec);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
