@@ -1507,16 +1507,6 @@ class GraphCache {
 
 static GraphCache g_graph_cache;
 
-// WOMBAT_CUDA_GRAPH=0 disables the graph cache and falls back to direct
-// kernel launches (useful for A/B testing). Default: enabled.
-static bool graph_cache_enabled() {
-  static const bool v = []() {
-    const char* s = std::getenv("WOMBAT_CUDA_GRAPH");
-    return !(s && std::strcmp(s, "0") == 0);
-  }();
-  return v;
-}
-
 // WOMBAT_CUDA_GRAPH_DEBUG=1 enables verbose per-step error reporting from
 // the capture/update/launch path. Useful when diagnosing a capture failure
 // on a new harness.
@@ -2109,14 +2099,9 @@ void kernel_fn(
   };
 
   // ----- Graph-cache fast path -------------------------------------------
-  if (!graph_cache_enabled()) {
-    dispatch(stream);
-    const cudaError_t err = cudaGetLastError();
-    TORCH_CHECK(err == cudaSuccess,
-        "mla_sparse_attn_kernel launch failed: ", cudaGetErrorString(err));
-    return;
-  }
-
+  // The graph cache is always enabled. WOMBAT_CUDA_GRAPH_DEBUG=1 keeps the
+  // verbose per-step error reporting available for diagnosing capture
+  // failures on a new harness.
   const bool dbg = graph_cache_debug();
 
   GraphKey k{};
