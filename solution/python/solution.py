@@ -36,8 +36,8 @@ _MODULE_NAME = "wombat_dsa_sparse_mla_sm100a_final"
 
 # NOTE: `-gencode=arch=compute_100a,code=sm_100a` is REQUIRED here; without
 # it nvcc's default SM target on the evaluator host is sm_90 (Hopper), and
-# the kernel's sm_100a-only features (TMA gather, fp32 split-K partials,
-# cp.async.bulk.tensor.gather4, etc.) fail to assemble.
+# the kernel's sm_100a-only features (WMMA bf16 mma, fp32 split-K partials,
+# etc.) fail to assemble.
 _EXTRA_CUDA_CFLAGS = [
     "-O3",
     "--use_fast_math",
@@ -45,10 +45,6 @@ _EXTRA_CUDA_CFLAGS = [
     "-std=c++17",
     "-gencode", "arch=compute_100a,code=sm_100a",
 ]
-
-# Link against libcuda.so (driver API) for cuTensorMapEncodeTiled — libcudart
-# does NOT expose these symbols.
-_EXTRA_LDFLAGS = ["-lcuda"]
 
 _ext = None
 
@@ -61,7 +57,6 @@ def _load_ext():
             name=_MODULE_NAME,
             sources=[_KERNEL_CU],
             extra_cuda_cflags=_EXTRA_CUDA_CFLAGS,
-            extra_ldflags=_EXTRA_LDFLAGS,
             extra_include_paths=[str(_THIS_DIR)],
             verbose=False,
         )
