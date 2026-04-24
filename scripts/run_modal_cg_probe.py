@@ -8,11 +8,9 @@ output from the extension lands in the parent Modal log.
 
 Usage:
     modal run scripts/run_modal_cg_probe.py
-    modal run scripts/run_modal_cg_probe.py --graph-cache 0
-    modal run scripts/run_modal_cg_probe.py --graph-debug 1 --n-iters 5
+    modal run scripts/run_modal_cg_probe.py --n-iters 5
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -46,15 +44,10 @@ image = (
               volumes={TRACE_SET_PATH: trace_volume})
 def probe_kernel(solution_json: str,
                  n_iters: int = 3,
-                 graph_cache: str = "1",
-                 graph_debug: str = "1",
                  workload_index: int = 0) -> dict:
     """Build the solution and run it n_iters times on a single workload."""
     import sys
     import traceback
-
-    os.environ["WOMBAT_CUDA_GRAPH"] = graph_cache
-    os.environ["WOMBAT_CUDA_GRAPH_DEBUG"] = graph_debug
 
     import torch
     from flashinfer_bench import Solution, TraceSet
@@ -81,8 +74,7 @@ def probe_kernel(solution_json: str,
     def cloned(seq):
         return [a.clone() if isinstance(a, torch.Tensor) else a for a in seq]
 
-    print(f"[probe] Running {n_iters} iterations on workload "
-          f"{wl.uuid[:8]} (graph_cache={graph_cache}, debug={graph_debug})",
+    print(f"[probe] Running {n_iters} iterations on workload {wl.uuid[:8]}",
           flush=True)
 
     is_dps = runnable.metadata.destination_passing_style
@@ -110,23 +102,19 @@ def probe_kernel(solution_json: str,
             # Stop after first failure so the traceback is fresh.
             break
 
-    # Flush stderr from the extension (our fprintf diagnostics).
     sys.stderr.flush()
     sys.stdout.flush()
     return results
 
 
 @app.local_entrypoint()
-def main(graph_cache: str = "1", graph_debug: str = "1", n_iters: int = 3,
-         workload_index: int = 0):
+def main(n_iters: int = 3, workload_index: int = 0):
     from scripts.pack_solution import pack_solution
     solution_path = pack_solution()
     solution_json = solution_path.read_text()
     results = probe_kernel.remote(
         solution_json,
         n_iters=n_iters,
-        graph_cache=graph_cache,
-        graph_debug=graph_debug,
         workload_index=workload_index,
     )
     print("\n=== PROBE RESULTS ===")

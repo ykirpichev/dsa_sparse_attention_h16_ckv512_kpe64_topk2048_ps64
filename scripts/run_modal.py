@@ -10,7 +10,6 @@ Setup (one-time):
     modal volume put flashinfer-trace /path/to/flashinfer-trace/
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -29,10 +28,12 @@ TRACE_SET_PATH = "/data"
 # Pin to the same image digest documented in EVALUATION.md (evaluator environment).
 # CUDA 13.2 + nvcc; required to compile the TVM-FFI CUDA entry at runtime.
 image = (
-    modal.Image.from_registry("flashinfer/flashinfer-ci-cu132:20260401-2c675fb")
+    modal.Image.from_registry("flashinfer/flashinfer-ci-cu132:latest")
     .apt_install("git")
     .env({"CUDA_HOME": "/usr/local/cuda"})
     .pip_install("wheel", "setuptools")
+    # cupti-python is in the evaluation environment (see EVALUATION.md).
+    .pip_install("cupti-python")
     .run_commands(
         "git clone --recursive --depth 1 https://github.com/deepseek-ai/DeepGEMM.git /tmp/DeepGEMM",
         "pip install --no-build-isolation /tmp/DeepGEMM",
@@ -45,21 +46,8 @@ image = (
 
 
 @app.function(image=image, gpu="B200:1", timeout=3600, volumes={TRACE_SET_PATH: trace_volume})
-def run_benchmark(solution: Solution, config: BenchmarkConfig = None,
-                  graph_cache: str = "1", graph_debug: str = "0") -> dict:
-    """Run benchmark on Modal B200 and return results.
-
-    graph_cache: value forwarded to WOMBAT_CUDA_GRAPH (default "1"). Set to
-    "0" to disable the in-kernel CUDA-graph cache for A/B comparison.
-    graph_debug: value forwarded to WOMBAT_CUDA_GRAPH_DEBUG (default "0").
-    Set to "1" to print detailed per-step CUDA error info.
-
-    Setting these here (not in the image) keeps Modal's image hash stable
-    so toggling does not trigger a multi-minute rebuild.
-    """
-    os.environ["WOMBAT_CUDA_GRAPH"] = graph_cache
-    os.environ["WOMBAT_CUDA_GRAPH_DEBUG"] = graph_debug
-
+def run_benchmark(solution: Solution, config: BenchmarkConfig = None) -> dict:
+    """Run benchmark on Modal B200 and return results."""
     if config is None:
         config = BenchmarkConfig(warmup_runs=3, iterations=100, num_trials=5)
 
@@ -129,14 +117,8 @@ def print_results(results: dict):
 
 
 @app.local_entrypoint()
-def main(graph_cache: str = "1", graph_debug: str = "0"):
-    """Pack solution and run benchmark on Modal.
-
-    --graph-cache 0 disables the in-kernel CUDA-graph cache (direct
-    launches). --graph-debug 1 prints per-step CUDA error info from the
-    capture / update / launch path. The image is unaffected by either flag
-    so toggling does not rebuild.
-    """
+def main():
+    """Pack solution and run benchmark on Modal."""
     from scripts.pack_solution import pack_solution
 
     print("Packing solution from source files...")
@@ -146,11 +128,8 @@ def main(graph_cache: str = "1", graph_debug: str = "0"):
     solution = Solution.model_validate_json(solution_path.read_text())
     print(f"Loaded: {solution.name} ({solution.definition})")
 
-    print(f"\nRunning benchmark on Modal B200 "
-          f"(WOMBAT_CUDA_GRAPH={graph_cache}, WOMBAT_CUDA_GRAPH_DEBUG={graph_debug})...")
-    results = run_benchmark.remote(solution,
-                                   graph_cache=graph_cache,
-                                   graph_debug=graph_debug)
+    print("\nRunning benchmark on Modal B200...")
+    results = run_benchmark.remote(solution)
 
     if not results:
         print("No results returned!")

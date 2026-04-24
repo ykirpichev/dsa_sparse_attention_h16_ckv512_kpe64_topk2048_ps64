@@ -1507,18 +1507,6 @@ class GraphCache {
 
 static GraphCache g_graph_cache;
 
-// WOMBAT_CUDA_GRAPH_DEBUG=1 enables verbose per-step error reporting from
-// the capture/update/launch path. Useful when diagnosing a capture failure
-// on a new harness.
-static bool graph_cache_debug() {
-  static const bool v = []() {
-    const char* s = std::getenv("WOMBAT_CUDA_GRAPH_DEBUG");
-    return s && std::strcmp(s, "0") != 0;
-  }();
-  return v;
-}
-
-
 // ---------------------------------------------------------------------------
 // Phase 7h: density-based dispatcher
 //
@@ -2099,11 +2087,7 @@ void kernel_fn(
   };
 
   // ----- Graph-cache fast path -------------------------------------------
-  // The graph cache is always enabled. WOMBAT_CUDA_GRAPH_DEBUG=1 keeps the
-  // verbose per-step error reporting available for diagnosing capture
-  // failures on a new harness.
-  const bool dbg = graph_cache_debug();
-
+  // The graph cache is always enabled.
   GraphKey k{};
   std::memset(&k, 0, sizeof(k));  // zero any implicit padding
   k.stream = stream;
@@ -2125,21 +2109,11 @@ void kernel_fn(
     cudaStreamCreateWithFlags(&cap_stream, cudaStreamNonBlocking);
   }
 
-  if (dbg) {
-    cudaStreamCaptureStatus st = cudaStreamCaptureStatusNone;
-    cudaStreamIsCapturing(stream, &st);
-    fprintf(stderr, "[cg] caller_stream=%p status=%d\n", (void*)stream, (int)st);
-    cudaStreamIsCapturing(cap_stream, &st);
-    fprintf(stderr, "[cg] cap_stream   =%p status=%d\n", (void*)cap_stream, (int)st);
-  }
-
   // Capture on our dedicated stream. `Relaxed` allows cudaEvent ops and
   // a wider set of APIs; `ThreadLocal` scopes it to this thread.
   cudaError_t cerr = cudaStreamBeginCapture(
       cap_stream, cudaStreamCaptureModeRelaxed);
   if (cerr != cudaSuccess) {
-    if (dbg) fprintf(stderr, "[cg] BeginCapture failed: err=%d %s\n",
-                     (int)cerr, cudaGetErrorString(cerr));
     // Fall back to direct launch on the caller's stream; drop the event
     // sync we posted (no kernels were enqueued on cap_stream).
     dispatch(stream);
@@ -2152,7 +2126,6 @@ void kernel_fn(
   cudaGraph_t new_graph = nullptr;
   cerr = cudaStreamEndCapture(cap_stream, &new_graph);
   if (cerr != cudaSuccess || new_graph == nullptr) {
-    if (dbg) fprintf(stderr, "[cg] EndCapture failed: %s\n", cudaGetErrorString(cerr));
     TORCH_CHECK(false, "cudaStreamEndCapture failed: ", cudaGetErrorString(cerr));
   }
 
@@ -2177,7 +2150,6 @@ void kernel_fn(
       cudaGraphDestroy(new_graph);
       cerr = cudaGraphLaunch(slot->exec, stream);
       if (cerr != cudaSuccess) {
-        if (dbg) fprintf(stderr, "[cg] Launch(update) failed: %s\n", cudaGetErrorString(cerr));
         TORCH_CHECK(false, "cudaGraphLaunch after update failed: ",
                     cudaGetErrorString(cerr));
       }
@@ -2185,8 +2157,6 @@ void kernel_fn(
     }
     // Update failed (topology mismatch or internal error). Nuke this slot
     // and fall through to fresh instantiation below.
-    if (dbg) fprintf(stderr, "[cg] ExecUpdate fell back (err=%s); re-instantiating\n",
-                     cudaGetErrorString(cerr));
     cudaGraphExecDestroy(slot->exec);
     g_graph_cache.invalidate(slot);
   }
@@ -2199,7 +2169,6 @@ void kernel_fn(
   cerr = cudaGraphInstantiate(&exec, new_graph, nullptr, nullptr, 0);
 #endif
   if (cerr != cudaSuccess || exec == nullptr) {
-    if (dbg) fprintf(stderr, "[cg] Instantiate failed: %s\n", cudaGetErrorString(cerr));
     TORCH_CHECK(false, "cudaGraphInstantiate failed: ",
                 cudaGetErrorString(cerr));
   }
@@ -2207,7 +2176,6 @@ void kernel_fn(
 
   cerr = cudaGraphLaunch(exec, stream);
   if (cerr != cudaSuccess) {
-    if (dbg) fprintf(stderr, "[cg] Launch(cold) failed: %s\n", cudaGetErrorString(cerr));
     TORCH_CHECK(false, "cudaGraphLaunch (initial) failed: ",
                 cudaGetErrorString(cerr));
   }
