@@ -50,6 +50,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <mutex>
 
 // diag02: set to 1 to enable in-kernel phase cycle timers. Block (0,0) prints
@@ -1397,6 +1398,112 @@ static SplitKScratch g_split_scratch;
 
 
 // ---------------------------------------------------------------------------
+// CUDA-graph cache (feature/cuda-graph-cache).
+//
+// flashinfer-bench replays `kernel_fn` many times per workload with the same
+// input tensors (same pointers, shapes, and scalar args). On B200 the small
+// CPT_H workloads land in the 8-15 µs range, where ~3-7 µs per invocation is
+// pure CUDA-runtime launch / Torch framework overhead. Capturing the kernel
+// chain into a cudaGraph_t once and replaying it via cudaGraphLaunch on every
+// subsequent call with an identical key eliminates most of that overhead.
+//
+// Capture safety is guaranteed by running all potentially-syncing or
+// allocating setup (density count, split-K scratch alloc, kernel-attribute
+// configuration) OUTSIDE cudaStreamBeginCapture / cudaStreamEndCapture. Only
+// the kernel launches themselves (which during capture are just recorded into
+// the graph) run inside the captured region.
+//
+// The cache is a fixed-size LRU of 32 entries keyed on (stream, all tensor
+// pointers, T, H, num_kv_rows, sm_log2e, path-verdict, G). Across the 23
+// evaluator workloads this is ample headroom.
+// ---------------------------------------------------------------------------
+
+struct GraphKey {
+  cudaStream_t stream;
+  const void* q_nope;
+  const void* q_pe;
+  const void* ckv;
+  const void* kpe;
+  const void* si;
+  void* out;
+  void* lse;
+  int64_t T;
+  int64_t H;
+  int64_t num_kv_rows;
+  uint32_t sm_bits;
+  uint8_t path;   // 0 = legacy, 1 = CTA-per-t
+  uint8_t G;      // split factor actually used by dispatch
+  uint8_t _pad0 = 0;
+  uint8_t _pad1 = 0;
+  uint32_t _pad2 = 0;
+
+  bool operator==(const GraphKey& o) const noexcept {
+    return std::memcmp(this, &o, sizeof(GraphKey)) == 0;
+  }
+};
+static_assert(sizeof(GraphKey) % 8 == 0, "GraphKey must be 8-byte aligned for memcmp");
+
+struct GraphEntry {
+  GraphKey key{};
+  cudaGraph_t graph = nullptr;
+  cudaGraphExec_t exec = nullptr;
+  bool valid = false;
+};
+
+class GraphCache {
+ public:
+  static constexpr int N = 32;
+
+  ~GraphCache() {
+    // Best-effort cleanup; the process is exiting so failures are ignored.
+    for (auto& e : e_) {
+      if (e.exec) cudaGraphExecDestroy(e.exec);
+      if (e.graph) cudaGraphDestroy(e.graph);
+    }
+  }
+
+  cudaGraphExec_t find(const GraphKey& k) {
+    std::lock_guard<std::mutex> lk(mu_);
+    for (auto& e : e_) {
+      if (e.valid && e.key == k) return e.exec;
+    }
+    return nullptr;
+  }
+
+  void insert(const GraphKey& k, cudaGraph_t g, cudaGraphExec_t x) {
+    std::lock_guard<std::mutex> lk(mu_);
+    auto& slot = e_[head_];
+    if (slot.valid) {
+      if (slot.exec) cudaGraphExecDestroy(slot.exec);
+      if (slot.graph) cudaGraphDestroy(slot.graph);
+    }
+    slot.key = k;
+    slot.graph = g;
+    slot.exec = x;
+    slot.valid = true;
+    head_ = (head_ + 1) % N;
+  }
+
+ private:
+  GraphEntry e_[N];
+  int head_ = 0;
+  std::mutex mu_;
+};
+
+static GraphCache g_graph_cache;
+
+// WOMBAT_CUDA_GRAPH=0 disables the graph cache and falls back to direct
+// kernel launches (useful for A/B testing). Default: enabled.
+static bool graph_cache_enabled() {
+  static const bool v = []() {
+    const char* s = std::getenv("WOMBAT_CUDA_GRAPH");
+    return !(s && std::strcmp(s, "0") == 0);
+  }();
+  return v;
+}
+
+
+// ---------------------------------------------------------------------------
 // Phase 7h: density-based dispatcher
 //
 // Some workloads have the same (T, H, num_kv_rows) shape as the fastest
@@ -1881,60 +1988,158 @@ void kernel_fn(
   // whose sparse-index density passes the Phase 7h pre-scan threshold;
   // low-density or non-CPT_H workloads fall through to the legacy (t,h)-
   // grid path below.
+  //
+  // NOTE: the density-count lookup (`g_density_cache.get_or_compute`) may
+  // synchronise the stream on a cold cache, so we resolve the dispatch
+  // verdict BEFORE any potential cudaStreamBeginCapture below.
+  uint8_t path = 0;     // 0 = legacy, 1 = CTA-per-t
+  uint8_t G_cpt = 0;    // split factor for CTA-per-t path (only valid if path==1)
   if (H == CPT_H) {
     const int density_count = g_density_cache.get_or_compute(
         si_p, T, num_kv_rows, stream);
     const int density_avg = density_count /
         static_cast<int>(std::max<int64_t>(T, 1));
     if (density_avg >= CTA_PER_T_DENSITY_MIN_AVG) {
+      path = 1;
+      G_cpt = static_cast<uint8_t>(pick_split_G_cta_per_t(static_cast<int>(T)));
+    }
+    // else: fall through to legacy dispatch for low-density workloads.
+  }
+
+  // Pre-capture setup: ensure split-K scratch is big enough, and pre-run the
+  // one-time kernel-attribute configuration for the CPT kernel variant we'll
+  // launch. Both steps involve CUDA API calls (cudaMalloc / cudaFuncSet-
+  // Attribute) that are forbidden inside cudaStreamBeginCapture, so they must
+  // run here. After this block, each helper's "ensure / configure_once" paths
+  // will short-circuit to pure-CPU no-ops and are safe to re-enter from a
+  // captured launch site.
+  auto ensure_split_scratch = [&](int G_) {
+    if (G_ <= 1) return;
+    const size_t O_bytes =
+        static_cast<size_t>(T) * H * G_ * D_CK * sizeof(float);
+    const size_t ml_bytes =
+        static_cast<size_t>(T) * H * G_ * sizeof(float);
+    g_split_scratch.ensure(O_bytes, ml_bytes);
+  };
+  if (path == 1) {
+    ensure_split_scratch(G_cpt);
+    switch (G_cpt) {
+      case 1:  configure_cpt_mma_v_kernel_attrs_once<1,  2>(); break;
+      case 2:  configure_cpt_mma_v_kernel_attrs_once<2,  2>(); break;
+      case 4:  configure_cpt_mma_v_kernel_attrs_once<4,  2>(); break;
+      case 8:  configure_cpt_mma_v_kernel_attrs_once<8,  2>(); break;
+      default: configure_cpt_mma_v_kernel_attrs_once<16, 2>(); break;
+    }
+  } else {
+    ensure_split_scratch(G);
+  }
+
+  // Pre-computed SMEM size for the legacy G=1 path (same expression as the
+  // original kernel_fn body). Kept outside the dispatch lambda so the capture
+  // path reads a fully-evaluated constant.
+  //   s_logits_tile: BK * fp32 (64 B)
+  //   s_qn + s_qp  : (D_CK + D_KP) * bf16 (1152 B)
+  //   s_gidx       : TOPK * int32 (8 KiB)
+  //   s_reduce     : NUM_WARPS * fp32 (32 B)
+  //   s_v_tile     : V_PIPE * BK * D_CK * bf16 (32 KiB)
+  //   s_kpe_tile   : V_PIPE * BK * D_KP * bf16 (4 KiB)
+  const size_t shmem_base =
+      static_cast<size_t>(BK) * sizeof(float)
+      + static_cast<size_t>(D_CK + D_KP) * sizeof(__nv_bfloat16)
+      + static_cast<size_t>(TOPK) * sizeof(int)
+      + static_cast<size_t>(NUM_WARPS) * sizeof(float)
+      + static_cast<size_t>(V_PIPE) * BK * D_CK * sizeof(__nv_bfloat16)
+      + static_cast<size_t>(V_PIPE) * BK * D_KP * sizeof(__nv_bfloat16);
+
+  auto dispatch = [&](cudaStream_t s) {
+    if (path == 1) {
       dispatch_cta_per_t(T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
-                         sm_log2e, out_p, lse_p, num_kv_rows, stream);
+                         sm_log2e, out_p, lse_p, num_kv_rows, s);
       return;
     }
-    // Fall through to legacy dispatch for low-density workloads.
+    if (G == 1) {
+      const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
+      mla_sparse_attn_kernel<<<grid, block, shmem_base, s>>>(
+          q_nope_p, q_pe_p, ckv_p, kpe_p, si_p, sm_log2e,
+          out_p, lse_p, H, num_kv_rows);
+    } else if (G == 2) {
+      launch_split_partial_and_reduce<2>(
+          T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
+          sm_log2e, out_p, lse_p, num_kv_rows, s);
+    } else if (G == 4) {
+      launch_split_partial_and_reduce<4>(
+          T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
+          sm_log2e, out_p, lse_p, num_kv_rows, s);
+    } else if (G == 8) {
+      launch_split_partial_and_reduce<8>(
+          T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
+          sm_log2e, out_p, lse_p, num_kv_rows, s);
+    } else {
+      // G == 16 (the cap).
+      launch_split_partial_and_reduce<16>(
+          T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
+          sm_log2e, out_p, lse_p, num_kv_rows, s);
+    }
+  };
+
+  // ----- Graph-cache fast path -------------------------------------------
+  if (!graph_cache_enabled()) {
+    dispatch(stream);
+    const cudaError_t err = cudaGetLastError();
+    TORCH_CHECK(err == cudaSuccess,
+        "mla_sparse_attn_kernel launch failed: ", cudaGetErrorString(err));
+    return;
   }
 
-  if (G == 1) {
-    // Legacy fallback: one CTA per (t, h), plain cp.async loads.
-    //   s_logits_tile: BK * fp32 (64 B)
-    //   s_qn + s_qp  : (D_CK + D_KP) * bf16 (1152 B)
-    //   s_gidx       : TOPK * int32 (8 KiB)
-    //   s_reduce     : NUM_WARPS * fp32 (32 B)
-    //   s_v_tile     : V_PIPE * BK * D_CK * bf16 (32 KiB)
-    //   s_kpe_tile   : V_PIPE * BK * D_KP * bf16 (4 KiB)
-    const size_t shmem_base =
-        static_cast<size_t>(BK) * sizeof(float)
-        + static_cast<size_t>(D_CK + D_KP) * sizeof(__nv_bfloat16)
-        + static_cast<size_t>(TOPK) * sizeof(int)
-        + static_cast<size_t>(NUM_WARPS) * sizeof(float)
-        + static_cast<size_t>(V_PIPE) * BK * D_CK * sizeof(__nv_bfloat16)
-        + static_cast<size_t>(V_PIPE) * BK * D_KP * sizeof(__nv_bfloat16);
-    const dim3 grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
-    mla_sparse_attn_kernel<<<grid, block, shmem_base, stream>>>(
-        q_nope_p, q_pe_p, ckv_p, kpe_p, si_p, sm_log2e,
-        out_p, lse_p, H, num_kv_rows);
-  } else if (G == 2) {
-    launch_split_partial_and_reduce<2>(
-        T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
-        sm_log2e, out_p, lse_p, num_kv_rows, stream);
-  } else if (G == 4) {
-    launch_split_partial_and_reduce<4>(
-        T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
-        sm_log2e, out_p, lse_p, num_kv_rows, stream);
-  } else if (G == 8) {
-    launch_split_partial_and_reduce<8>(
-        T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
-        sm_log2e, out_p, lse_p, num_kv_rows, stream);
-  } else {
-    // G == 16 (the cap).
-    launch_split_partial_and_reduce<16>(
-        T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
-        sm_log2e, out_p, lse_p, num_kv_rows, stream);
+  GraphKey k{};
+  k.stream = stream;
+  k.q_nope = q_nope_p;
+  k.q_pe = q_pe_p;
+  k.ckv = ckv_p;
+  k.kpe = kpe_p;
+  k.si = si_p;
+  k.out = out_p;
+  k.lse = lse_p;
+  k.T = T;
+  k.H = H;
+  k.num_kv_rows = num_kv_rows;
+  std::memcpy(&k.sm_bits, &sm_log2e, sizeof(float));
+  k.path = path;
+  k.G = (path == 1) ? G_cpt : static_cast<uint8_t>(G);
+
+  if (cudaGraphExec_t exec = g_graph_cache.find(k); exec != nullptr) {
+    const cudaError_t err = cudaGraphLaunch(exec, stream);
+    TORCH_CHECK(err == cudaSuccess,
+        "cudaGraphLaunch failed: ", cudaGetErrorString(err));
+    return;
   }
 
-  const cudaError_t err = cudaGetLastError();
-  TORCH_CHECK(err == cudaSuccess,
-      "mla_sparse_attn_kernel launch failed: ", cudaGetErrorString(err));
+  // Cache miss — record a new graph. `cudaStreamCaptureModeThreadLocal`
+  // keeps the capture scope isolated from any other PyTorch streams that
+  // might be live in the same thread (dataloader workers etc.) without
+  // blocking concurrent capture on other streams.
+  cudaError_t cerr = cudaStreamBeginCapture(
+      stream, cudaStreamCaptureModeThreadLocal);
+  TORCH_CHECK(cerr == cudaSuccess,
+      "cudaStreamBeginCapture failed: ", cudaGetErrorString(cerr));
+
+  dispatch(stream);
+
+  cudaGraph_t graph = nullptr;
+  cerr = cudaStreamEndCapture(stream, &graph);
+  TORCH_CHECK(cerr == cudaSuccess && graph != nullptr,
+      "cudaStreamEndCapture failed: ", cudaGetErrorString(cerr));
+
+  cudaGraphExec_t exec = nullptr;
+  cerr = cudaGraphInstantiate(&exec, graph, nullptr, nullptr, 0);
+  TORCH_CHECK(cerr == cudaSuccess && exec != nullptr,
+      "cudaGraphInstantiate failed: ", cudaGetErrorString(cerr));
+
+  cerr = cudaGraphLaunch(exec, stream);
+  TORCH_CHECK(cerr == cudaSuccess,
+      "cudaGraphLaunch (initial) failed: ", cudaGetErrorString(cerr));
+
+  g_graph_cache.insert(k, graph, exec);
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
