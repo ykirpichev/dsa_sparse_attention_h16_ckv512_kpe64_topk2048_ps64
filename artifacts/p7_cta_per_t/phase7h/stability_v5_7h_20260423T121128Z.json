@@ -1,0 +1,1061 @@
+{
+  "definition": "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64",
+  "repeats": 5,
+  "runs": [
+    {
+      "wombat_dsa_sparse_mla_v5_7h": {
+        "02d6ae9c64ab42ff93f05c23c53bcb7d": {
+          "latency_ms": 0.055209600180387494,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 740.9482421875,
+          "reference_latency_ms": 1.924883210659027,
+          "speedup_factor": 34.86500906309438,
+          "status": "PASSED",
+          "workload": "02d6ae9c64ab42ff93f05c23c53bcb7d"
+        },
+        "05f6de657db543ae9e4c46796522843a": {
+          "latency_ms": 0.027004800178110598,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.013407722115516663,
+          "reference_latency_ms": 1.115548813343048,
+          "speedup_factor": 41.30927857215857,
+          "status": "PASSED",
+          "workload": "05f6de657db543ae9e4c46796522843a"
+        },
+        "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+          "latency_ms": 0.010566399991512298,
+          "max_abs_error": 0.000244140625,
+          "max_rel_error": 0.013694695197045803,
+          "reference_latency_ms": 1.1049984097480774,
+          "speedup_factor": 104.57662123672137,
+          "status": "PASSED",
+          "workload": "0a63b87bb2e54e9db1ca3c4c53a1d521"
+        },
+        "0c23b10c7b7645719517828c12eaa1d2": {
+          "latency_ms": 0.008153599873185157,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.005434782709926367,
+          "reference_latency_ms": 0.9667360007762908,
+          "speedup_factor": 118.5655435405418,
+          "status": "PASSED",
+          "workload": "0c23b10c7b7645719517828c12eaa1d2"
+        },
+        "2207f0fdc96347c59d106e4976cfad57": {
+          "latency_ms": 0.05521280020475387,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 32.729671478271484,
+          "reference_latency_ms": 1.817900788784027,
+          "speedup_factor": 32.92535031808628,
+          "status": "PASSED",
+          "workload": "2207f0fdc96347c59d106e4976cfad57"
+        },
+        "232ed014bafc4835b9881bb308c659b0": {
+          "latency_ms": 0.05405120030045509,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 208.7612762451172,
+          "reference_latency_ms": 1.940499186515808,
+          "speedup_factor": 35.90113033067038,
+          "status": "PASSED",
+          "workload": "232ed014bafc4835b9881bb308c659b0"
+        },
+        "3838996164a94d728710f913477feba8": {
+          "latency_ms": 0.052067200839519504,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 25.04426383972168,
+          "reference_latency_ms": 1.7922624111175538,
+          "speedup_factor": 34.42210032841269,
+          "status": "PASSED",
+          "workload": "3838996164a94d728710f913477feba8"
+        },
+        "385742b2717e4f02b918c7349dde23d8": {
+          "latency_ms": 0.04233280010521412,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 18.665714263916016,
+          "reference_latency_ms": 1.9302560091018677,
+          "speedup_factor": 45.597172979448594,
+          "status": "PASSED",
+          "workload": "385742b2717e4f02b918c7349dde23d8"
+        },
+        "4c46a94ba2364dc7ab476286dee8dce3": {
+          "latency_ms": 0.04005119949579239,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 7.081580638885498,
+          "reference_latency_ms": 1.9246495842933655,
+          "speedup_factor": 48.05473015847031,
+          "status": "PASSED",
+          "workload": "4c46a94ba2364dc7ab476286dee8dce3"
+        },
+        "5096e459ce3f4cdf82773ce1a0c73c8a": {
+          "latency_ms": 0.054729600250720975,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 1596.0565185546875,
+          "reference_latency_ms": 1.9423743963241578,
+          "speedup_factor": 35.49038157461364,
+          "status": "PASSED",
+          "workload": "5096e459ce3f4cdf82773ce1a0c73c8a"
+        },
+        "564007ac354e4662a62cc4d6352dc494": {
+          "latency_ms": 0.055964800715446475,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 35.71129608154297,
+          "reference_latency_ms": 1.9415104150772096,
+          "speedup_factor": 34.69163456774976,
+          "status": "PASSED",
+          "workload": "564007ac354e4662a62cc4d6352dc494"
+        },
+        "68d6817dcfd1433aa8d2ddeefd54b6ea": {
+          "latency_ms": 0.013276799861341716,
+          "max_abs_error": 0.03125,
+          "max_rel_error": 0.013230333104729652,
+          "reference_latency_ms": 1.6425055980682373,
+          "speedup_factor": 123.71246198044672,
+          "status": "PASSED",
+          "workload": "68d6817dcfd1433aa8d2ddeefd54b6ea"
+        },
+        "78b2e11c30004cceb84355722a7c6b0a": {
+          "latency_ms": 0.05502399951219559,
+          "max_abs_error": 0.03125,
+          "max_rel_error": 1666.7203369140625,
+          "reference_latency_ms": 1.926415991783142,
+          "speedup_factor": 35.01046832039479,
+          "status": "PASSED",
+          "workload": "78b2e11c30004cceb84355722a7c6b0a"
+        },
+        "7a389715dcc3479e9b0512309f9d1d56": {
+          "latency_ms": 0.05463679954409599,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 60.98867416381836,
+          "reference_latency_ms": 1.929478406906128,
+          "speedup_factor": 35.3146308533115,
+          "status": "PASSED",
+          "workload": "7a389715dcc3479e9b0512309f9d1d56"
+        },
+        "9d4a5f21268e484ea05a2f2af91d9fa7": {
+          "latency_ms": 0.008556799963116646,
+          "max_abs_error": 0.0078125,
+          "max_rel_error": 0.0300213024020195,
+          "reference_latency_ms": 1.1017215967178344,
+          "speedup_factor": 128.75392687297952,
+          "status": "PASSED",
+          "workload": "9d4a5f21268e484ea05a2f2af91d9fa7"
+        },
+        "9f3f891bfbe24776adfcd5a579d093dd": {
+          "latency_ms": 0.023187199607491493,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.02067769132554531,
+          "reference_latency_ms": 1.1133119821548463,
+          "speedup_factor": 48.01407677515094,
+          "status": "PASSED",
+          "workload": "9f3f891bfbe24776adfcd5a579d093dd"
+        },
+        "ae4219a95f044f45bd10e17ab63c6e8f": {
+          "latency_ms": 0.0548832006752491,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 37.113548278808594,
+          "reference_latency_ms": 1.7897472143173219,
+          "speedup_factor": 32.61011005731033,
+          "status": "PASSED",
+          "workload": "ae4219a95f044f45bd10e17ab63c6e8f"
+        },
+        "b7668cfd194c4b95ab600feb205ebac6": {
+          "latency_ms": 0.010531200002878905,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.013690763153135777,
+          "reference_latency_ms": 1.1033023953437806,
+          "speedup_factor": 104.76511651494339,
+          "status": "PASSED",
+          "workload": "b7668cfd194c4b95ab600feb205ebac6"
+        },
+        "d57eb9e19f0642e8af9bd76ad0823303": {
+          "latency_ms": 0.035657599568367004,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 101.40398406982422,
+          "reference_latency_ms": 1.6763200044631958,
+          "speedup_factor": 47.01157746889706,
+          "status": "PASSED",
+          "workload": "d57eb9e19f0642e8af9bd76ad0823303"
+        },
+        "ddfa9e340b264f76abe7418692faa876": {
+          "latency_ms": 0.029200000502169133,
+          "max_abs_error": 0.03125,
+          "max_rel_error": 17.239686965942383,
+          "reference_latency_ms": 1.659283196926117,
+          "speedup_factor": 56.82476604076964,
+          "status": "PASSED",
+          "workload": "ddfa9e340b264f76abe7418692faa876"
+        },
+        "e6b849f2900446148c01d81152efae23": {
+          "latency_ms": 0.012678400054574013,
+          "max_abs_error": 0.001953125,
+          "max_rel_error": 0.517886757850647,
+          "reference_latency_ms": 1.103379213809967,
+          "speedup_factor": 87.02826926587622,
+          "status": "PASSED",
+          "workload": "e6b849f2900446148c01d81152efae23"
+        },
+        "f77df5ce21634f7ca0586af7e3c13434": {
+          "latency_ms": 0.008553600031882524,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.013505857437849045,
+          "reference_latency_ms": 1.105936014652252,
+          "speedup_factor": 129.2948010814169,
+          "status": "PASSED",
+          "workload": "f77df5ce21634f7ca0586af7e3c13434"
+        },
+        "fc85411e250c41879b6d6a1edb80f0a7": {
+          "latency_ms": 0.008540799841284752,
+          "max_abs_error": 0.0078125,
+          "max_rel_error": 0.007407406345009804,
+          "reference_latency_ms": 1.1046080112457275,
+          "speedup_factor": 129.33308727201907,
+          "status": "PASSED",
+          "workload": "fc85411e250c41879b6d6a1edb80f0a7"
+        }
+      }
+    },
+    {
+      "wombat_dsa_sparse_mla_v5_7h": {
+        "02d6ae9c64ab42ff93f05c23c53bcb7d": {
+          "latency_ms": 0.054755200445652005,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 49.091339111328125,
+          "reference_latency_ms": 1.9131807684898376,
+          "speedup_factor": 34.9406221312036,
+          "status": "PASSED",
+          "workload": "02d6ae9c64ab42ff93f05c23c53bcb7d"
+        },
+        "05f6de657db543ae9e4c46796522843a": {
+          "latency_ms": 0.026636799797415733,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.007633569184690714,
+          "reference_latency_ms": 1.1095232129096986,
+          "speedup_factor": 41.65377302634317,
+          "status": "PASSED",
+          "workload": "05f6de657db543ae9e4c46796522843a"
+        },
+        "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+          "latency_ms": 0.010233599878847598,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.01376125868409872,
+          "reference_latency_ms": 1.103433620929718,
+          "speedup_factor": 107.82458118286087,
+          "status": "PASSED",
+          "workload": "0a63b87bb2e54e9db1ca3c4c53a1d521"
+        },
+        "0c23b10c7b7645719517828c12eaa1d2": {
+          "latency_ms": 0.008115200139582158,
+          "max_abs_error": 1.52587890625e-05,
+          "max_rel_error": 0.009599898010492325,
+          "reference_latency_ms": 0.9651967942714691,
+          "speedup_factor": 118.93690576572348,
+          "status": "PASSED",
+          "workload": "0c23b10c7b7645719517828c12eaa1d2"
+        },
+        "2207f0fdc96347c59d106e4976cfad57": {
+          "latency_ms": 0.0548447996377945,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 106.76251220703125,
+          "reference_latency_ms": 1.8058784127235412,
+          "speedup_factor": 32.927067372839474,
+          "status": "PASSED",
+          "workload": "2207f0fdc96347c59d106e4976cfad57"
+        },
+        "232ed014bafc4835b9881bb308c659b0": {
+          "latency_ms": 0.054076799750328065,
+          "max_abs_error": 0.03125,
+          "max_rel_error": 308.6689758300781,
+          "reference_latency_ms": 1.9225727796554566,
+          "speedup_factor": 35.55263603859607,
+          "status": "PASSED",
+          "workload": "232ed014bafc4835b9881bb308c659b0"
+        },
+        "3838996164a94d728710f913477feba8": {
+          "latency_ms": 0.052000001072883606,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 17.41352653503418,
+          "reference_latency_ms": 1.7887680053710937,
+          "speedup_factor": 34.399384008933815,
+          "status": "PASSED",
+          "workload": "3838996164a94d728710f913477feba8"
+        },
+        "385742b2717e4f02b918c7349dde23d8": {
+          "latency_ms": 0.04200959950685501,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 13.104423522949219,
+          "reference_latency_ms": 1.9324864029884339,
+          "speedup_factor": 46.00106703405007,
+          "status": "PASSED",
+          "workload": "385742b2717e4f02b918c7349dde23d8"
+        },
+        "4c46a94ba2364dc7ab476286dee8dce3": {
+          "latency_ms": 0.03988479971885681,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 3.371391534805298,
+          "reference_latency_ms": 1.9315743923187256,
+          "speedup_factor": 48.42883519371196,
+          "status": "PASSED",
+          "workload": "4c46a94ba2364dc7ab476286dee8dce3"
+        },
+        "5096e459ce3f4cdf82773ce1a0c73c8a": {
+          "latency_ms": 0.0542943999171257,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 247.81202697753906,
+          "reference_latency_ms": 1.940390396118164,
+          "speedup_factor": 35.73831553677639,
+          "status": "PASSED",
+          "workload": "5096e459ce3f4cdf82773ce1a0c73c8a"
+        },
+        "564007ac354e4662a62cc4d6352dc494": {
+          "latency_ms": 0.0560799989849329,
+          "max_abs_error": 0.03125,
+          "max_rel_error": 59.79617691040039,
+          "reference_latency_ms": 1.9461600065231324,
+          "speedup_factor": 34.703281771563695,
+          "status": "PASSED",
+          "workload": "564007ac354e4662a62cc4d6352dc494"
+        },
+        "68d6817dcfd1433aa8d2ddeefd54b6ea": {
+          "latency_ms": 0.013113600201904774,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 0.03903297707438469,
+          "reference_latency_ms": 1.6475551962852477,
+          "speedup_factor": 125.63713785066723,
+          "status": "PASSED",
+          "workload": "68d6817dcfd1433aa8d2ddeefd54b6ea"
+        },
+        "78b2e11c30004cceb84355722a7c6b0a": {
+          "latency_ms": 0.054544000327587126,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 3286.23486328125,
+          "reference_latency_ms": 1.9303616046905518,
+          "speedup_factor": 35.390906297611956,
+          "status": "PASSED",
+          "workload": "78b2e11c30004cceb84355722a7c6b0a"
+        },
+        "7a389715dcc3479e9b0512309f9d1d56": {
+          "latency_ms": 0.05451199933886528,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 127.26788330078125,
+          "reference_latency_ms": 1.920195209980011,
+          "speedup_factor": 35.225184056145494,
+          "status": "PASSED",
+          "workload": "7a389715dcc3479e9b0512309f9d1d56"
+        },
+        "9d4a5f21268e484ea05a2f2af91d9fa7": {
+          "latency_ms": 0.008195200003683567,
+          "max_abs_error": 0.001953125,
+          "max_rel_error": 0.2029973864555359,
+          "reference_latency_ms": 1.1034272074699403,
+          "speedup_factor": 134.64310901185735,
+          "status": "PASSED",
+          "workload": "9d4a5f21268e484ea05a2f2af91d9fa7"
+        },
+        "9f3f891bfbe24776adfcd5a579d093dd": {
+          "latency_ms": 0.022975999489426614,
+          "max_abs_error": 0.0078125,
+          "max_rel_error": 0.009991618804633617,
+          "reference_latency_ms": 1.113913607597351,
+          "speedup_factor": 48.48161700691045,
+          "status": "PASSED",
+          "workload": "9f3f891bfbe24776adfcd5a579d093dd"
+        },
+        "ae4219a95f044f45bd10e17ab63c6e8f": {
+          "latency_ms": 0.054416000843048096,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 260.0942687988281,
+          "reference_latency_ms": 1.7820992112159728,
+          "speedup_factor": 32.74954395042877,
+          "status": "PASSED",
+          "workload": "ae4219a95f044f45bd10e17ab63c6e8f"
+        },
+        "b7668cfd194c4b95ab600feb205ebac6": {
+          "latency_ms": 0.010239999741315842,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.03754662349820137,
+          "reference_latency_ms": 1.1051680088043212,
+          "speedup_factor": 107.92656608625138,
+          "status": "PASSED",
+          "workload": "b7668cfd194c4b95ab600feb205ebac6"
+        },
+        "d57eb9e19f0642e8af9bd76ad0823303": {
+          "latency_ms": 0.03568959981203079,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 16.357255935668945,
+          "reference_latency_ms": 1.6789055705070495,
+          "speedup_factor": 47.04187156340987,
+          "status": "PASSED",
+          "workload": "d57eb9e19f0642e8af9bd76ad0823303"
+        },
+        "ddfa9e340b264f76abe7418692faa876": {
+          "latency_ms": 0.029193600080907343,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 20.38554573059082,
+          "reference_latency_ms": 1.653984010219574,
+          "speedup_factor": 56.655705553125046,
+          "status": "PASSED",
+          "workload": "ddfa9e340b264f76abe7418692faa876"
+        },
+        "e6b849f2900446148c01d81152efae23": {
+          "latency_ms": 0.012284800410270691,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.014515819028019905,
+          "reference_latency_ms": 1.1050495982170105,
+          "speedup_factor": 89.95258867153717,
+          "status": "PASSED",
+          "workload": "e6b849f2900446148c01d81152efae23"
+        },
+        "f77df5ce21634f7ca0586af7e3c13434": {
+          "latency_ms": 0.008191999979317188,
+          "max_abs_error": 0.001953125,
+          "max_rel_error": 0.01469681691378355,
+          "reference_latency_ms": 1.1051551938056945,
+          "speedup_factor": 134.9066402094657,
+          "status": "PASSED",
+          "workload": "f77df5ce21634f7ca0586af7e3c13434"
+        },
+        "fc85411e250c41879b6d6a1edb80f0a7": {
+          "latency_ms": 0.00818559993058443,
+          "max_abs_error": 0.0078125,
+          "max_rel_error": 0.48046526312828064,
+          "reference_latency_ms": 1.1050047874450684,
+          "speedup_factor": 134.99374472436182,
+          "status": "PASSED",
+          "workload": "fc85411e250c41879b6d6a1edb80f0a7"
+        }
+      }
+    },
+    {
+      "wombat_dsa_sparse_mla_v5_7h": {
+        "02d6ae9c64ab42ff93f05c23c53bcb7d": {
+          "latency_ms": 0.0554079994559288,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 154.2671661376953,
+          "reference_latency_ms": 1.9236544013023376,
+          "speedup_factor": 34.7179905463362,
+          "status": "PASSED",
+          "workload": "02d6ae9c64ab42ff93f05c23c53bcb7d"
+        },
+        "05f6de657db543ae9e4c46796522843a": {
+          "latency_ms": 0.027040000073611736,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.022854404523968697,
+          "reference_latency_ms": 1.1092639923095704,
+          "speedup_factor": 41.02307652698929,
+          "status": "PASSED",
+          "workload": "05f6de657db543ae9e4c46796522843a"
+        },
+        "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+          "latency_ms": 0.01062719989567995,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.02399194985628128,
+          "reference_latency_ms": 1.1032864093780517,
+          "speedup_factor": 103.8172256293539,
+          "status": "PASSED",
+          "workload": "0a63b87bb2e54e9db1ca3c4c53a1d521"
+        },
+        "0c23b10c7b7645719517828c12eaa1d2": {
+          "latency_ms": 0.008179199881851673,
+          "max_abs_error": 3.814697265625e-06,
+          "max_rel_error": 0.023621555417776108,
+          "reference_latency_ms": 0.966566389799118,
+          "speedup_factor": 118.17370938003033,
+          "status": "PASSED",
+          "workload": "0c23b10c7b7645719517828c12eaa1d2"
+        },
+        "2207f0fdc96347c59d106e4976cfad57": {
+          "latency_ms": 0.05555519945919514,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 209.32850646972656,
+          "reference_latency_ms": 1.8197824120521546,
+          "speedup_factor": 32.75629337608212,
+          "status": "PASSED",
+          "workload": "2207f0fdc96347c59d106e4976cfad57"
+        },
+        "232ed014bafc4835b9881bb308c659b0": {
+          "latency_ms": 0.05423359982669353,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 357.7971496582031,
+          "reference_latency_ms": 1.9293599724769592,
+          "speedup_factor": 35.57499370579006,
+          "status": "PASSED",
+          "workload": "232ed014bafc4835b9881bb308c659b0"
+        },
+        "3838996164a94d728710f913477feba8": {
+          "latency_ms": 0.052051201462745667,
+          "max_abs_error": 0.03125,
+          "max_rel_error": 59.59114456176758,
+          "reference_latency_ms": 1.7849695801734924,
+          "speedup_factor": 34.29257212152998,
+          "status": "PASSED",
+          "workload": "3838996164a94d728710f913477feba8"
+        },
+        "385742b2717e4f02b918c7349dde23d8": {
+          "latency_ms": 0.04229760132730007,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 11.163734436035156,
+          "reference_latency_ms": 1.926796805858612,
+          "speedup_factor": 45.553335068553935,
+          "status": "PASSED",
+          "workload": "385742b2717e4f02b918c7349dde23d8"
+        },
+        "4c46a94ba2364dc7ab476286dee8dce3": {
+          "latency_ms": 0.0399743989109993,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 7.5582356452941895,
+          "reference_latency_ms": 1.9274336099624634,
+          "speedup_factor": 48.21670024992204,
+          "status": "PASSED",
+          "workload": "4c46a94ba2364dc7ab476286dee8dce3"
+        },
+        "5096e459ce3f4cdf82773ce1a0c73c8a": {
+          "latency_ms": 0.054928000643849374,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 223.73696899414062,
+          "reference_latency_ms": 1.9472095966339111,
+          "speedup_factor": 35.450217990993856,
+          "status": "PASSED",
+          "workload": "5096e459ce3f4cdf82773ce1a0c73c8a"
+        },
+        "564007ac354e4662a62cc4d6352dc494": {
+          "latency_ms": 0.05610559992492199,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 261.66143798828125,
+          "reference_latency_ms": 1.939247989654541,
+          "speedup_factor": 34.5642501327774,
+          "status": "PASSED",
+          "workload": "564007ac354e4662a62cc4d6352dc494"
+        },
+        "68d6817dcfd1433aa8d2ddeefd54b6ea": {
+          "latency_ms": 0.013225600123405457,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 0.16699203848838806,
+          "reference_latency_ms": 1.6453088164329528,
+          "speedup_factor": 124.40333906067792,
+          "status": "PASSED",
+          "workload": "68d6817dcfd1433aa8d2ddeefd54b6ea"
+        },
+        "78b2e11c30004cceb84355722a7c6b0a": {
+          "latency_ms": 0.05443520024418831,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 36.197532653808594,
+          "reference_latency_ms": 1.9365151882171632,
+          "speedup_factor": 35.57468659121746,
+          "status": "PASSED",
+          "workload": "78b2e11c30004cceb84355722a7c6b0a"
+        },
+        "7a389715dcc3479e9b0512309f9d1d56": {
+          "latency_ms": 0.054601599276065824,
+          "max_abs_error": 0.03125,
+          "max_rel_error": 48.44267654418945,
+          "reference_latency_ms": 1.9289344072341919,
+          "speedup_factor": 35.32743422919711,
+          "status": "PASSED",
+          "workload": "7a389715dcc3479e9b0512309f9d1d56"
+        },
+        "9d4a5f21268e484ea05a2f2af91d9fa7": {
+          "latency_ms": 0.00859839990735054,
+          "max_abs_error": 0.0009765625,
+          "max_rel_error": 0.006451585795730352,
+          "reference_latency_ms": 1.1028479933738708,
+          "speedup_factor": 128.26200284439852,
+          "status": "PASSED",
+          "workload": "9d4a5f21268e484ea05a2f2af91d9fa7"
+        },
+        "9f3f891bfbe24776adfcd5a579d093dd": {
+          "latency_ms": 0.02311360016465187,
+          "max_abs_error": 0.001953125,
+          "max_rel_error": 0.01660476066172123,
+          "reference_latency_ms": 1.1163456082344054,
+          "speedup_factor": 48.29821405068938,
+          "status": "PASSED",
+          "workload": "9f3f891bfbe24776adfcd5a579d093dd"
+        },
+        "ae4219a95f044f45bd10e17ab63c6e8f": {
+          "latency_ms": 0.05475199967622757,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 72.67923736572266,
+          "reference_latency_ms": 1.7908447980880737,
+          "speedup_factor": 32.70829939870907,
+          "status": "PASSED",
+          "workload": "ae4219a95f044f45bd10e17ab63c6e8f"
+        },
+        "b7668cfd194c4b95ab600feb205ebac6": {
+          "latency_ms": 0.010620799846947193,
+          "max_abs_error": 0.0078125,
+          "max_rel_error": 0.03027224913239479,
+          "reference_latency_ms": 1.1041119933128356,
+          "speedup_factor": 103.95751819296339,
+          "status": "PASSED",
+          "workload": "b7668cfd194c4b95ab600feb205ebac6"
+        },
+        "d57eb9e19f0642e8af9bd76ad0823303": {
+          "latency_ms": 0.0357184000313282,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 789.4013671875,
+          "reference_latency_ms": 1.6774495840072632,
+          "speedup_factor": 46.963178152884545,
+          "status": "PASSED",
+          "workload": "d57eb9e19f0642e8af9bd76ad0823303"
+        },
+        "ddfa9e340b264f76abe7418692faa876": {
+          "latency_ms": 0.029151999950408937,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 10.762418746948242,
+          "reference_latency_ms": 1.6533440113067628,
+          "speedup_factor": 56.71459982571694,
+          "status": "PASSED",
+          "workload": "ddfa9e340b264f76abe7418692faa876"
+        },
+        "e6b849f2900446148c01d81152efae23": {
+          "latency_ms": 0.012595200166106223,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.04113587364554405,
+          "reference_latency_ms": 1.1098111987113952,
+          "speedup_factor": 88.11381987385205,
+          "status": "PASSED",
+          "workload": "e6b849f2900446148c01d81152efae23"
+        },
+        "f77df5ce21634f7ca0586af7e3c13434": {
+          "latency_ms": 0.008582400158047676,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.0826728492975235,
+          "reference_latency_ms": 1.1041119933128356,
+          "speedup_factor": 128.64839357059284,
+          "status": "PASSED",
+          "workload": "f77df5ce21634f7ca0586af7e3c13434"
+        },
+        "fc85411e250c41879b6d6a1edb80f0a7": {
+          "latency_ms": 0.008169599808752537,
+          "max_abs_error": 0.001953125,
+          "max_rel_error": 0.011516021564602852,
+          "reference_latency_ms": 1.1062784075737,
+          "speedup_factor": 135.41402681542414,
+          "status": "PASSED",
+          "workload": "fc85411e250c41879b6d6a1edb80f0a7"
+        }
+      }
+    },
+    {
+      "wombat_dsa_sparse_mla_v5_7h": {
+        "02d6ae9c64ab42ff93f05c23c53bcb7d": {
+          "latency_ms": 0.055296000093221664,
+          "max_abs_error": 0.03125,
+          "max_rel_error": 76.44329833984375,
+          "reference_latency_ms": 1.9231967806816102,
+          "speedup_factor": 34.780034314224494,
+          "status": "PASSED",
+          "workload": "02d6ae9c64ab42ff93f05c23c53bcb7d"
+        },
+        "05f6de657db543ae9e4c46796522843a": {
+          "latency_ms": 0.02701440006494522,
+          "max_abs_error": 0.0078125,
+          "max_rel_error": 0.009851708076894283,
+          "reference_latency_ms": 1.107206404209137,
+          "speedup_factor": 40.98578541619677,
+          "status": "PASSED",
+          "workload": "05f6de657db543ae9e4c46796522843a"
+        },
+        "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+          "latency_ms": 0.010569600015878677,
+          "max_abs_error": 0.00048828125,
+          "max_rel_error": 0.013688144274055958,
+          "reference_latency_ms": 1.1045503973960877,
+          "speedup_factor": 104.50257301475223,
+          "status": "PASSED",
+          "workload": "0a63b87bb2e54e9db1ca3c4c53a1d521"
+        },
+        "0c23b10c7b7645719517828c12eaa1d2": {
+          "latency_ms": 0.00818559993058443,
+          "max_abs_error": 1.9073486328125e-06,
+          "max_rel_error": 6.500165454781381e-06,
+          "reference_latency_ms": 0.9691360056400299,
+          "speedup_factor": 118.39523234197888,
+          "status": "PASSED",
+          "workload": "0c23b10c7b7645719517828c12eaa1d2"
+        },
+        "2207f0fdc96347c59d106e4976cfad57": {
+          "latency_ms": 0.055628799647092816,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 11.55384635925293,
+          "reference_latency_ms": 1.7988128066062927,
+          "speedup_factor": 32.33599894331532,
+          "status": "PASSED",
+          "workload": "2207f0fdc96347c59d106e4976cfad57"
+        },
+        "232ed014bafc4835b9881bb308c659b0": {
+          "latency_ms": 0.054153598845005035,
+          "max_abs_error": 0.03125,
+          "max_rel_error": 387.8202209472656,
+          "reference_latency_ms": 1.926249611377716,
+          "speedup_factor": 35.5701126510706,
+          "status": "PASSED",
+          "workload": "232ed014bafc4835b9881bb308c659b0"
+        },
+        "3838996164a94d728710f913477feba8": {
+          "latency_ms": 0.0520608015358448,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 6.499344825744629,
+          "reference_latency_ms": 1.7941856145858766,
+          "speedup_factor": 34.46327297420781,
+          "status": "PASSED",
+          "workload": "3838996164a94d728710f913477feba8"
+        },
+        "385742b2717e4f02b918c7349dde23d8": {
+          "latency_ms": 0.04238399863243103,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 16.492094039916992,
+          "reference_latency_ms": 1.9354463934898376,
+          "speedup_factor": 45.664553981201976,
+          "status": "PASSED",
+          "workload": "385742b2717e4f02b918c7349dde23d8"
+        },
+        "4c46a94ba2364dc7ab476286dee8dce3": {
+          "latency_ms": 0.040086399763822556,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 17.211618423461914,
+          "reference_latency_ms": 1.932435190677643,
+          "speedup_factor": 48.20675346409233,
+          "status": "PASSED",
+          "workload": "4c46a94ba2364dc7ab476286dee8dce3"
+        },
+        "5096e459ce3f4cdf82773ce1a0c73c8a": {
+          "latency_ms": 0.054844800382852554,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 1418.105712890625,
+          "reference_latency_ms": 1.9332160115242005,
+          "speedup_factor": 35.24884762145343,
+          "status": "PASSED",
+          "workload": "5096e459ce3f4cdf82773ce1a0c73c8a"
+        },
+        "564007ac354e4662a62cc4d6352dc494": {
+          "latency_ms": 0.05615679919719696,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 342.0096130371094,
+          "reference_latency_ms": 1.9401376008987428,
+          "speedup_factor": 34.548578776469576,
+          "status": "PASSED",
+          "workload": "564007ac354e4662a62cc4d6352dc494"
+        },
+        "68d6817dcfd1433aa8d2ddeefd54b6ea": {
+          "latency_ms": 0.013279999792575835,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 0.00989893451333046,
+          "reference_latency_ms": 1.6400448203086853,
+          "speedup_factor": 123.49735285579973,
+          "status": "PASSED",
+          "workload": "68d6817dcfd1433aa8d2ddeefd54b6ea"
+        },
+        "78b2e11c30004cceb84355722a7c6b0a": {
+          "latency_ms": 0.05515199899673462,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 120.34481048583984,
+          "reference_latency_ms": 1.9325247883796692,
+          "speedup_factor": 35.03997721812564,
+          "status": "PASSED",
+          "workload": "78b2e11c30004cceb84355722a7c6b0a"
+        },
+        "7a389715dcc3479e9b0512309f9d1d56": {
+          "latency_ms": 0.054713599383831024,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 49.331687927246094,
+          "reference_latency_ms": 1.9233024001121521,
+          "speedup_factor": 35.15218193962445,
+          "status": "PASSED",
+          "workload": "7a389715dcc3479e9b0512309f9d1d56"
+        },
+        "9d4a5f21268e484ea05a2f2af91d9fa7": {
+          "latency_ms": 0.008547199796885252,
+          "max_abs_error": 0.0009765625,
+          "max_rel_error": 0.014080347493290901,
+          "reference_latency_ms": 1.1043872117996216,
+          "speedup_factor": 129.2104125379261,
+          "status": "PASSED",
+          "workload": "9d4a5f21268e484ea05a2f2af91d9fa7"
+        },
+        "9f3f891bfbe24776adfcd5a579d093dd": {
+          "latency_ms": 0.02319999970495701,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.017081769183278084,
+          "reference_latency_ms": 1.1128223896026612,
+          "speedup_factor": 47.966482920467065,
+          "status": "PASSED",
+          "workload": "9f3f891bfbe24776adfcd5a579d093dd"
+        },
+        "ae4219a95f044f45bd10e17ab63c6e8f": {
+          "latency_ms": 0.05485120043158531,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 42.663673400878906,
+          "reference_latency_ms": 1.782371199131012,
+          "speedup_factor": 32.49466165018802,
+          "status": "PASSED",
+          "workload": "ae4219a95f044f45bd10e17ab63c6e8f"
+        },
+        "b7668cfd194c4b95ab600feb205ebac6": {
+          "latency_ms": 0.010572799853980542,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.007462650071829557,
+          "reference_latency_ms": 1.1035328149795531,
+          "speedup_factor": 104.37470019486705,
+          "status": "PASSED",
+          "workload": "b7668cfd194c4b95ab600feb205ebac6"
+        },
+        "d57eb9e19f0642e8af9bd76ad0823303": {
+          "latency_ms": 0.035814400762319565,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 517.666015625,
+          "reference_latency_ms": 1.6707295894622802,
+          "speedup_factor": 46.64965918458308,
+          "status": "PASSED",
+          "workload": "d57eb9e19f0642e8af9bd76ad0823303"
+        },
+        "ddfa9e340b264f76abe7418692faa876": {
+          "latency_ms": 0.029187200590968132,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 9.728730201721191,
+          "reference_latency_ms": 1.6551487922668457,
+          "speedup_factor": 56.70803498637088,
+          "status": "PASSED",
+          "workload": "ddfa9e340b264f76abe7418692faa876"
+        },
+        "e6b849f2900446148c01d81152efae23": {
+          "latency_ms": 0.012656000070273876,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.020561935380101204,
+          "reference_latency_ms": 1.103996789455414,
+          "speedup_factor": 87.23109855604824,
+          "status": "PASSED",
+          "workload": "e6b849f2900446148c01d81152efae23"
+        },
+        "f77df5ce21634f7ca0586af7e3c13434": {
+          "latency_ms": 0.008560000080615282,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.0073527991771698,
+          "reference_latency_ms": 1.1061376094818116,
+          "speedup_factor": 129.22168213371137,
+          "status": "PASSED",
+          "workload": "f77df5ce21634f7ca0586af7e3c13434"
+        },
+        "fc85411e250c41879b6d6a1edb80f0a7": {
+          "latency_ms": 0.008534399978816509,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.007575739175081253,
+          "reference_latency_ms": 1.1047520160675048,
+          "speedup_factor": 129.44694633596305,
+          "status": "PASSED",
+          "workload": "fc85411e250c41879b6d6a1edb80f0a7"
+        }
+      }
+    },
+    {
+      "wombat_dsa_sparse_mla_v5_7h": {
+        "02d6ae9c64ab42ff93f05c23c53bcb7d": {
+          "latency_ms": 0.05514560043811798,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 102.55236053466797,
+          "reference_latency_ms": 1.9264448046684266,
+          "speedup_factor": 34.933789628969585,
+          "status": "PASSED",
+          "workload": "02d6ae9c64ab42ff93f05c23c53bcb7d"
+        },
+        "05f6de657db543ae9e4c46796522843a": {
+          "latency_ms": 0.026611199602484703,
+          "max_abs_error": 0.001953125,
+          "max_rel_error": 0.022698422893881798,
+          "reference_latency_ms": 1.1099135875701904,
+          "speedup_factor": 41.70851386446168,
+          "status": "PASSED",
+          "workload": "05f6de657db543ae9e4c46796522843a"
+        },
+        "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+          "latency_ms": 0.010204800311475993,
+          "max_abs_error": 0.001953125,
+          "max_rel_error": 0.03834071382880211,
+          "reference_latency_ms": 1.1017312049865722,
+          "speedup_factor": 107.96205426456022,
+          "status": "PASSED",
+          "workload": "0a63b87bb2e54e9db1ca3c4c53a1d521"
+        },
+        "0c23b10c7b7645719517828c12eaa1d2": {
+          "latency_ms": 0.008140799961984158,
+          "max_abs_error": 1.52587890625e-05,
+          "max_rel_error": 0.005987976677715778,
+          "reference_latency_ms": 0.9670751988887787,
+          "speedup_factor": 118.79363249371299,
+          "status": "PASSED",
+          "workload": "0c23b10c7b7645719517828c12eaa1d2"
+        },
+        "2207f0fdc96347c59d106e4976cfad57": {
+          "latency_ms": 0.05463680103421211,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 241.6791229248047,
+          "reference_latency_ms": 1.8127552032470704,
+          "speedup_factor": 33.17828220052582,
+          "status": "PASSED",
+          "workload": "2207f0fdc96347c59d106e4976cfad57"
+        },
+        "232ed014bafc4835b9881bb308c659b0": {
+          "latency_ms": 0.054131198674440384,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 69.2379150390625,
+          "reference_latency_ms": 1.9280159950256348,
+          "speedup_factor": 35.61746353745541,
+          "status": "PASSED",
+          "workload": "232ed014bafc4835b9881bb308c659b0"
+        },
+        "3838996164a94d728710f913477feba8": {
+          "latency_ms": 0.052051201462745667,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 27.022388458251953,
+          "reference_latency_ms": 1.8049087882041932,
+          "speedup_factor": 34.67564124328641,
+          "status": "PASSED",
+          "workload": "3838996164a94d728710f913477feba8"
+        },
+        "385742b2717e4f02b918c7349dde23d8": {
+          "latency_ms": 0.04200959950685501,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 150.8057403564453,
+          "reference_latency_ms": 1.9275264143943787,
+          "speedup_factor": 45.88299905310571,
+          "status": "PASSED",
+          "workload": "385742b2717e4f02b918c7349dde23d8"
+        },
+        "4c46a94ba2364dc7ab476286dee8dce3": {
+          "latency_ms": 0.0399135984480381,
+          "max_abs_error": 0.03125,
+          "max_rel_error": 7.611174583435059,
+          "reference_latency_ms": 1.9236447930335998,
+          "speedup_factor": 48.19522337826581,
+          "status": "PASSED",
+          "workload": "4c46a94ba2364dc7ab476286dee8dce3"
+        },
+        "5096e459ce3f4cdf82773ce1a0c73c8a": {
+          "latency_ms": 0.05450880005955696,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 3051.669189453125,
+          "reference_latency_ms": 1.9412383913993836,
+          "speedup_factor": 35.61330260945689,
+          "status": "PASSED",
+          "workload": "5096e459ce3f4cdf82773ce1a0c73c8a"
+        },
+        "564007ac354e4662a62cc4d6352dc494": {
+          "latency_ms": 0.05612799897789955,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 294.9734191894531,
+          "reference_latency_ms": 1.9428832054138183,
+          "speedup_factor": 34.615223075720735,
+          "status": "PASSED",
+          "workload": "564007ac354e4662a62cc4d6352dc494"
+        },
+        "68d6817dcfd1433aa8d2ddeefd54b6ea": {
+          "latency_ms": 0.01316159963607788,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 0.08458224684000015,
+          "reference_latency_ms": 1.6424832105636598,
+          "speedup_factor": 124.79358558068972,
+          "status": "PASSED",
+          "workload": "68d6817dcfd1433aa8d2ddeefd54b6ea"
+        },
+        "78b2e11c30004cceb84355722a7c6b0a": {
+          "latency_ms": 0.054502399638295174,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 89.98908996582031,
+          "reference_latency_ms": 1.9241888165473937,
+          "speedup_factor": 35.30466235096547,
+          "status": "PASSED",
+          "workload": "78b2e11c30004cceb84355722a7c6b0a"
+        },
+        "7a389715dcc3479e9b0512309f9d1d56": {
+          "latency_ms": 0.054623999446630475,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 38.78901290893555,
+          "reference_latency_ms": 1.9251200079917907,
+          "speedup_factor": 35.24311708212979,
+          "status": "PASSED",
+          "workload": "7a389715dcc3479e9b0512309f9d1d56"
+        },
+        "9d4a5f21268e484ea05a2f2af91d9fa7": {
+          "latency_ms": 0.008166399784386158,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.007812497206032276,
+          "reference_latency_ms": 1.1062592029571534,
+          "speedup_factor": 135.46473748104745,
+          "status": "PASSED",
+          "workload": "9d4a5f21268e484ea05a2f2af91d9fa7"
+        },
+        "9f3f891bfbe24776adfcd5a579d093dd": {
+          "latency_ms": 0.02266880013048649,
+          "max_abs_error": 0.001953125,
+          "max_rel_error": 0.024232374504208565,
+          "reference_latency_ms": 1.1183808088302611,
+          "speedup_factor": 49.33568615862422,
+          "status": "PASSED",
+          "workload": "9f3f891bfbe24776adfcd5a579d093dd"
+        },
+        "ae4219a95f044f45bd10e17ab63c6e8f": {
+          "latency_ms": 0.05432320013642311,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 358.9386291503906,
+          "reference_latency_ms": 1.7889408230781556,
+          "speedup_factor": 32.93143295287367,
+          "status": "PASSED",
+          "workload": "ae4219a95f044f45bd10e17ab63c6e8f"
+        },
+        "b7668cfd194c4b95ab600feb205ebac6": {
+          "latency_ms": 0.010208000428974628,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.2021271139383316,
+          "reference_latency_ms": 1.1019871950149536,
+          "speedup_factor": 107.95328651114151,
+          "status": "PASSED",
+          "workload": "b7668cfd194c4b95ab600feb205ebac6"
+        },
+        "d57eb9e19f0642e8af9bd76ad0823303": {
+          "latency_ms": 0.035708799958229065,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 41.61792755126953,
+          "reference_latency_ms": 1.6703487992286683,
+          "speedup_factor": 46.77695137284326,
+          "status": "PASSED",
+          "workload": "d57eb9e19f0642e8af9bd76ad0823303"
+        },
+        "ddfa9e340b264f76abe7418692faa876": {
+          "latency_ms": 0.02922240048646927,
+          "max_abs_error": 0.015625,
+          "max_rel_error": 106.75659942626953,
+          "reference_latency_ms": 1.6474047899246216,
+          "speedup_factor": 56.37472495414649,
+          "status": "PASSED",
+          "workload": "ddfa9e340b264f76abe7418692faa876"
+        },
+        "e6b849f2900446148c01d81152efae23": {
+          "latency_ms": 0.012265600264072418,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.007692297920584679,
+          "reference_latency_ms": 1.1163903951644898,
+          "speedup_factor": 91.01799921154665,
+          "status": "PASSED",
+          "workload": "e6b849f2900446148c01d81152efae23"
+        },
+        "f77df5ce21634f7ca0586af7e3c13434": {
+          "latency_ms": 0.008156799897551536,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.040845561772584915,
+          "reference_latency_ms": 1.1054271936416626,
+          "speedup_factor": 135.52216647774867,
+          "status": "PASSED",
+          "workload": "f77df5ce21634f7ca0586af7e3c13434"
+        },
+        "fc85411e250c41879b6d6a1edb80f0a7": {
+          "latency_ms": 0.008153599873185157,
+          "max_abs_error": 0.0078125,
+          "max_rel_error": 0.019108079373836517,
+          "reference_latency_ms": 1.1033695936203003,
+          "speedup_factor": 135.32299975241185,
+          "status": "PASSED",
+          "workload": "fc85411e250c41879b6d6a1edb80f0a7"
+        }
+      }
+    }
+  ]
+}

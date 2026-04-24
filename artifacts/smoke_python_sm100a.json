@@ -1,0 +1,55 @@
+{
+  "definition": "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64",
+  "repeats": 1,
+  "runs": [
+    {
+      "wombat_dsa_sparse_mla_v5_fused_sm100a": {
+        "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+          "latency_ms": 0.014336000196635723,
+          "max_abs_error": 6.103515625e-05,
+          "max_rel_error": 0.005025121383368969,
+          "reference_latency_ms": 1.0911040306091309,
+          "speedup_factor": 76.10937609119061,
+          "status": "PASSED",
+          "workload": "0a63b87bb2e54e9db1ca3c4c53a1d521"
+        },
+        "0c23b10c7b7645719517828c12eaa1d2": {
+          "latency_ms": 0.010239999741315842,
+          "max_abs_error": 9.5367431640625e-07,
+          "max_rel_error": 1.1192953024874441e-05,
+          "reference_latency_ms": 0.9507840275764465,
+          "speedup_factor": 92.85000503860077,
+          "status": "PASSED",
+          "workload": "0c23b10c7b7645719517828c12eaa1d2"
+        },
+        "5096e459ce3f4cdf82773ce1a0c73c8a": {
+          "latency_ms": 0.12479999661445618,
+          "max_abs_error": 0.00390625,
+          "max_rel_error": 0.007812499068677425,
+          "reference_latency_ms": 1.9399360418319702,
+          "speedup_factor": 15.544359731234625,
+          "status": "PASSED",
+          "workload": "5096e459ce3f4cdf82773ce1a0c73c8a"
+        },
+        "9f3f891bfbe24776adfcd5a579d093dd": {
+          "latency_ms": 0.026623999699950218,
+          "max_abs_error": 1.52587890625e-05,
+          "max_rel_error": 0.005813776049762964,
+          "reference_latency_ms": 1.097216010093689,
+          "speedup_factor": 41.21153930510826,
+          "status": "PASSED",
+          "workload": "9f3f891bfbe24776adfcd5a579d093dd"
+        },
+        "f77df5ce21634f7ca0586af7e3c13434": {
+          "latency_ms": 0.01228800043463707,
+          "max_abs_error": 0.001953125,
+          "max_rel_error": 0.007462677080184221,
+          "reference_latency_ms": 1.0960320234298706,
+          "speedup_factor": 89.19531125181331,
+          "status": "PASSED",
+          "workload": "f77df5ce21634f7ca0586af7e3c13434"
+        }
+      }
+    }
+  ]
+}

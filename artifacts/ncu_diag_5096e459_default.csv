@@ -1,0 +1,8 @@
+==PROF== Connected to process 84 (/opt/conda/envs/py312/bin/python3.12)
+
+==ERROR== An error was reported by the counter measurement library:
+==ERROR== For more information, see /tmp/nsight-compute-2acd-5590.log
+==ERROR== Failed to initialize the profiler: LibraryNotLoaded. Check that a compatible driver library is loaded.
+==ERROR== For more information, see /tmp/nsight-compute-2acd-5590.log
+==PROF== Trying to shutdown target application
+==ERROR== The application returned an error code (9).

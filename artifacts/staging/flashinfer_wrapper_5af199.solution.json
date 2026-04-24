@@ -1,0 +1,23 @@
+{
+    "name": "flashinfer_wrapper_5af199",
+    "definition": "dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64",
+    "author": "flashinfer",
+    "spec": {
+      "language": "python",
+      "target_hardware": [
+        "NVIDIA B200"
+      ],
+      "entry_point": "main.py::run",
+      "dependencies": [
+        "flashinfer"
+      ],
+      "destination_passing_style": false
+    },
+    "description": "Solution using FlashInfer trtllm_batch_decode_with_kv_cache_mla for DSA sparse attention (h16, ckv512, kpe64, topk2048, page_size=64).",
+    "sources": [
+      {
+        "path": "main.py",
+        "content": "import torch\nimport flashinfer.decode\n\n_WORKSPACE_SIZE_BYTES = 128 * 1024 * 1024\n_workspace_cache = {}\n\nQK_NOPE_HEAD_DIM = 128\nKV_LORA_RANK = 512\nQK_ROPE_HEAD_DIM = 64\nTOPK = 2048\n\n\ndef _get_workspace(device):\n    key = str(device)\n    buf = _workspace_cache.get(key)\n    if buf is None:\n        buf = torch.zeros(_WORKSPACE_SIZE_BYTES, dtype=torch.uint8, device=device)\n        _workspace_cache[key] = buf\n    return buf\n\n\ndef run(q_nope, q_pe, ckv_cache, kpe_cache, sparse_indices, sm_scale):\n    num_tokens = q_nope.shape[0]\n    num_pages, page_size, _ = ckv_cache.shape\n    device = q_nope.device\n\n    if isinstance(sm_scale, torch.Tensor):\n        bmm1_scale = float(sm_scale.item())\n    else:\n        bmm1_scale = float(sm_scale)\n\n    query = torch.cat([q_nope, q_pe], dim=-1).unsqueeze(1)  # [T, 1, H, ckv+kpe]\n    kv_cache = torch.cat([ckv_cache, kpe_cache], dim=-1)    # [num_pages, page_size, ckv+kpe]\n    block_tables = sparse_indices.unsqueeze(1)              # [T, 1, topk]\n\n    # seq_lens = number of valid (non -1) entries per token\n    # The kernel only reads the first seq_lens entries from block_tables;\n    # valid entries are already contiguous at the front.\n    seq_lens = (sparse_indices != -1).sum(dim=1).to(torch.int32)\n    max_seq_len = int(seq_lens.max().item())\n    workspace = _get_workspace(device)\n\n    output = flashinfer.decode.trtllm_batch_decode_with_kv_cache_mla(\n        query=query,\n        kv_cache=kv_cache,\n        workspace_buffer=workspace,\n        qk_nope_head_dim=QK_NOPE_HEAD_DIM,\n        kv_lora_rank=KV_LORA_RANK,\n        qk_rope_head_dim=QK_ROPE_HEAD_DIM,\n        block_tables=block_tables,\n        seq_lens=seq_lens,\n        max_seq_len=max_seq_len,\n        sparse_mla_top_k=TOPK,\n        bmm1_scale=bmm1_scale,\n    )\n    output = output.squeeze(1)  # [T, H, ckv]\n\n    return (output,)\n"
+      }
+    ]
+  }

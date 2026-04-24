@@ -131,22 +131,33 @@ print("HARNESS_DONE")
     env.setdefault("CUDA_HOME", "/usr/local/cuda")
     env.setdefault("TVM_FFI_CUDA_ARCH_LIST", "10.0a")
 
-    # Run the harness bare first so we can see any compile errors clearly.
-    print("=== bare harness run ===")
-    bare = subprocess.run(
-        ["python", harness_path], capture_output=True, text=True, env=env, timeout=2400
-    )
-    print("bare rc:", bare.returncode)
-    print("bare stdout tail:\n", bare.stdout[-2000:])
-    print("bare stderr tail:\n", bare.stderr[-2000:])
-    if bare.returncode != 0:
-        return {
-            "workload_uuid": wl_uuid,
-            "returncode": bare.returncode,
-            "csv_stdout": bare.stdout,
-            "csv_stderr": bare.stderr,
-            "text_report": "harness failed before ncu could attach",
-        }
+    # Skip the bare pre-flight run: it timed out opaquely on 2026-04-22 (the
+    # subprocess pipe-buffered a large compile log and Modal killed the task
+    # at its 2400 s timeout). Go straight to NCU; any compile / harness error
+    # will surface in NCU's captured output just as well.
+
+    # Diagnostics: print driver / NCU / CUDA versions so we can debug any
+    # "LibraryNotLoaded" class of NCU errors.
+    print("=== environment diagnostics ===", flush=True)
+    for cmd in [
+        ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv"],
+        ["ncu", "--version"],
+        ["nvcc", "--version"],
+        ["bash", "-lc", "find / -name 'libcupti*.so*' 2>/dev/null | head -20"],
+        ["bash", "-lc", "ldconfig -p | grep -i cupti | head -20"],
+        ["bash", "-lc", "ls -la /usr/local/cuda-*/extras/CUPTI/lib64 2>/dev/null | head -20"],
+        ["bash", "-lc", "ls /usr/local/cuda-*/version.txt /usr/local/cuda-*/version.json 2>/dev/null | head -5"],
+        ["bash", "-lc", "cat /proc/driver/nvidia/params 2>/dev/null | grep -E '(NVreg_RestrictProfil|EnableResiz|Rm)' | head -5"],
+    ]:
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            print(f"$ {' '.join(cmd)}", flush=True)
+            print(out.stdout, flush=True)
+            if out.stderr.strip():
+                print("stderr:", out.stderr, flush=True)
+        except Exception as e:
+            print(f"  ({cmd[0]} failed: {e})", flush=True)
+    print("=== end diagnostics ===", flush=True)
 
     # Section set: `default` is ~15s/launch, `full` is minutes.
     if sections == "full":
@@ -176,11 +187,54 @@ print("HARNESS_DONE")
         "--csv",
         "python", harness_path,
     ]
-    print("Running:", " ".join(shlex.quote(x) for x in ncu_cmd))
+    print("Running:", " ".join(shlex.quote(x) for x in ncu_cmd), flush=True)
 
-    proc = subprocess.run(
-        ncu_cmd, capture_output=True, text=True, env=env, timeout=2400
+    # Stream child stdout/stderr line-by-line so Modal shows progress as NCU
+    # compiles + warms up + captures metrics. Without this, subprocess can
+    # block for 10+ min behind full pipe buffers with zero visible output.
+    import threading
+    stdout_lines: list[str] = []
+    stderr_lines: list[str] = []
+    proc_h = subprocess.Popen(
+        ncu_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, env=env, bufsize=1,
     )
+
+    def _pump(stream, sink, tag):
+        for line in iter(stream.readline, ""):
+            sink.append(line)
+            print(f"[{tag}] {line.rstrip()}", flush=True)
+        stream.close()
+
+    t_out = threading.Thread(target=_pump, args=(proc_h.stdout, stdout_lines, "ncu-out"))
+    t_err = threading.Thread(target=_pump, args=(proc_h.stderr, stderr_lines, "ncu-err"))
+    t_out.start(); t_err.start()
+    try:
+        proc_h.wait(timeout=2400)
+    except subprocess.TimeoutExpired:
+        proc_h.kill()
+        proc_h.wait()
+    t_out.join(); t_err.join()
+
+    class _P:
+        pass
+    proc = _P()
+    proc.returncode = proc_h.returncode
+    proc.stdout = "".join(stdout_lines)
+    proc.stderr = "".join(stderr_lines)
+
+    # If NCU failed, dump its latest crash log so we can see the real cause.
+    if proc.returncode != 0:
+        try:
+            import glob
+            logs = sorted(glob.glob("/tmp/nsight-compute-*.log"))
+            if logs:
+                print(f"=== {logs[-1]} ===", flush=True)
+                with open(logs[-1]) as lf:
+                    print(lf.read(), flush=True)
+                print("=== end ncu log ===", flush=True)
+        except Exception as e:
+            print(f"(failed to dump ncu log: {e})", flush=True)
 
     # Also do a non-CSV run (human-readable) for a second pass, since CSV
     # omits some text. Only if the first call succeeded, to save time.
@@ -195,10 +249,22 @@ print("HARNESS_DONE")
             *section_args,
             "python", harness_path,
         ]
-        proc_txt = subprocess.run(
-            ncu_cmd_txt, capture_output=True, text=True, env=env, timeout=2400
+        print("Running (text):", " ".join(shlex.quote(x) for x in ncu_cmd_txt), flush=True)
+        txt_out: list[str] = []
+        txt_err: list[str] = []
+        pt = subprocess.Popen(
+            ncu_cmd_txt, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, env=env, bufsize=1,
         )
-        text_report = proc_txt.stdout + "\n--STDERR--\n" + proc_txt.stderr
+        t_o = threading.Thread(target=_pump, args=(pt.stdout, txt_out, "ncu-txt-out"))
+        t_e = threading.Thread(target=_pump, args=(pt.stderr, txt_err, "ncu-txt-err"))
+        t_o.start(); t_e.start()
+        try:
+            pt.wait(timeout=2400)
+        except subprocess.TimeoutExpired:
+            pt.kill(); pt.wait()
+        t_o.join(); t_e.join()
+        text_report = "".join(txt_out) + "\n--STDERR--\n" + "".join(txt_err)
 
     return {
         "workload_uuid": wl_uuid,
