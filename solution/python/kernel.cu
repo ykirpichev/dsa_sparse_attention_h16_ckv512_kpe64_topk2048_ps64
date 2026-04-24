@@ -579,103 +579,6 @@ __global__ __launch_bounds__(THREADS, 2) void mla_sparse_attn_kernel(
 // kernel because s_gidx shrinks to TOPK/G.  Occupancy stays at 3 CTAs/SM
 // (register-bound — compiler allocated 69 regs/thread for both kernels).
 
-// ---------------------------------------------------------------------------
-// Phase 6b — Fused partial+reduce via last-CTA pattern.
-//
-// Device helper called at the end of mla_split_partial_kernel. The "winning"
-// CTA (the one that observes `atomicAdd(done[t*H+h], 1) == G - 1`) stays alive
-// and performs the reduce inline, writing directly to `out` / `lse_out` and
-// saving the ~1.5-3 µs cost of a second kernel launch.
-//
-// Contract:
-//   - Every CTA in the G-way split calls this exactly once after writing its
-//     O_partial / m_partial / l_partial state to HBM.
-//   - `s_smem_scratch_bytes` points to ≥ 8*G_ bytes of transient SMEM. The
-//     partial kernel reuses `s_qn` (D_CK * bf16 = 1024 B; unused after the
-//     compute phase) for this scratch.
-//   - On exit, the winning CTA resets `done[t*H+h] = 0`, so no host-side
-//     memset is needed between consecutive launches.
-template <int G_>
-__device__ __forceinline__ void fused_reduce_tail(
-    int t, int h, int64_t H,
-    void* s_smem_scratch_bytes,
-    const float* __restrict__ O_partial,
-    const float* __restrict__ m_partial,
-    const float* __restrict__ l_partial,
-    int32_t* __restrict__ done_counter,
-    __nv_bfloat16* __restrict__ out,
-    float* __restrict__ lse_out) {
-  const int tid = threadIdx.x;
-  const int64_t lin_th = t * H + h;
-  const int64_t o_part_base = lin_th * G_ * D_CK;
-  const int64_t ml_base = lin_th * G_;
-  const int64_t out_off = lin_th * D_CK;
-
-  // Publish our partial state before advertising "done". The atomicAdd below
-  // has acq_rel semantics on the counter, so any CTA that observes the
-  // post-G value of the counter is guaranteed — thanks to this fence — to
-  // see all G partials in global memory.
-  __threadfence();
-
-  __shared__ int s_is_last;
-  if (tid == 0) {
-    const int prev = atomicAdd(&done_counter[lin_th], 1);
-    s_is_last = (prev + 1 == G_) ? 1 : 0;
-  }
-  __syncthreads();
-  if (!s_is_last) return;
-
-  // Only the winning CTA reaches here. Inline reduce, same math as the
-  // standalone mla_split_reduce_kernel (now unreferenced on the fused path).
-  float* s_m = static_cast<float*>(s_smem_scratch_bytes);
-  float* s_l = s_m + G_;
-  if (tid < G_) {
-    s_m[tid] = m_partial[ml_base + tid];
-    s_l[tid] = l_partial[ml_base + tid];
-  }
-  __syncthreads();
-
-  float m_final = -INFINITY;
-  #pragma unroll
-  for (int g = 0; g < G_; ++g) m_final = fmaxf(m_final, s_m[g]);
-
-  if (m_final == -INFINITY) {
-    const __nv_bfloat162 zero =
-        __halves2bfloat162(f_to_bf16(0.f), f_to_bf16(0.f));
-    reinterpret_cast<__nv_bfloat162*>(out + out_off)[tid] = zero;
-    if (tid == 0) lse_out[lin_th] = -INFINITY;
-  } else {
-    float l_final = 0.f;
-    #pragma unroll
-    for (int g = 0; g < G_; ++g) {
-      l_final += s_l[g] * exp2f(s_m[g] - m_final);
-    }
-    const float inv_l = 1.f / l_final;
-    float o0 = 0.f, o1 = 0.f;
-    const int i = tid;
-    #pragma unroll
-    for (int g = 0; g < G_; ++g) {
-      const float alpha = exp2f(s_m[g] - m_final);
-      // Phase 7i: partials are fp32 (was bf16). Each lane reads 2 fp32 values.
-      const float2* op2 =
-          reinterpret_cast<const float2*>(O_partial + o_part_base + g * D_CK);
-      const float2 of = op2[i];
-      o0 += of.x * alpha;
-      o1 += of.y * alpha;
-    }
-    const __nv_bfloat162 packed =
-        __halves2bfloat162(f_to_bf16(o0 * inv_l), f_to_bf16(o1 * inv_l));
-    reinterpret_cast<__nv_bfloat162*>(out + out_off)[i] = packed;
-    if (tid == 0) lse_out[lin_th] = m_final + log2f(l_final);
-  }
-
-  // Reset counter for the next launch. Must follow the output writes so the
-  // store stays ordered (same CTA, same stream — CUDA guarantees program-
-  // order within a CTA; subsequent kernel launches see these writes).
-  __syncthreads();
-  if (tid == 0) done_counter[lin_th] = 0;
-}
-
 template <int G_>
 __global__ __launch_bounds__(THREADS, 2) void mla_split_partial_kernel(
     const __nv_bfloat16* __restrict__ q_nope,
@@ -687,9 +590,6 @@ __global__ __launch_bounds__(THREADS, 2) void mla_split_partial_kernel(
     float* __restrict__ O_partial,           // Phase 7i: fp32 partials [T,H,G,D_CK]
     float* __restrict__ m_partial,           // [T, H, G]
     float* __restrict__ l_partial,           // [T, H, G]
-    int32_t* __restrict__ done_counter,      // [T, H]; nullptr => no fused reduce
-    __nv_bfloat16* __restrict__ out,         // [T, H, D_CK]; used only by fused path
-    float* __restrict__ lse_out,             // [T, H]; used only by fused path
     int64_t H,
     int64_t num_kv_rows) {
   constexpr int TOPK_PG = TOPK / G_;
@@ -765,15 +665,6 @@ __global__ __launch_bounds__(THREADS, 2) void mla_split_partial_kernel(
     // Phase 7i: partials are fp32. One thread writes one float2 (2 floats).
     reinterpret_cast<float2*>(O_partial + o_part_off)[tid] =
         make_float2(0.f, 0.f);
-
-    // Fused reduce tail — the zero-tiles CTA still counts as "done". Its
-    // partial contributes m=-INF, l=0, O=0 to the reduce.
-    if (done_counter) {
-      fused_reduce_tail<G_>(t, h, H,
-                            /*scratch=*/s_qn,  // D_CK*bf16 = 1024 B, unused now
-                            O_partial, m_partial, l_partial,
-                            done_counter, out, lse_out);
-    }
     return;
   }
 
@@ -906,16 +797,6 @@ __global__ __launch_bounds__(THREADS, 2) void mla_split_partial_kernel(
   }
   // Phase 7i: fp32 partials — one float2 per thread.
   reinterpret_cast<float2*>(O_partial + o_part_off)[i] = make_float2(o0, o1);
-
-  // Fused reduce: the CTA that observes atomicAdd == G-1 stays alive and
-  // performs the reduce inline, saving a kernel-launch round-trip. s_qn is
-  // unused after the compute phase and is reused as scratch for s_m/s_l.
-  if (done_counter) {
-    fused_reduce_tail<G_>(t, h, H,
-                          /*scratch=*/s_qn,
-                          O_partial, m_partial, l_partial,
-                          done_counter, out, lse_out);
-  }
 }
 
 // Reducer: combines G partial (m, l, O_unnorm) states into the final
@@ -1480,13 +1361,6 @@ static int pick_split_G(int base_ctas) {
 // whenever a larger workload comes in; never shrunk.  A single mutex keeps
 // concurrent invocations from stomping on each other.  cudaFree on grow is
 // synchronous but happens only O(log max_bytes) times across the run.
-//
-// `done` is a T*H int32 counter array used by the fused partial+reduce path
-// (Phase 6b). Each per-(t,h)-group partial CTA atomic-increments its slot
-// after writing its partial state; the CTA that observes `== G` stays alive
-// to perform the reduce in-place (saving a full kernel-launch round-trip,
-// ≈2-3 µs on B200). The counter is reset back to 0 by the winning CTA at
-// the end of the reduce, so no host-side memset is needed between calls.
 struct SplitKScratch {
   // Phase 7i (numerical): store split-K partial O in fp32 (was bf16). Each
   // CPT workload runs with up to G=16 partials, and the bf16 quantization
@@ -1498,13 +1372,11 @@ struct SplitKScratch {
   float* O = nullptr;  // fp32, max [T*H*G*D_CK]
   float* m = nullptr;  // fp32, max [T*H*G]
   float* l = nullptr;  // fp32, max [T*H*G]
-  int32_t* done = nullptr;  // int32, max [T*H]
   size_t O_bytes = 0;
   size_t ml_bytes = 0;
-  size_t done_bytes = 0;
   std::mutex mu;
 
-  void ensure(size_t new_O_bytes, size_t new_ml_bytes, size_t new_done_bytes) {
+  void ensure(size_t new_O_bytes, size_t new_ml_bytes) {
     std::lock_guard<std::mutex> lk(mu);
     if (new_O_bytes > O_bytes) {
       if (O) cudaFree(O);
@@ -1517,15 +1389,6 @@ struct SplitKScratch {
       cudaMalloc(reinterpret_cast<void**>(&m), new_ml_bytes);
       cudaMalloc(reinterpret_cast<void**>(&l), new_ml_bytes);
       ml_bytes = new_ml_bytes;
-    }
-    if (new_done_bytes > done_bytes) {
-      if (done) cudaFree(done);
-      cudaMalloc(reinterpret_cast<void**>(&done), new_done_bytes);
-      // Zero-init: the fused-reduce pattern keeps the counter at 0 steady-state
-      // (each launch's winning CTA resets its slot), but on first alloc / grow
-      // we must initialize to 0 explicitly.
-      cudaMemset(done, 0, new_done_bytes);
-      done_bytes = new_done_bytes;
     }
   }
 };
@@ -1635,33 +1498,10 @@ struct DensityCache {
 
 static DensityCache g_density_cache;
 
-// Env toggles for the density dispatcher. Default OFF so the behaviour
-// from 7g defaults is preserved until explicitly enabled; with 7h ON
-// the dispatcher falls back to legacy when avg-valid-K-per-token is
-// below `cta_per_t_density_min_avg()`. Default threshold 1400 is the
-// crossover measured on the 23-workload bench (7h A/B).
-static bool cta_per_t_density_enabled() {
-  static const bool enabled = []() {
-    const char* env = std::getenv("MLA_SPARSE_ATTN_CTA_PER_T_DENSITY");
-    if (!env) return true;  // default ON (Phase 7h)
-    return !(env[0] == '0' || env[0] == 'f' || env[0] == 'F'
-          || env[0] == 'n' || env[0] == 'N');
-  }();
-  return enabled;
-}
-
-static int cta_per_t_density_min_avg() {
-  static const int v = []() {
-    const char* env = std::getenv("MLA_SPARSE_ATTN_CTA_PER_T_DENSITY_MIN_AVG");
-    if (!env) return 210;  // Phase 7h default: empirically optimal cut-off.
-    char* end = nullptr;
-    long parsed = std::strtol(env, &end, 10);
-    if (end == env || parsed < 0) return 0;
-    if (parsed > TOPK) return TOPK;
-    return static_cast<int>(parsed);
-  }();
-  return v;
-}
+// Phase 7h density dispatcher: fall back to legacy when avg-valid-K-per-
+// token is below this threshold. 210 is the empirically optimal cut-off
+// from the 23-workload A/B; always-on in production.
+constexpr int CTA_PER_T_DENSITY_MIN_AVG = 210;
 
 // Pick the split-K factor for the CTA-per-t path. base_ctas in this mode is
 // `T` (one CTA per token per K-slice) rather than `T*H` (one CTA per
@@ -1744,22 +1584,6 @@ void configure_kernel_attrs_once() {
   });
 }
 
-// Env-gated override. Defaults to **OFF**. The fused path (last-CTA reduce
-// pattern) saves the second kernel launch but the A/B on this bench showed
-// the savings are below the noise floor (ALL geomean Δ +0.46 %, SPLIT-only
-// geomean Δ 0.00 %); see artifacts/p6_splitk/ab_report.md. The path is
-// retained behind this flag in case future workloads (more splits, slower
-// launch latency on older drivers, etc.) make the trade-off profitable.
-static bool fused_split_enabled() {
-  static const bool enabled = []() {
-    const char* env = std::getenv("MLA_SPARSE_ATTN_FUSED");
-    if (!env) return false;  // default OFF
-    return env[0] == '1' || env[0] == 't' || env[0] == 'T'
-        || env[0] == 'y' || env[0] == 'Y';
-  }();
-  return enabled;
-}
-
 template <int G_>
 static void launch_split_partial_and_reduce(
     int64_t T, int64_t H,
@@ -1777,9 +1601,7 @@ static void launch_split_partial_and_reduce(
       static_cast<size_t>(T) * H * G_ * D_CK * sizeof(float);
   const size_t ml_bytes =
       static_cast<size_t>(T) * H * G_ * sizeof(float);
-  const size_t done_bytes =
-      static_cast<size_t>(T) * H * sizeof(int32_t);
-  g_split_scratch.ensure(O_bytes, ml_bytes, done_bytes);
+  g_split_scratch.ensure(O_bytes, ml_bytes);
 
   const dim3 part_grid(static_cast<unsigned>(T),
                        static_cast<unsigned>(H),
@@ -1787,26 +1609,17 @@ static void launch_split_partial_and_reduce(
   const dim3 block(THREADS);
   const size_t part_shmem = split_partial_shmem<G_>();
 
-  const bool fused = fused_split_enabled();
-  int32_t* done_ptr = fused ? g_split_scratch.done : nullptr;
-  __nv_bfloat16* out_ptr = fused ? out : nullptr;
-  float* lse_ptr = fused ? lse : nullptr;
-
   mla_split_partial_kernel<G_><<<part_grid, block, part_shmem, stream>>>(
       q_nope, q_pe, ckv_flat, kpe_flat, sparse_idx, sm_log2e,
       g_split_scratch.O,
       g_split_scratch.m, g_split_scratch.l,
-      done_ptr, out_ptr, lse_ptr,
       H, num_kv_rows);
 
-  if (!fused) {
-    // Legacy two-launch path (fallback for debugging / A/B).
-    const dim3 red_grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
-    mla_split_reduce_kernel<G_><<<red_grid, block, 0, stream>>>(
-        g_split_scratch.O,
-        g_split_scratch.m, g_split_scratch.l,
-        out, lse, H);
-  }
+  const dim3 red_grid(static_cast<unsigned>(T), static_cast<unsigned>(H));
+  mla_split_reduce_kernel<G_><<<red_grid, block, 0, stream>>>(
+      g_split_scratch.O,
+      g_split_scratch.m, g_split_scratch.l,
+      out, lse, H);
 }
 
 // ---------------------------------------------------------------------------
@@ -1893,9 +1706,7 @@ static void launch_cta_per_t_mma_v_mb(
         static_cast<size_t>(T) * H * G_ * D_CK * sizeof(float);
     const size_t ml_bytes =
         static_cast<size_t>(T) * H * G_ * sizeof(float);
-    const size_t done_bytes =
-        static_cast<size_t>(T) * H * sizeof(int32_t);
-    g_split_scratch.ensure(O_bytes, ml_bytes, done_bytes);
+    g_split_scratch.ensure(O_bytes, ml_bytes);
 
     const dim3 part_grid(static_cast<unsigned>(T),
                          static_cast<unsigned>(G_));
@@ -2071,18 +1882,11 @@ void kernel_fn(
   // low-density or non-CPT_H workloads fall through to the legacy (t,h)-
   // grid path below.
   if (H == CPT_H) {
-    bool density_ok = true;
-    if (cta_per_t_density_enabled()) {
-      const int threshold = cta_per_t_density_min_avg();
-      if (threshold > 0) {
-        const int density_count = g_density_cache.get_or_compute(
-            si_p, T, num_kv_rows, stream);
-        const int density_avg = density_count /
-            static_cast<int>(std::max<int64_t>(T, 1));
-        density_ok = (density_avg >= threshold);
-      }
-    }
-    if (density_ok) {
+    const int density_count = g_density_cache.get_or_compute(
+        si_p, T, num_kv_rows, stream);
+    const int density_avg = density_count /
+        static_cast<int>(std::max<int64_t>(T, 1));
+    if (density_avg >= CTA_PER_T_DENSITY_MIN_AVG) {
       dispatch_cta_per_t(T, H, q_nope_p, q_pe_p, ckv_p, kpe_p, si_p,
                          sm_log2e, out_p, lse_p, num_kv_rows, stream);
       return;
