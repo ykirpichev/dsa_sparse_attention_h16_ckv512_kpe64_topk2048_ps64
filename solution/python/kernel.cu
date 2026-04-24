@@ -1533,51 +1533,6 @@ struct SplitKScratch {
 static SplitKScratch g_split_scratch;
 
 
-// Env-gated opt-in for the CTA-per-t path (Phase 7a). When ON, all H=16
-// heads of a token run in a single CTA — K/V is loaded once per token
-// (shared across heads) instead of H times.
-// Default ON as of Phase 7g: with `mma_v + regs=2 + min_t=8` the geomean
-// vs legacy is 1.005× and max wall drops from 73 µs to 56 µs (no workload
-// exceeds 60 µs). Set MLA_SPARSE_ATTN_CTA_PER_T=0 to force legacy.
-static bool cta_per_t_enabled() {
-  static const bool enabled = []() {
-    const char* env = std::getenv("MLA_SPARSE_ATTN_CTA_PER_T");
-    if (!env) return true;  // default ON (Phase 7g)
-    return !(env[0] == '0' || env[0] == 'f' || env[0] == 'F'
-          || env[0] == 'n' || env[0] == 'N');
-  }();
-  return enabled;
-}
-
-// Select the __launch_bounds__ MIN_BLOCKS_PER_SM for the CTA-per-t kernel.
-// Default "2" (Phase 7g) → 2 CTAs/SM, issue-slot starvation relief.
-// Env "1" → 1 CTA/SM, max regs.
-static int cta_per_t_min_blocks() {
-  static const int v = []() {
-    const char* env = std::getenv("MLA_SPARSE_ATTN_CTA_PER_T_REGS");
-    if (!env) return 2;  // default 2 (Phase 7g)
-    if (env[0] == '1') return 1;
-    if (env[0] == '2') return 2;
-    return 2;
-  }();
-  return v;
-}
-
-// Select the V-accum MMA variant (Phase 7c-next). Implies `mma` (logit
-// MMA) plus WMMA-based V-accumulation with persistent c_frag registers and
-// store-rescale-load online softmax. Takes precedence over `mma` when set.
-// Default ON (Phase 7g).
-static bool cta_per_t_mma_v_enabled() {
-  static const bool enabled = []() {
-    const char* env = std::getenv("MLA_SPARSE_ATTN_CTA_PER_T_MMA_V");
-    if (!env) return true;
-    return !(env[0] == '0' || env[0] == 'f' || env[0] == 'F'
-          || env[0] == 'n' || env[0] == 'N');
-  }();
-  return enabled;
-}
-
-
 // ---------------------------------------------------------------------------
 // Phase 7h: density-based dispatcher
 //
@@ -1973,15 +1928,12 @@ static void launch_cta_per_t_mma_v(
     float* lse,
     int64_t num_kv_rows,
     cudaStream_t stream) {
-  if (cta_per_t_min_blocks() == 2) {
-    launch_cta_per_t_mma_v_mb<G_, 2>(T, H, q_nope, q_pe, ckv_flat, kpe_flat,
-                                     sparse_idx, sm_log2e, out, lse,
-                                     num_kv_rows, stream);
-  } else {
-    launch_cta_per_t_mma_v_mb<G_, 1>(T, H, q_nope, q_pe, ckv_flat, kpe_flat,
-                                     sparse_idx, sm_log2e, out, lse,
-                                     num_kv_rows, stream);
-  }
+  // Phase 7g: MIN_BLOCKS_PER_SM=2 (2 CTAs/SM) wins the final A/B on all 23
+  // workloads — issue-slot starvation relief outweighs the extra-register
+  // gain of MIN_BLOCKS=1. Hardcoded here as the sole production choice.
+  launch_cta_per_t_mma_v_mb<G_, 2>(T, H, q_nope, q_pe, ckv_flat, kpe_flat,
+                                   sparse_idx, sm_log2e, out, lse,
+                                   num_kv_rows, stream);
 }
 
 static void dispatch_cta_per_t(
@@ -2113,11 +2065,12 @@ void kernel_fn(
   auto* out_p          = static_cast<__nv_bfloat16*>(out.data_ptr());
   auto* lse_p          = static_cast<float*>(lse.data_ptr());
 
-  // CTA-per-t path (Phase 7g, default ON). The cta_per_t_mma_v kernel
-  // (WMMA logit + WMMA V-accum) handles H=CPT_H (=16) workloads whose
-  // sparse-index density passes the Phase 7h pre-scan threshold; all
-  // other workloads fall through to the legacy (t, h)-grid path below.
-  if (cta_per_t_enabled()) {
+  // CTA-per-t path (Phase 7g, production default). The cta_per_t_mma_v
+  // kernel (WMMA logit + WMMA V-accum) handles H=CPT_H (=16) workloads
+  // whose sparse-index density passes the Phase 7h pre-scan threshold;
+  // low-density or non-CPT_H workloads fall through to the legacy (t,h)-
+  // grid path below.
+  if (H == CPT_H) {
     bool density_ok = true;
     if (cta_per_t_density_enabled()) {
       const int threshold = cta_per_t_density_min_avg();
