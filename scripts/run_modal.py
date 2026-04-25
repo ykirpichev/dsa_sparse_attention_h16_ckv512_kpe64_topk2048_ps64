@@ -25,9 +25,23 @@ app = modal.App("flashinfer-bench")
 trace_volume = modal.Volume.from_name("flashinfer-trace", create_if_missing=True)
 TRACE_SET_PATH = "/data"
 
+# Pin to the same image digest documented in EVALUATION.md (evaluator environment).
+# CUDA 13.2 + nvcc; required to compile the TVM-FFI CUDA entry at runtime.
 image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .pip_install("flashinfer-bench", "torch", "triton", "numpy")
+    modal.Image.from_registry("flashinfer/flashinfer-ci-cu132:latest")
+    .apt_install("git")
+    .env({"CUDA_HOME": "/usr/local/cuda"})
+    .pip_install("wheel", "setuptools")
+    # cupti-python is in the evaluation environment (see EVALUATION.md).
+    .pip_install("cupti-python")
+    .run_commands(
+        "git clone --recursive --depth 1 https://github.com/deepseek-ai/DeepGEMM.git /tmp/DeepGEMM",
+        "pip install --no-build-isolation /tmp/DeepGEMM",
+        "git clone --recursive --depth 1 https://github.com/flashinfer-ai/flashinfer.git /tmp/flashinfer",
+        "pip install --no-build-isolation /tmp/flashinfer",
+        "git clone --depth 1 https://github.com/flashinfer-ai/flashinfer-bench.git /tmp/flashinfer-bench",
+        "pip install /tmp/flashinfer-bench",
+    )
 )
 
 
