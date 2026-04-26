@@ -101,13 +101,11 @@ flowchart LR
 
 
 
-Phase 0 established baselines and measurement. The initial repository started
-from the starter kit, added Modal full-suite runners, and recorded FlashInfer
-and PyTorch reference behavior. The first contest-ready implementation was a
-batched PyTorch MLA baseline, followed by Triton and then CUDA baselines. This
-phase was mainly about having a repeatable workflow: pack the solution, run the
-same workload set, and archive logs for comparisons. The important output was
-not the fastest kernel but a stable way to measure progress.
+Phase 0 established baselines and measurement. Starting from the starter
+kit, the repo added Modal full-suite runners and recorded FlashInfer/PyTorch
+reference behavior, then walked a batched PyTorch MLA -> Triton -> CUDA
+progression. The deliverable here was a repeatable workflow (pack, run,
+archive logs), not the fastest kernel.
 
 Phase 1 moved the implementation into CUDA and applied low-risk throughput
 improvements. Commits around `stage1/batched-optimizations` and
@@ -117,14 +115,11 @@ projection path added `cp.async` double buffering, followed by a logit prefetch
 path. The history records substantial speedups from these changes, especially
 when moving from Stage 3b value prefetch to Stage 3c logit prefetch.
 
-Phase 2 explored alternatives that were intentionally not kept. Head tiling
-with `H_TILE=2` looked attractive because it increased per-CTA work, but it
-regressed and was reverted. A grid order that made head the fast dimension was
-also attempted and reverted. Increasing pipeline depth from `V_PIPE=2` to
-larger values regressed due to register pressure and scheduling costs. BF16
-logit storage was also reverted because it introduced precision problems.
-These negative results pushed the design back toward a narrower, highly tuned
-per-tile pipeline with FP32 accumulation where it mattered.
+Phase 2 collected intentional negative results: `H_TILE=2` head tiling
+regressed, head-fast grid order regressed, deeper `V_PIPE` pipelines lost
+to register pressure, and BF16 logit storage hurt precision. Each was
+reverted, pushing the design toward a narrower per-tile pipeline with FP32
+accumulation where it mattered.
 
 Phase 3 introduced FlashDecoding-style split-K. The key observation was that
 some workloads had too few base CTAs (`T*H`) to fill the B200. Splitting the
@@ -135,14 +130,11 @@ The final implementation retains split-K when the base grid would underfill
 the SM array and falls back to the single-kernel path when launch overhead
 would dominate.
 
-Phase 4 explored Blackwell-specific memory and scheduling features.
-The codebase added sm_100a cleanup, removed redundant synchronization, and
-experimented with TMA/gather-style loading and warp-specialized issue paths.
-Some of this work was correct but did not improve the final benchmark. The TMA
-and full WS3 paths were either archived or disabled because the measured
-latency regressed. These experiments still informed the final design: the
-winning path uses simpler async copy patterns and avoids over-specializing the
-kernel around an issue/consumer split that starved the useful arithmetic.
+Phase 4 explored Blackwell features: sm_100a cleanup, redundant-sync
+removal, TMA/gather-style loading, and warp-specialized issue paths. The
+TMA and full WS3 variants were correct but slower and were archived. The
+takeaway fed the final design: prefer simple `cp.async` copies over an
+issue/consumer split that starves arithmetic.
 
 Phases 5 and 6 produced the final kernel architecture. The CTA-per-token path
 uses 512 threads, one warp per head, and WMMA BF16xBF16 to FP32 for both logit
@@ -155,17 +147,13 @@ sparse-index density pre-scan that routes high-density shapes to the
 CTA-per-token kernel and low-density shapes back to the legacy grid, avoiding
 the fixed CTA-per-token floor on sparse low-density inputs.
 
-Phase 7 finalized packaging and launch overhead. The final submission moved to
-a Python solution that JIT-compiles `kernel.cu` with
-`torch.utils.cpp_extension.load` so that the submission can pass explicit
-`-gencode arch=compute_100a,code=sm_100a` flags. This matched the contest FAQ's
-recommended workaround for custom compile flags and made the sm_100a-only code
-self-contained in the submitted sources. The final branch added a CUDA graph
-cache around the launch topology: each call captures the current kernel launch
-sequence, updates a cached `cudaGraphExec_t` with the current tensor pointers
-when possible, and launches the graph on the caller stream. Follow-up cleanup
-removed debug environment-variable plumbing so the final `submission-final-v2`
-tag contains the unconditional graph-cache path without extra diagnostic code.
+Phase 7 finalized packaging and launch overhead. The submission JIT-compiles
+`kernel.cu` via `torch.utils.cpp_extension.load`, the contest-FAQ-sanctioned
+way to pass `-gencode arch=compute_100a,code=sm_100a` and keep the
+sm_100a-only code self-contained in the submitted sources. A CUDA graph
+cache was then added around the launch topology (capture ->
+`cudaGraphExecUpdate` -> launch); a cleanup pass removed debug env-var
+plumbing so `submission-final-v2` ships the unconditional graph-cache path.
 
 ## Final Kernel Design
 
