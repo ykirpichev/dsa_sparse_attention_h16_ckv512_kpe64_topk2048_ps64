@@ -305,51 +305,30 @@ contest tolerances while using BF16 output and FP32 LSE.
 
 ### Measurement scope and limitations
 
-The headline `vs PyTorch reference` (126.03x) and `vs FlashInfer baseline`
-(14.18x) numbers are intended to be apples-to-apples comparisons: the
-FlashInfer baseline and the submitted kernel were benched in the same
-Modal invocation, on the same B200 instance, in the same container, with
-the comparison harness configured to use `cupti-python` as the timing
-backend
-(`artifacts/compare/REPORT_submission_final_v2_cupti_20260424T090435Z.md`,
-metadata + raw per-workload numbers). However, **whether `cupti-python`
-was actually active for the FlashInfer side of that run, or whether the
-harness silently fell back to CUDA-event timing for the baseline kernel,
-has not been independently verified**. If the FlashInfer baseline was
-event-timed while the submitted kernel was cupti-timed, the headline
-`14.18x vs FlashInfer` ratio is overstated, because event overhead is
-significant for sub-10-microsecond kernels. **This needs to be
-remeasured** by rerunning the comparison harness with `cupti-python`
-explicitly forced on both sides and confirming the per-kernel timing
-backend in the resulting log; the number set above should be replaced
-with the remeasured one if the two sides turn out not to have been
-timed equivalently.
+Both headline ratios were collected in one Modal invocation on the same
+B200 with the comparison harness configured for `cupti-python`, but it
+has **not been independently verified** that `cupti-python` was actually
+active on each side rather than the harness silently falling back to
+CUDA-event timing. Event overhead is significant for sub-10-µs kernels,
+so any side that fell back would inflate the corresponding ratio. **Both
+ratios need to be remeasured** by rerunning with `cupti-python` forced
+and confirming the per-kernel timing backend in the log.
 
-What was **not** measured is the isolated contribution of the in-kernel CUDA
-graph cache. The `vs prev` column in the comparison report compares current
-cupti-timed latencies against an earlier `WOMBAT_CUDA_GRAPH=0` run that was
-CUDA-event timed, so that ratio conflates two effects: (i) the CUDA-event
-versus cupti timing methodology, and (ii) the graph cache being on versus
-off. A clean A/B for the graph cache alone would require a cupti-timed run
-with the graph cache disabled, but the `submission-final-v2` kernel makes
-the graph cache unconditional and removed its disable knob before the
-cleanup window closed; this run was therefore not produced due to time
-constraints. **It should be remeasured if a clean attribution between
-"better measurement methodology (cupti)" and "in-kernel CUDA graph cache" is
-required**, by reintroducing a temporary compile-time switch to bypass the
-graph cache and rerunning the comparison harness with `cupti-python`. The
-current report should not claim a specific speedup for the graph cache
-feature in isolation.
+The isolated contribution of the in-kernel CUDA graph cache was also
+**not** disambiguated. The `vs prev` column in the comparison report
+contrasts current cupti-timed latencies against an earlier
+`WOMBAT_CUDA_GRAPH=0` run that was CUDA-event timed, conflating timing
+methodology with cache on/off. The disable knob was removed before the
+cleanup window closed, so a clean cupti-timed A/B was not produced;
+this report does not claim a specific speedup for the graph cache in
+isolation.
 
-The development process relied on archived logs rather than one-off manual
-measurements. Relevant artifacts include Stage 3 and Phase 5/6/7 logs, final
-comparison logs, graph-cache A/B and cleanup logs, and the final cupti-timed
-comparison report. The git tags capture milestones: `submission-v1` for the
-earlier clean baseline, `submission-final` for the Torch-extension final
-kernel before graph-cache cleanup, and `submission-final-v2` for the cleaned
-graph-cache branch. The final source package contains `solution.py` and
-`kernel.cu` only, and `config.toml` declares a Python DPS entry point:
-`solution.py::run`.
+Provenance: archived Stage 3 and Phase 5/6/7 logs, comparison reports,
+and graph-cache A/B logs accompany the three milestone tags
+(`submission-v1`, `submission-final`, `submission-final-v2`). The
+final source package is `solution.py` + `kernel.cu` only, with
+`config.toml` declaring `solution.py::run` as the Python DPS entry
+point.
 
 Suggested final conclusion:
 
