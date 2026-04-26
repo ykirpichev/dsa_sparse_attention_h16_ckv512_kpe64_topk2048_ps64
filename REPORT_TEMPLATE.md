@@ -18,7 +18,7 @@ Final solution: `wombat_dsa_sparse_mla_sm100a_final`
 | Aggregate latency | 0.719 ms (vs 6.793 ms FlashInfer, 66.079 ms PyTorch) |
 | Latency band | 0.003 ms - 0.052 ms |
 | Source files | `solution/python/solution.py`, `solution/python/kernel.cu` |
-| Methodology | Agent-assisted (Cursor + LLM agents); all decisions and commits owned by the human author. See "AI / Agent-Assisted Development Disclosure" before the References. |
+| Methodology | Agent-assisted (Cursor + LLM agents); all decisions and commits owned by the human author. See "AI / Agent-Assisted Development Disclosure" after the References. |
 
 ## Problem, Constraints, and Development Method
 
@@ -47,7 +47,7 @@ used as a pair-programming and refactoring tool. All design decisions,
 benchmarks, correctness checks, and commits were owned by the human author;
 agent output was treated as a draft to be validated against measured B200
 results. Full disclosure is in the "AI / Agent-Assisted Development
-Disclosure" section before the References.
+Disclosure" section after the References.
 
 The baseline work set up the evaluation harness and correctness contract: a
 FlashInfer/PyTorch reference comparison flow, a Triton/PyTorch baseline,
@@ -351,10 +351,6 @@ implementation passes all public workloads and improves substantially over both
 the Python reference and the FlashInfer baseline while remaining self-contained
 and limited to source code included in the submission.
 
-## AI / Agent-Assisted Development Disclosure
-
-Agent-assisted (Cursor + Claude/GPT-family LLMs); direction and acceptance criteria were human, all changes were accepted on measured B200 numbers. Full statement: [`REPORT_AI_DISCLOSURE.md`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/reports/submission-final-v2-draft/REPORT_AI_DISCLOSURE.md).
-
 ## References { .page-break }
 
 All in-repo references below are pinned to the `submission-final-v2` tag
@@ -438,3 +434,7 @@ All in-repo references below are pinned to the `submission-final-v2` tag
     [github.com/flashinfer-ai/flashinfer](https://github.com/flashinfer-ai/flashinfer).
 25. MLSys 2026 FlashInfer AI Kernel Generation Contest entry definitions -
     [github.com/flashinfer-ai/mlsys26-contest](https://github.com/flashinfer-ai/mlsys26-contest).
+
+## AI / Agent-Assisted Development Disclosure
+
+Agent-assisted (Cursor + Claude/GPT-family LLMs); direction and acceptance criteria were human, all changes were accepted on measured B200 numbers. Full statement: [`REPORT_AI_DISCLOSURE.md`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/reports/submission-final-v2-draft/REPORT_AI_DISCLOSURE.md).
