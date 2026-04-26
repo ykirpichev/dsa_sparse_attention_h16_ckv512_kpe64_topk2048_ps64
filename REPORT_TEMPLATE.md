@@ -1,4 +1,4 @@
-# Wombat DSA Sparse Attention: Process Write-Up Template
+# DSA Sparse Attention: Process Write-Up
 
 Author: Yury Kirpichev / Team Wombat  
 Track: `dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64`  
@@ -14,24 +14,13 @@ Final solution: `wombat_dsa_sparse_mla_sm100a_final`
 | Submission tag | `submission-final-v2` (commit `de475b9`) |
 | Workloads passed | 23 / 23, `abs_err <= 1.56e-2` |
 | Geomean vs PyTorch reference | 126.03x (cupti-timed; submitted side) |
-| Geomean vs FlashInfer baseline | 14.18x (harness configured for cupti; FlashInfer-side backend not independently verified, see Page 4) |
+| Geomean vs FlashInfer baseline | 14.18x (unclear whether FlashInfer side was actually cupti-timed; needs remeasurement) |
 | Aggregate single-pass latency | 0.719 ms (vs 6.793 ms FlashInfer, 66.079 ms PyTorch) |
 | Per-workload latency band | 0.003 ms - 0.052 ms |
 | Source files in submission | `solution/python/solution.py`, `solution/python/kernel.cu` |
 | Development methodology | Agent-assisted (Cursor + LLM agents); all decisions and commits owned by the human author. See "AI / Agent-Assisted Development Disclosure" before the References. |
 
-> Caveats: (1) the headline speedups were collected in a single Modal
-> invocation with the comparison harness configured to use `cupti-python`,
-> but it was **not independently verified** that `cupti-python` was
-> actually active on the FlashInfer side as well as on the submitted
-> kernel side; if the harness fell back to CUDA-event timing for
-> FlashInfer, the `14.18x vs FlashInfer` ratio is overstated and **needs
-> to be remeasured**. (2) The isolated contribution of the in-kernel
-> CUDA graph cache was **not** disambiguated from the cupti-vs-events
-> timing-methodology delta and also needs to be remeasured. Both points
-> are detailed in "Measurement scope and limitations" on Page 4.
-
-## Page 1: Problem, Constraints, and Development Method
+## Problem, Constraints, and Development Method
 
 The goal of this submission was to implement the DSA sparse MLA attention
 operator for the MLSys 2026 FlashInfer AI Kernel Generation Contest on NVIDIA
@@ -53,55 +42,37 @@ warp specialization, and Blackwell UMMA for this shape, did not fit the
 operator's actual bottleneck. The final code therefore reflects a sequence of
 measured decisions rather than a single monolithic kernel rewrite.
 
-The development was **agent-assisted**: Cursor and large-language-model
-coding agents were used as a pair-programming and refactoring tool throughout
-the project. All design decisions, optimization choices, benchmark setups,
-correctness checks, and final commits were owned and reviewed by the human
-author; agent output was treated as a draft to be evaluated against measured
-B200 results, not as ground truth. A more detailed disclosure - what the
-agent helped with, what was strictly human-driven, and how outputs were
-verified - is given in the "AI / Agent-Assisted Development Disclosure"
-section before the References.
+The development was **agent-assisted**: Cursor with LLM coding agents was
+used as a pair-programming and refactoring tool. All design decisions,
+benchmarks, correctness checks, and commits were owned by the human author;
+agent output was treated as a draft to be validated against measured B200
+results. Full disclosure is in the "AI / Agent-Assisted Development
+Disclosure" section before the References.
 
-The early baseline work established the evaluation harness and correctness
-contract. The repository first added a FlashInfer/PyTorch reference comparison
-flow and a Triton/PyTorch baseline, then moved to a CUDA implementation with
-PyTorch extension and TVM-FFI style bindings. The first useful CUDA baseline
-already targeted B200 and used a simple per-token/per-head sparse attention
-mapping. Subsequent Stage 1 and Stage 2 commits batched low-risk improvements:
-packed BF16 output stores, fused normalization, and a fused online-softmax
-structure. At this point the kernel was already materially faster than the
-Python reference, but profiling showed that long traces and small launch grids
-still left substantial performance on the table.
+The baseline work set up the evaluation harness and correctness contract: a
+FlashInfer/PyTorch reference comparison flow, a Triton/PyTorch baseline,
+then a CUDA + PyTorch extension targeting B200 with simple per-`(T,H)`
+sparse attention. Stage 1/2 added packed BF16 stores, fused normalization,
+and a fused online-softmax structure. The kernel was already faster than
+the Python reference, but small launch grids and long traces left clear
+performance on the table.
 
-The first major design principle that survived to the final solution was to
-reduce repeated HBM traffic. Earlier versions separated logit calculation,
-softmax, and value accumulation in ways that caused the compressed value cache
-to be read more than once. The `v5_fused` work changed this into a fused
-single-pass online-softmax K loop. The kernel maintains the running maximum,
-normalizer, and output accumulation state while consuming each sparse KV tile.
-This made each loaded tile useful immediately and reduced memory traffic.
-According to the git history, this step produced a meaningful geomean win and
-became the base for later work.
+Three design principles survived to the final solution. **(1) Reduce
+repeated HBM traffic.** Earlier versions read the compressed value cache
+more than once; `v5_fused` collapsed logit, softmax, and value accumulation
+into a single-pass online-softmax K loop that consumes each sparse KV tile
+exactly once. **(2) BF16 only at the output boundary.** Storing
+intermediate logits or split-K partials in BF16 caused intermittent
+abs-error spikes; the final split-K path therefore uses FP32 partial
+buffers and converts to BF16 only on the final write. **(3) Treat the
+workload set as shape/density families, not one regime.** The final
+submission keeps three correct paths - legacy per-`(T,H)` grid, split-K
+for underfilled grids, and a CTA-per-token path that batches all 16 heads
+in one CTA - and a GPU-side sparse-index density pre-scan dispatches
+between the CTA-per-token and legacy paths. Both paths recompute the
+output and LSE from the current input tensors on every call.
 
-The second principle was to preserve correctness while accepting small BF16
-output quantization only at the final output boundary. Several experiments
-showed that storing intermediate logits or split-K partial outputs in BF16 was
-not numerically robust enough across the full workload set. The final split-K
-path therefore uses FP32 partial output buffers and only converts to BF16 when
-writing the final result. This choice increased temporary memory bandwidth but
-removed intermittent absolute-error spikes observed in earlier split-K variants.
-
-The third principle was to treat the workload set as a collection of shape and
-density families rather than as a single kernel regime. The final submission
-keeps multiple correct execution paths: a legacy per-`(T,H)` grid, a split-K
-variant for underfilled grids, and a CTA-per-token path that processes all
-16 heads in one CTA when the density profile favors it. A lightweight
-GPU-side sparse-index density pre-scan selects between the CTA-per-token and
-legacy paths. This is a runtime dispatch heuristic; both paths compute the
-attention output and LSE from the current input tensors.
-
-## Page 2: Chronological Optimization Story
+## Chronological Optimization Story
 
 The repo history naturally clusters into eight phases. The figure below
 summarizes the spine of the development process, including positive results
@@ -192,7 +163,7 @@ when possible, and launches the graph on the caller stream. Follow-up cleanup
 removed debug environment-variable plumbing so the final `submission-final-v2`
 tag contains the unconditional graph-cache path without extra diagnostic code.
 
-## Page 3: Final Kernel Design
+## Final Kernel Design
 
 The final kernel is a small dispatcher plus a set of specialized CUDA kernels.
 The host wrapper validates tensor device, dtype, and shape, computes the flat
@@ -204,7 +175,7 @@ PyTorch and the CUDA extension build path.
 The dispatcher logic is summarized below.
 
 ```mermaid
-flowchart TD
+flowchart LR
     A["kernel_fn entry"] --> B{"H == 16?"}
     B -- no --> L["Legacy grid<br/>1 CTA per token,head pair"]
     B -- yes --> D["GPU density pre-scan:<br/>avg valid K per token"]
@@ -286,6 +257,7 @@ and the launched kernels still read the current tensors.
 
 ```mermaid
 stateDiagram-v2
+    direction LR
     [*] --> Capture: kernel_fn entry
     Capture: cudaStreamBeginCapture<br/>launch kernels<br/>cudaStreamEndCapture
     Capture --> Lookup: new cudaGraph_t
@@ -312,7 +284,7 @@ some deeper pipeline variants also failed to beat the simpler async-copy path.
 Keeping these negative results in the process narrative is important because
 they explain why the final code is not simply "use every Blackwell feature."
 
-## Page 4: Validation, Results, and Reproducibility
+## Validation, Results, and Reproducibility
 
 Correctness was checked continuously through the benchmark harness and final
 Modal B200 runs. The final submitted solution reports all 23 workloads passing.

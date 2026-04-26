@@ -54,7 +54,7 @@ human-driven, and how outputs were verified.
   workloads. Builds went through `torch.utils.cpp_extension.load` with the
   `sm_100a` toolchain, and runs went through the contest benchmark harness.
 - Performance claims were taken from cupti-timed Modal B200 runs (see
-  "Measurement scope and limitations" on Page 4 of `REPORT_TEMPLATE.md`);
+  the "Measurement scope and limitations" subsection of `REPORT_TEMPLATE.md`);
   no agent self-report of performance was used in the final report.
 - Validity-relevant code paths (CUDA graph cache, density pre-scan,
   persistent scratch buffers) were re-read by the human author against
@@ -76,7 +76,7 @@ human-driven, and how outputs were verified.
   image, Modal for B200 access, and `cupti-python` for timing.
 
 This disclosure is included so that reviewers can interpret the
-"measurement-driven" framing on Page 1 of `REPORT_TEMPLATE.md` correctly:
+"measurement-driven" framing in `REPORT_TEMPLATE.md` correctly:
 the *direction* of the work was human, the *typing* of the code was
 substantially shared with agents, and the *acceptance criteria* for any
 change were always measured B200 numbers.
