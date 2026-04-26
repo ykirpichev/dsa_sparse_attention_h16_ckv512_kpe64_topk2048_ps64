@@ -401,16 +401,7 @@ and limited to source code included in the submission.
 
 ## AI / Agent-Assisted Development Disclosure
 
-This submission was produced with substantial assistance from AI coding
-agents (Cursor with Anthropic Claude family and OpenAI GPT family
-backends). The full disclosure - what the agents were used for, what
-was strictly human-driven, and how every agent output was verified
-against measured B200 results - is kept in a separate appendix file to
-keep this report at four pages:
-[`REPORT_AI_DISCLOSURE.md`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/reports/submission-final-v2-draft/REPORT_AI_DISCLOSURE.md).
-In short: the *direction* of the work was human, the *typing* of the
-code was substantially shared with agents, and the *acceptance criteria*
-for any change were always measured cupti-timed B200 numbers.
+Agent-assisted (Cursor + Claude/GPT-family LLMs); direction and acceptance criteria were human, all changes were accepted on measured B200 numbers. Full statement: [`REPORT_AI_DISCLOSURE.md`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/reports/submission-final-v2-draft/REPORT_AI_DISCLOSURE.md).
 
 ## References { .page-break }
 
