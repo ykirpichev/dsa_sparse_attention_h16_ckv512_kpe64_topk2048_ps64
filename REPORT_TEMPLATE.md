@@ -13,19 +13,23 @@ Final solution: `wombat_dsa_sparse_mla_sm100a_final`
 | Hardware target | NVIDIA B200 / `sm_100a` (BF16, FP32 LSE) |
 | Submission tag | `submission-final-v2` (commit `de475b9`) |
 | Workloads passed | 23 / 23, `abs_err <= 1.56e-2` |
-| Geomean vs PyTorch reference | 126.03x (cupti-timed) |
-| Geomean vs FlashInfer baseline | 14.18x (cupti-timed) |
+| Geomean vs PyTorch reference | 126.03x (cupti-timed; submitted side) |
+| Geomean vs FlashInfer baseline | 14.18x (harness configured for cupti; FlashInfer-side backend not independently verified, see Page 4) |
 | Aggregate single-pass latency | 0.719 ms (vs 6.793 ms FlashInfer, 66.079 ms PyTorch) |
 | Per-workload latency band | 0.003 ms - 0.052 ms |
 | Source files in submission | `solution/python/solution.py`, `solution/python/kernel.cu` |
 | Development methodology | Agent-assisted (Cursor + LLM agents); all decisions and commits owned by the human author. See "AI / Agent-Assisted Development Disclosure" before the References. |
 
-> Caveat: the headline speedups versus the PyTorch reference and the
-> FlashInfer baseline are both measured with `cupti-python` in the same
-> Modal invocation. The isolated contribution of the in-kernel CUDA graph
-> cache, however, was **not** disambiguated from the cupti-vs-events timing
-> methodology delta and would need to be remeasured (see "Measurement scope
-> and limitations" on Page 4).
+> Caveats: (1) the headline speedups were collected in a single Modal
+> invocation with the comparison harness configured to use `cupti-python`,
+> but it was **not independently verified** that `cupti-python` was
+> actually active on the FlashInfer side as well as on the submitted
+> kernel side; if the harness fell back to CUDA-event timing for
+> FlashInfer, the `14.18x vs FlashInfer` ratio is overstated and **needs
+> to be remeasured**. (2) The isolated contribution of the in-kernel
+> CUDA graph cache was **not** disambiguated from the cupti-vs-events
+> timing-methodology delta and also needs to be remeasured. Both points
+> are detailed in "Measurement scope and limitations" on Page 4.
 
 ## Page 1: Problem, Constraints, and Development Method
 
@@ -340,14 +344,24 @@ still useful as a regression check, but not as the primary performance claim.
 ### Measurement scope and limitations
 
 The headline `vs PyTorch reference` (126.03x) and `vs FlashInfer baseline`
-(14.18x) numbers are clean apples-to-apples comparisons: the FlashInfer
-baseline and the submitted kernel were benched **in the same Modal
-invocation, on the same B200 instance, in the same container, with
-`cupti-python` as the timing backend** for both
+(14.18x) numbers are intended to be apples-to-apples comparisons: the
+FlashInfer baseline and the submitted kernel were benched in the same
+Modal invocation, on the same B200 instance, in the same container, with
+the comparison harness configured to use `cupti-python` as the timing
+backend
 (`artifacts/compare/REPORT_submission_final_v2_cupti_20260424T090435Z.md`,
-metadata + raw per-workload numbers). These numbers therefore reflect what
-the official cupti-based evaluator would see and are not inflated by
-event-timing overhead.
+metadata + raw per-workload numbers). However, **whether `cupti-python`
+was actually active for the FlashInfer side of that run, or whether the
+harness silently fell back to CUDA-event timing for the baseline kernel,
+has not been independently verified**. If the FlashInfer baseline was
+event-timed while the submitted kernel was cupti-timed, the headline
+`14.18x vs FlashInfer` ratio is overstated, because event overhead is
+significant for sub-10-microsecond kernels. **This needs to be
+remeasured** by rerunning the comparison harness with `cupti-python`
+explicitly forced on both sides and confirming the per-kernel timing
+backend in the resulting log; the number set above should be replaced
+with the remeasured one if the two sides turn out not to have been
+timed equivalently.
 
 What was **not** measured is the isolated contribution of the in-kernel CUDA
 graph cache. The `vs prev` column in the comparison report compares current
@@ -398,7 +412,7 @@ In short: the *direction* of the work was human, the *typing* of the
 code was substantially shared with agents, and the *acceptance criteria*
 for any change were always measured cupti-timed B200 numbers.
 
-## References
+## References { .page-break }
 
 All in-repo references below are pinned to the `submission-final-v2` tag
 (commit `de475b9`) of the submission repository:
