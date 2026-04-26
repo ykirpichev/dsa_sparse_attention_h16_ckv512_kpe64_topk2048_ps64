@@ -205,19 +205,19 @@ The dispatcher logic is summarized below.
 
 ```mermaid
 flowchart TD
-    A[kernel_fn entry] --> B{H == 16?}
-    B -- no --> L[Legacy grid<br/>1 CTA per (token, head)]
-    B -- yes --> D[GPU density pre-scan:<br/>avg valid K per token]
-    D --> E{avg >= threshold?}
+    A["kernel_fn entry"] --> B{"H == 16?"}
+    B -- no --> L["Legacy grid<br/>1 CTA per token,head pair"]
+    B -- yes --> D["GPU density pre-scan:<br/>avg valid K per token"]
+    D --> E{"avg >= threshold?"}
     E -- no --> L
-    E -- yes --> C[CTA-per-token path<br/>16 warps, WMMA BF16->FP32]
-    L --> S{base CTA count<br/>fills B200?}
+    E -- yes --> C["CTA-per-token path<br/>16 warps, WMMA BF16 to FP32"]
+    L --> S{"base CTA count<br/>fills B200?"}
     C --> S
-    S -- yes --> K[Single-pass kernel]
-    S -- no  --> SK[Split-K, G in 2,4,8,16<br/>+ reducer kernel]
-    K --> G[CUDA graph cache:<br/>capture, update, replay]
+    S -- yes --> K["Single-pass kernel"]
+    S -- no  --> SK["Split-K, G in 2,4,8,16<br/>+ reducer kernel"]
+    K --> G["CUDA graph cache:<br/>capture, update, replay"]
     SK --> G
-    G --> O[Write BF16 out, FP32 LSE<br/>destination-passing style]
+    G --> O["Write BF16 out, FP32 LSE<br/>destination-passing style"]
 ```
 
 The legacy kernel maps one CTA to one `(token, head)` pair. Each CTA first
@@ -236,15 +236,15 @@ materialized.
 
 ```mermaid
 flowchart LR
-    subgraph Tile[Per-tile fused loop]
+    subgraph Tile["Per-tile fused loop"]
       direction LR
-      L1[cp.async load:<br/>ckv tile + kpe tile<br/>+ sparse_idx tile] --> L2[WMMA / scalar logits<br/>q · k -> S_tile]
-      L2 --> L3[Online softmax:<br/>m_new = max(m, S_tile)<br/>scale = exp2(m - m_new)<br/>l = l*scale + sum(P_tile)]
-      L3 --> L4[Value accumulate:<br/>O = O*scale + P_tile @ V_tile]
-      L4 --> L5[Advance pipeline /<br/>prefetch next tile]
+      L1["cp.async load:<br/>ckv tile + kpe tile<br/>+ sparse_idx tile"] --> L2["WMMA or scalar logits<br/>q dot k yields S_tile"]
+      L2 --> L3["Online softmax:<br/>m_new = max of m and S_tile<br/>scale = exp2 of m - m_new<br/>l = l*scale + sum P_tile"]
+      L3 --> L4["Value accumulate:<br/>O = O*scale + P_tile times V_tile"]
+      L4 --> L5["Advance pipeline /<br/>prefetch next tile"]
     end
     L5 -. next tile .-> L1
-    L4 --> Out[On loop exit:<br/>O / l -> BF16 out<br/>log2(l) + m -> FP32 LSE]
+    L4 --> Out["On loop exit:<br/>O / l yields BF16 out<br/>log2 of l plus m yields FP32 LSE"]
 ```
 
 The split-K path handles small grids that would otherwise underfill B200.
