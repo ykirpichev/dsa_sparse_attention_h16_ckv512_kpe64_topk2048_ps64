@@ -9,16 +9,16 @@ Final solution: `wombat_dsa_sparse_mla_sm100a_final`
 
 | Field | Value |
 |---|---|
-| Track / definition | `dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64` |
-| Hardware target | NVIDIA B200 / `sm_100a` (BF16, FP32 LSE) |
-| Submission tag | `submission-final-v2` (commit `de475b9`) |
-| Workloads passed | 23 / 23, `abs_err <= 1.56e-2` |
-| Geomean vs PyTorch reference | 126.03x (cupti-timed; submitted side) |
-| Geomean vs FlashInfer baseline | 14.18x (unclear whether FlashInfer side was actually cupti-timed; needs remeasurement) |
-| Aggregate single-pass latency | 0.719 ms (vs 6.793 ms FlashInfer, 66.079 ms PyTorch) |
-| Per-workload latency band | 0.003 ms - 0.052 ms |
-| Source files in submission | `solution/python/solution.py`, `solution/python/kernel.cu` |
-| Development methodology | Agent-assisted (Cursor + LLM agents); all decisions and commits owned by the human author. See "AI / Agent-Assisted Development Disclosure" before the References. |
+| Track | `dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64` |
+| Hardware | NVIDIA B200 / `sm_100a` (BF16, FP32 LSE) |
+| Tag | `submission-final-v2` (commit `de475b9`) |
+| Workloads | 23 / 23, `abs_err <= 1.56e-2` |
+| vs PyTorch ref | 126.03x (cupti-timed; submitted side) |
+| vs FlashInfer | 14.18x (unclear whether FlashInfer side was actually cupti-timed; needs remeasurement) |
+| Aggregate latency | 0.719 ms (vs 6.793 ms FlashInfer, 66.079 ms PyTorch) |
+| Latency band | 0.003 ms - 0.052 ms |
+| Source files | `solution/python/solution.py`, `solution/python/kernel.cu` |
+| Methodology | Agent-assisted (Cursor + LLM agents); all decisions and commits owned by the human author. See "AI / Agent-Assisted Development Disclosure" before the References. |
 
 ## Problem, Constraints, and Development Method
 
