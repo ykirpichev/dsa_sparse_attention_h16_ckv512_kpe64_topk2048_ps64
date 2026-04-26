@@ -1,0 +1,152 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-4jnNbC8BNLWRAB1MNJ01IR
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_compare.py
+└── 🔨 Created function run_benchmark.
+Packing our solution from source...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+Loading FlashInfer baseline from 
+/home/ykirpichev/sources/mlsys26-contest/solutions/baseline/dsa/dsa_sparse_atten
+tion_h16_ckv512_kpe64_topk2048_ps64/flashinfer_wrapper_5af199.json...
+
+Launching combined benchmark on Modal B200 (our solution + FlashInfer baseline, 
+same reference, same B200)...
+
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+
+=== Raw per-workload numbers (wombat_dsa_sparse_mla_sm100a_final) ===
+  02d6ae9c  lat=0.0514 ms  ref=3.8925 ms  speedup=75.79x
+  05f6de65  lat=0.0226 ms  ref=1.5363 ms  speedup=68.01x
+  0a63b87b  lat=0.0060 ms  ref=1.5260 ms  speedup=253.12x
+  0c23b10c  lat=0.0034 ms  ref=1.2259 ms  speedup=363.82x
+  2207f0fd  lat=0.0508 ms  ref=3.5655 ms  speedup=70.20x
+  232ed014  lat=0.0505 ms  ref=4.0551 ms  speedup=80.25x
+  38389961  lat=0.0500 ms  ref=3.5108 ms  speedup=70.21x
+  385742b2  lat=0.0379 ms  ref=3.9840 ms  speedup=105.23x
+  4c46a94b  lat=0.0356 ms  ref=4.1614 ms  speedup=116.96x
+  5096e459  lat=0.0507 ms  ref=3.7821 ms  speedup=74.59x
+  564007ac  lat=0.0517 ms  ref=4.2849 ms  speedup=82.87x
+  68d6817d  lat=0.0094 ms  ref=3.1568 ms  speedup=335.01x
+  78b2e11c  lat=0.0510 ms  ref=3.9948 ms  speedup=78.29x
+  7a389715  lat=0.0506 ms  ref=3.8560 ms  speedup=76.27x
+  9d4a5f21  lat=0.0041 ms  ref=1.5762 ms  speedup=382.94x
+  9f3f891b  lat=0.0189 ms  ref=1.6255 ms  speedup=86.05x
+  ae4219a9  lat=0.0507 ms  ref=3.7114 ms  speedup=73.24x
+  b7668cfd  lat=0.0060 ms  ref=1.6055 ms  speedup=265.60x
+  d57eb9e1  lat=0.0506 ms  ref=3.1797 ms  speedup=62.82x
+  ddfa9e34  lat=0.0504 ms  ref=3.1414 ms  speedup=62.30x
+  e6b849f2  lat=0.0079 ms  ref=1.5200 ms  speedup=193.00x
+  f77df5ce  lat=0.0042 ms  ref=1.6358 ms  speedup=393.76x
+  fc85411e  lat=0.0041 ms  ref=1.5515 ms  speedup=377.89x
+
+=== Raw per-workload numbers (flashinfer_wrapper_5af199) ===
+  02d6ae9c  lat=0.3020 ms  ref=3.8925 ms  speedup=12.89x
+  05f6de65  lat=0.2901 ms  ref=1.5363 ms  speedup=5.30x
+  0a63b87b  lat=0.2850 ms  ref=1.5260 ms  speedup=5.35x
+  0c23b10c  lat=0.2864 ms  ref=1.2259 ms  speedup=4.28x
+  2207f0fd  lat=0.2988 ms  ref=3.5655 ms  speedup=11.93x
+  232ed014  lat=0.3024 ms  ref=4.0551 ms  speedup=13.41x
+  38389961  lat=0.2984 ms  ref=3.5108 ms  speedup=11.77x
+  385742b2  lat=0.3029 ms  ref=3.9840 ms  speedup=13.15x
+  4c46a94b  lat=0.3007 ms  ref=4.1614 ms  speedup=13.84x
+  5096e459  lat=0.2966 ms  ref=3.7821 ms  speedup=12.75x
+  564007ac  lat=0.3010 ms  ref=4.2849 ms  speedup=14.24x
+  68d6817d  lat=0.2864 ms  ref=3.1568 ms  speedup=11.02x
+  78b2e11c  lat=0.3029 ms  ref=3.9948 ms  speedup=13.19x
+  7a389715  lat=0.2998 ms  ref=3.8560 ms  speedup=12.86x
+  9d4a5f21  lat=0.2857 ms  ref=1.5762 ms  speedup=5.52x
+  9f3f891b  lat=0.2967 ms  ref=1.6255 ms  speedup=5.48x
+  ae4219a9  lat=0.3071 ms  ref=3.7114 ms  speedup=12.08x
+  b7668cfd  lat=0.2850 ms  ref=1.6055 ms  speedup=5.63x
+  d57eb9e1  lat=0.2970 ms  ref=3.1797 ms  speedup=10.71x
+  ddfa9e34  lat=0.3011 ms  ref=3.1414 ms  speedup=10.43x
+  e6b849f2  lat=0.2888 ms  ref=1.5200 ms  speedup=5.26x
+  f77df5ce  lat=0.2890 ms  ref=1.6358 ms  speedup=5.66x
+  fc85411e  lat=0.2892 ms  ref=1.5515 ms  speedup=5.36x
+
+  workload    python ref    flashinfer    prev (off)    current    vs FI  vs 
+prev
+--------------------------------------------------------------------------------
+-
+  02d6ae9c      3.893 ms      0.302 ms      0.056 ms   0.051 ms    5.88x    
+1.09x
+  05f6de65      1.536 ms      0.290 ms      0.028 ms   0.023 ms   12.84x    
+1.24x
+  0a63b87b      1.526 ms      0.285 ms      0.011 ms   0.006 ms   47.27x    
+1.82x
+  0c23b10c      1.226 ms      0.286 ms      0.009 ms   0.003 ms   85.00x    
+2.67x
+  2207f0fd      3.565 ms      0.299 ms      0.056 ms   0.051 ms    5.88x    
+1.10x
+  232ed014      4.055 ms      0.302 ms      0.055 ms   0.051 ms    5.98x    
+1.09x
+  38389961      3.511 ms      0.298 ms      0.055 ms   0.050 ms    5.97x    
+1.10x
+  385742b2      3.984 ms      0.303 ms      0.042 ms   0.038 ms    8.00x    
+1.11x
+  4c46a94b      4.161 ms      0.301 ms      0.040 ms   0.036 ms    8.45x    
+1.12x
+  5096e459      3.782 ms      0.297 ms      0.056 ms   0.051 ms    5.85x    
+1.10x
+  564007ac      4.285 ms      0.301 ms      0.057 ms   0.052 ms    5.82x    
+1.10x
+  68d6817d      3.157 ms      0.286 ms      0.013 ms   0.009 ms   30.40x    
+1.38x
+  78b2e11c      3.995 ms      0.303 ms      0.056 ms   0.051 ms    5.94x    
+1.10x
+  7a389715      3.856 ms      0.300 ms      0.056 ms   0.051 ms    5.93x    
+1.11x
+  9d4a5f21      1.576 ms      0.286 ms      0.009 ms   0.004 ms   69.41x    
+2.19x
+  9f3f891b      1.626 ms      0.297 ms      0.024 ms   0.019 ms   15.70x    
+1.27x
+  ae4219a9      3.711 ms      0.307 ms      0.056 ms   0.051 ms    6.06x    
+1.11x
+  b7668cfd      1.606 ms      0.285 ms      0.011 ms   0.006 ms   47.14x    
+1.82x
+  d57eb9e1      3.180 ms      0.297 ms      0.056 ms   0.051 ms    5.87x    
+1.11x
+  ddfa9e34      3.141 ms      0.301 ms      0.055 ms   0.050 ms    5.97x    
+1.09x
+  e6b849f2      1.520 ms      0.289 ms      0.013 ms   0.008 ms   36.67x    
+1.65x
+  f77df5ce      1.636 ms      0.289 ms      0.009 ms   0.004 ms   69.55x    
+2.17x
+  fc85411e      1.551 ms      0.289 ms      0.009 ms   0.004 ms   70.44x    
+2.19x
+--------------------------------------------------------------------------------
+-
+   geomean                                                        14.18x    
+1.36x
+
+  current vs python reference (geomean speedup): 126.1x
+  current vs flashinfer baseline (geomean speedup): 14.2x
+  current vs previous version   (geomean speedup): 1.36x
+
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-4jnNbC8BNLWRAB1MNJ01IR

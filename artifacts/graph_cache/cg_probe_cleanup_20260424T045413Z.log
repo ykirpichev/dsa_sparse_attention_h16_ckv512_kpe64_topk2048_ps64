@@ -1,0 +1,226 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-cHWKGIxqX23qRkNTYcsIrQ
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_cg_probe.py
+└── 🔨 Created function probe_kernel.
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+[probe] Running 3 iterations on workload 0c23b10c
+[probe] destination_passing_style=True
+[probe] iter 0: ERROR
+Traceback (most recent call last):
+  File "/opt/conda/envs/py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 2779, in _run_ninja_build
+    subprocess.run(
+  File "/opt/conda/envs/py312/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['ninja', '-v']' returned non-zero exit status 2.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/root/run_modal_cg_probe.py", line 89, in probe_kernel
+    runnable(*inp, *out_tensors)
+  File "/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/compile/runnable.py", line 95, in __call__
+    ret = self._callable(*args)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/solution.py", line 76, in run
+    _load_ext().run(
+    ^^^^^^^^^^^
+  File "/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/solution.py", line 56, in _load_ext
+    _ext = torch.utils.cpp_extension.load(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/conda/envs/py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 1818, in load
+    return _jit_compile(
+           ^^^^^^^^^^^^^
+  File "/opt/conda/envs/py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 2268, in _jit_compile
+    _write_ninja_file_and_build_library(
+  File "/opt/conda/envs/py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 2429, in _write_ninja_file_and_build_library
+    _run_ninja_build(
+  File "/opt/conda/envs/py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py", line 2796, in _run_ninja_build
+    raise RuntimeError(message) from e
+RuntimeError: Error building extension 'wombat_dsa_sparse_mla_sm100a_final': [1/2] /usr/local/cuda/bin/nvcc -MD -MF kernel.cuda.o.d -DTORCH_EXTENSION_NAME=wombat_dsa_sparse_mla_sm100a_final -DTORCH_API_INCLUDE_EXTENSION_H -I/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840 -isystem /opt/conda/envs/py312/lib/python3.12/site-packages/torch/include -isystem /opt/conda/envs/py312/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /opt/conda/envs/py312/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -O3 --use_fast_math --expt-relaxed-constexpr -std=c++17 -gencode arch=compute_100a,code=sm_100a -c /root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu -o kernel.cuda.o
+FAILED: [code=2] kernel.cuda.o 
+/usr/local/cuda/bin/nvcc -MD -MF kernel.cuda.o.d -DTORCH_EXTENSION_NAME=wombat_dsa_sparse_mla_sm100a_final -DTORCH_API_INCLUDE_EXTENSION_H -I/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840 -isystem /opt/conda/envs/py312/lib/python3.12/site-packages/torch/include -isystem /opt/conda/envs/py312/lib/python3.12/site-packages/torch/include/torch/csrc/api/include -isystem /usr/local/cuda/include -isystem /opt/conda/envs/py312/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ -D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ -D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options '-fPIC' -O3 --use_fast_math --expt-relaxed-constexpr -std=c++17 -gencode arch=compute_100a,code=sm_100a -c /root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu -o kernel.cuda.o
+/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu(1625): error: identifier "CPT_H" is undefined
+    if (H != CPT_H) return {0, 0};
+             ^
+
+1 error detected in the compilation of "/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu".
+ninja: build stopped: subcommand failed.
+
+
+
+=== PROBE RESULTS ===
+per_iter_ok = [False]
+
+[iter 0] RuntimeError: Error building extension 
+'wombat_dsa_sparse_mla_sm100a_final': [1/2] /usr/local/cuda/bin/nvcc -MD -MF 
+kernel.cuda.o.d -DTORCH_EXTENSION_NAME=wombat_dsa_sparse_mla_sm100a_final 
+-DTORCH_API_INCLUDE_EXTENSION_H 
+-I/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm
+100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840 -isystem 
+/opt/conda/envs/py312/lib/python3.12/site-packages/torch/include -isystem 
+/opt/conda/envs/py312/lib/python3.12/site-packages/torch/include/torch/csrc/api/
+include -isystem /usr/local/cuda/include -isystem 
+/opt/conda/envs/py312/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ 
+-D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ 
+-D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options 
+'-fPIC' -O3 --use_fast_math --expt-relaxed-constexpr -std=c++17 -gencode 
+arch=compute_100a,code=sm_100a -c 
+/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm10
+0a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu 
+-o kernel.cuda.o 
+FAILED: [code=2] kernel.cuda.o 
+/usr/local/cuda/bin/nvcc -MD -MF kernel.cuda.o.d 
+-DTORCH_EXTENSION_NAME=wombat_dsa_sparse_mla_sm100a_final 
+-DTORCH_API_INCLUDE_EXTENSION_H 
+-I/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm
+100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840 -isystem 
+/opt/conda/envs/py312/lib/python3.12/site-packages/torch/include -isystem 
+/opt/conda/envs/py312/lib/python3.12/site-packages/torch/include/torch/csrc/api/
+include -isystem /usr/local/cuda/include -isystem 
+/opt/conda/envs/py312/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ 
+-D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ 
+-D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options 
+'-fPIC' -O3 --use_fast_math --expt-relaxed-constexpr -std=c++17 -gencode 
+arch=compute_100a,code=sm_100a -c 
+/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm10
+0a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu 
+-o kernel.cuda.o 
+/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm10
+0a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu(1
+625): error: identifier "CPT_H" is undefined
+    if (H != CPT_H) return {0, 0};
+             ^
+
+1 error detected in the compilation of 
+"/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm1
+00a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu"
+.
+ninja: build stopped: subcommand failed.
+
+Traceback (most recent call last):
+  File 
+"/opt/conda/envs/py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py
+", line 2779, in _run_ninja_build
+    subprocess.run(
+  File "/opt/conda/envs/py312/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['ninja', '-v']' returned non-zero exit 
+status 2.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/root/run_modal_cg_probe.py", line 89, in probe_kernel
+    runnable(*inp, *out_tensors)
+  File 
+"/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/compile/run
+nable.py", line 95, in __call__
+    ret = self._callable(*args)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File 
+"/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm1
+00a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/solution.p
+y", line 76, in run
+    _load_ext().run(
+    ^^^^^^^^^^^
+  File 
+"/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm1
+00a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/solution.p
+y", line 56, in _load_ext
+    _ext = torch.utils.cpp_extension.load(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File 
+"/opt/conda/envs/py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py
+", line 1818, in load
+    return _jit_compile(
+           ^^^^^^^^^^^^^
+  File 
+"/opt/conda/envs/py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py
+", line 2268, in _jit_compile
+    _write_ninja_file_and_build_library(
+  File 
+"/opt/conda/envs/py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py
+", line 2429, in _write_ninja_file_and_build_library
+    _run_ninja_build(
+  File 
+"/opt/conda/envs/py312/lib/python3.12/site-packages/torch/utils/cpp_extension.py
+", line 2796, in _run_ninja_build
+    raise RuntimeError(message) from e
+RuntimeError: Error building extension 'wombat_dsa_sparse_mla_sm100a_final': 
+[1/2] /usr/local/cuda/bin/nvcc -MD -MF kernel.cuda.o.d 
+-DTORCH_EXTENSION_NAME=wombat_dsa_sparse_mla_sm100a_final 
+-DTORCH_API_INCLUDE_EXTENSION_H 
+-I/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm
+100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840 -isystem 
+/opt/conda/envs/py312/lib/python3.12/site-packages/torch/include -isystem 
+/opt/conda/envs/py312/lib/python3.12/site-packages/torch/include/torch/csrc/api/
+include -isystem /usr/local/cuda/include -isystem 
+/opt/conda/envs/py312/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ 
+-D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ 
+-D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options 
+'-fPIC' -O3 --use_fast_math --expt-relaxed-constexpr -std=c++17 -gencode 
+arch=compute_100a,code=sm_100a -c 
+/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm10
+0a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu 
+-o kernel.cuda.o 
+FAILED: [code=2] kernel.cuda.o 
+/usr/local/cuda/bin/nvcc -MD -MF kernel.cuda.o.d 
+-DTORCH_EXTENSION_NAME=wombat_dsa_sparse_mla_sm100a_final 
+-DTORCH_API_INCLUDE_EXTENSION_H 
+-I/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm
+100a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840 -isystem 
+/opt/conda/envs/py312/lib/python3.12/site-packages/torch/include -isystem 
+/opt/conda/envs/py312/lib/python3.12/site-packages/torch/include/torch/csrc/api/
+include -isystem /usr/local/cuda/include -isystem 
+/opt/conda/envs/py312/include/python3.12 -D__CUDA_NO_HALF_OPERATORS__ 
+-D__CUDA_NO_HALF_CONVERSIONS__ -D__CUDA_NO_BFLOAT16_CONVERSIONS__ 
+-D__CUDA_NO_HALF2_OPERATORS__ --expt-relaxed-constexpr --compiler-options 
+'-fPIC' -O3 --use_fast_math --expt-relaxed-constexpr -std=c++17 -gencode 
+arch=compute_100a,code=sm_100a -c 
+/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm10
+0a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu 
+-o kernel.cuda.o 
+/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm10
+0a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu(1
+625): error: identifier "CPT_H" is undefined
+    if (H != CPT_H) return {0, 0};
+             ^
+
+1 error detected in the compilation of 
+"/root/.cache/flashinfer_bench/cache/python/fib_python_wombat_dsa_sparse_mla_sm1
+00a_final_5ed840/fib_python_wombat_dsa_sparse_mla_sm100a_final_5ed840/kernel.cu"
+.
+ninja: build stopped: subcommand failed.
+
+
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-23T21:55:11-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-cHWKGIxqX23qRkNTYcsIrQ

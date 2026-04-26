@@ -1,0 +1,296 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-dOaafeA9jKv5Bvof4uj5KH
+
+Building image im-RnRJodnOm60JtDjhcfn5Hh
+
+=> Step 0: FROM base
+
+=> Step 1: ENV CUDA_HOME=/usr/local/cuda
+
+=> Step 2: ENV MLA_SPARSE_ATTN_PDL=1
+Saving image...
+Image saved, took 1.48s
+
+Built image im-RnRJodnOm60JtDjhcfn5Hh in 3.77s
+
+
+Building image im-ddr32AG8i2MKmyTxyPrQOs
+
+=> Step 0: FROM base
+
+=> Step 1: RUN python -m pip install setuptools wheel
+Looking in indexes: http://pypi-mirror.modal.local:5555/simple
+Requirement already satisfied: setuptools in /opt/conda/envs/py312/lib/python3.12/site-packages (78.1.0)
+Requirement already satisfied: wheel in /opt/conda/envs/py312/lib/python3.12/site-packages (0.46.3)
+Requirement already satisfied: packaging>=24.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from wheel) (26.0)
+Saving image...
+Image saved, took 1.11s
+
+Built image im-ddr32AG8i2MKmyTxyPrQOs in 5.48s
+
+
+Building image im-VAY669LGXEugdrVNMPiEJb
+
+=> Step 0: FROM base
+
+=> Step 1: RUN git clone --recursive --depth 1 https://github.com/deepseek-ai/DeepGEMM.git /tmp/DeepGEMM
+Cloning into '/tmp/DeepGEMM'...
+Submodule 'third-party/cutlass' (https://github.com/NVIDIA/cutlass.git) registered for path 'third-party/cutlass'
+Submodule 'third-party/fmt' (https://github.com/fmtlib/fmt.git) registered for path 'third-party/fmt'
+Cloning into '/tmp/DeepGEMM/third-party/cutlass'...
+Cloning into '/tmp/DeepGEMM/third-party/fmt'...
+From https://github.com/NVIDIA/cutlass
+ * branch              f3fde58372d33e9a5650ba7b80fc48b3b49d40c8 -> FETCH_HEAD
+Submodule path 'third-party/cutlass': checked out 'f3fde58372d33e9a5650ba7b80fc48b3b49d40c8'
+Submodule path 'third-party/fmt': checked out '553ec11ec06fbe0beebfbb45f9dc3c9eabd83d28'
+
+=> Step 2: RUN pip install --no-build-isolation /tmp/DeepGEMM
+Looking in indexes: http://pypi-mirror.modal.local:5555/simple
+Processing /tmp/DeepGEMM
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: deep_gemm
+  Building wheel for deep_gemm (pyproject.toml): started
+  Building wheel for deep_gemm (pyproject.toml): finished with status 'done'
+  Created wheel for deep_gemm: filename=deep_gemm-2.4.2+7f2a703-cp312-cp312-linux_x86_64.whl size=4215315 sha256=0dd8161192ed6008a39c7020883f22801fe0d9d4792f394f0c6182cd3cbb153f
+  Stored in directory: /tmp/pip-ephem-wheel-cache-b8bs0pmv/wheels/5e/4b/15/9b33372dafeb7dc5eeaea42ffcc59e73140faab2956db3f5cf
+Successfully built deep_gemm
+Installing collected packages: deep_gemm
+Successfully installed deep_gemm-2.4.2+7f2a703
+
+=> Step 3: RUN git clone --recursive --depth 1 https://github.com/flashinfer-ai/flashinfer.git /tmp/flashinfer
+Cloning into '/tmp/flashinfer'...
+Submodule '3rdparty/cccl' (https://github.com/NVIDIA/cccl.git) registered for path '3rdparty/cccl'
+Submodule '3rdparty/cutlass' (https://github.com/NVIDIA/cutlass.git) registered for path '3rdparty/cutlass'
+Submodule '3rdparty/spdlog' (https://github.com/gabime/spdlog.git) registered for path '3rdparty/spdlog'
+Cloning into '/tmp/flashinfer/3rdparty/cccl'...
+Cloning into '/tmp/flashinfer/3rdparty/cutlass'...
+Cloning into '/tmp/flashinfer/3rdparty/spdlog'...
+From https://github.com/NVIDIA/cccl
+ * branch                876867684f7fac130e0f5911236e0a92a970d4fd -> FETCH_HEAD
+Submodule path '3rdparty/cccl': checked out '876867684f7fac130e0f5911236e0a92a970d4fd'
+From https://github.com/NVIDIA/cutlass
+ * branch              da5e086dab31d63815acafdac9a9c5893b1c69e2 -> FETCH_HEAD
+Submodule path '3rdparty/cutlass': checked out 'da5e086dab31d63815acafdac9a9c5893b1c69e2'
+Submodule path '3rdparty/spdlog': checked out 'c3aed4b68373955e1cc94307683d44dca1515d2b'
+
+=> Step 4: RUN pip install --no-build-isolation /tmp/flashinfer
+Looking in indexes: http://pypi-mirror.modal.local:5555/simple
+Processing /tmp/flashinfer
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Requirement already satisfied: apache-tvm-ffi!=0.1.8,!=0.1.8.post0,<0.2,>=0.1.6 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (0.1.9)
+Requirement already satisfied: click in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (8.3.1)
+Requirement already satisfied: cuda-tile in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (1.2.0)
+Requirement already satisfied: einops in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (0.8.2)
+Requirement already satisfied: ninja in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (1.13.0)
+Requirement already satisfied: numpy in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (2.4.4)
+Requirement already satisfied: nvidia-cudnn-frontend>=1.13.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (1.21.0)
+Requirement already satisfied: nvidia-cutlass-dsl>=4.4.2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (4.4.2)
+Requirement already satisfied: nvidia-ml-py in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (13.595.45)
+Requirement already satisfied: packaging>=24.2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (26.0)
+Requirement already satisfied: requests in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (2.33.1)
+Requirement already satisfied: tabulate in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (0.10.0)
+Requirement already satisfied: torch in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (2.12.0.dev20260331+cu132)
+Requirement already satisfied: tqdm in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python==0.6.8) (4.67.3)
+Requirement already satisfied: typing-extensions>=4.5 in /opt/conda/envs/py312/lib/python3.12/site-packages (from apache-tvm-ffi!=0.1.8,!=0.1.8.post0,<0.2,>=0.1.6->flashinfer-python==0.6.8) (4.15.0)
+Requirement already satisfied: nvidia-cutlass-dsl-libs-base==4.4.2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from nvidia-cutlass-dsl>=4.4.2->flashinfer-python==0.6.8) (4.4.2)
+Requirement already satisfied: cuda-python>=12.8 in /opt/conda/envs/py312/lib/python3.12/site-packages (from nvidia-cutlass-dsl-libs-base==4.4.2->nvidia-cutlass-dsl>=4.4.2->flashinfer-python==0.6.8) (13.0.0)
+Requirement already satisfied: cuda-bindings~=13.0.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-python>=12.8->nvidia-cutlass-dsl-libs-base==4.4.2->nvidia-cutlass-dsl>=4.4.2->flashinfer-python==0.6.8) (13.0.3)
+Requirement already satisfied: cuda-pathfinder~=1.1 in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-bindings~=13.0.0->cuda-python>=12.8->nvidia-cutlass-dsl-libs-base==4.4.2->nvidia-cutlass-dsl>=4.4.2->flashinfer-python==0.6.8) (1.2.2)
+Requirement already satisfied: charset_normalizer<4,>=2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from requests->flashinfer-python==0.6.8) (3.4.6)
+Requirement already satisfied: idna<4,>=2.5 in /opt/conda/envs/py312/lib/python3.12/site-packages (from requests->flashinfer-python==0.6.8) (3.11)
+Requirement already satisfied: urllib3<3,>=1.26 in /opt/conda/envs/py312/lib/python3.12/site-packages (from requests->flashinfer-python==0.6.8) (2.6.3)
+Requirement already satisfied: certifi>=2023.5.7 in /opt/conda/envs/py312/lib/python3.12/site-packages (from requests->flashinfer-python==0.6.8) (2026.2.25)
+Requirement already satisfied: filelock in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (3.25.2)
+Requirement already satisfied: setuptools<82 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (78.1.0)
+Requirement already satisfied: sympy>=1.13.3 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (1.14.0)
+Requirement already satisfied: networkx>=2.5.1 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (3.6.1)
+Requirement already satisfied: jinja2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (3.1.6)
+Requirement already satisfied: fsspec>=0.8.5 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (2026.2.0)
+Requirement already satisfied: cuda-toolkit==13.2.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (13.2.0)
+Requirement already satisfied: nvidia-cudnn-cu13==9.20.0.48 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (9.20.0.48)
+Requirement already satisfied: nvidia-cusparselt-cu13==0.8.1 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (0.8.1)
+Requirement already satisfied: nvidia-nccl-cu13==2.29.7 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (2.29.7)
+Requirement already satisfied: nvidia-nvshmem-cu13==3.4.5 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (3.4.5)
+Requirement already satisfied: triton==3.6.0+git7e48d5df in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch->flashinfer-python==0.6.8) (3.6.0+git7e48d5df)
+Requirement already satisfied: nvidia-cublas==13.3.0.5.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (13.3.0.5)
+Requirement already satisfied: nvidia-cuda-runtime==13.2.51.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (13.2.51)
+Requirement already satisfied: nvidia-cufft==12.2.0.37.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (12.2.0.37)
+Requirement already satisfied: nvidia-cufile==1.17.0.44.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (1.17.0.44)
+Requirement already satisfied: nvidia-cuda-cupti==13.2.23.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (13.2.23)
+Requirement already satisfied: nvidia-curand==10.4.2.51.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (10.4.2.51)
+Requirement already satisfied: nvidia-cusolver==12.1.0.51.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (12.1.0.51)
+Requirement already satisfied: nvidia-cusparse==12.7.9.17.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (12.7.9.17)
+Requirement already satisfied: nvidia-nvjitlink==13.2.51.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (13.2.51)
+Requirement already satisfied: nvidia-cuda-nvrtc==13.2.51.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (13.2.51)
+Requirement already satisfied: nvidia-nvtx==13.2.20.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch->flashinfer-python==0.6.8) (13.2.20)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from sympy>=1.13.3->torch->flashinfer-python==0.6.8) (1.3.0)
+Requirement already satisfied: MarkupSafe>=2.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from jinja2->torch->flashinfer-python==0.6.8) (3.0.2)
+Building wheels for collected packages: flashinfer-python
+  Building wheel for flashinfer-python (pyproject.toml): started
+  Building wheel for flashinfer-python (pyproject.toml): finished with status 'done'
+  Created wheel for flashinfer-python: filename=flashinfer_python-0.6.8-py3-none-any.whl size=13440936 sha256=dc10a171a2c6c7210f9593654fa214cffff0cac0bd360c2b2a12eb0138357d4e
+  Stored in directory: /tmp/pip-ephem-wheel-cache-jwq6kgpd/wheels/38/0f/f4/2b056e096a51369be78c913b599004c81d04580788c9dbb289
+Successfully built flashinfer-python
+Installing collected packages: flashinfer-python
+Successfully installed flashinfer-python-0.6.8
+
+=> Step 5: RUN git clone --depth 1 https://github.com/flashinfer-ai/flashinfer-bench.git /tmp/flashinfer-bench
+Cloning into '/tmp/flashinfer-bench'...
+
+=> Step 6: RUN pip install /tmp/flashinfer-bench
+Looking in indexes: http://pypi-mirror.modal.local:5555/simple
+Processing /tmp/flashinfer-bench
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Requirement already satisfied: torch>=2.8.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-bench==0.0.1.dev1) (2.12.0.dev20260331+cu132)
+Collecting pydantic>=2.0.0 (from flashinfer-bench==0.0.1.dev1)
+  Downloading http://pypi-mirror.modal.local:5555/simple/pydantic/pydantic-2.13.3-py3-none-any.whl.metadata (108 kB)
+Collecting safetensors>=0.5.0 (from flashinfer-bench==0.0.1.dev1)
+  Downloading http://pypi-mirror.modal.local:5555/simple/safetensors/safetensors-0.7.0-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.1 kB)
+Requirement already satisfied: flashinfer-python>=0.6.4 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-bench==0.0.1.dev1) (0.6.8)
+Requirement already satisfied: apache-tvm-ffi>=0.1.2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-bench==0.0.1.dev1) (0.1.9)
+Collecting docstring-parser>=0.16 (from flashinfer-bench==0.0.1.dev1)
+  Downloading http://pypi-mirror.modal.local:5555/simple/docstring-parser/docstring_parser-0.18.0-py3-none-any.whl.metadata (3.5 kB)
+Requirement already satisfied: pyyaml>=6.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-bench==0.0.1.dev1) (6.0.3)
+Requirement already satisfied: typing-extensions>=4.5 in /opt/conda/envs/py312/lib/python3.12/site-packages (from apache-tvm-ffi>=0.1.2->flashinfer-bench==0.0.1.dev1) (4.15.0)
+Requirement already satisfied: click in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (8.3.1)
+Requirement already satisfied: cuda-tile in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (1.2.0)
+Requirement already satisfied: einops in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (0.8.2)
+Requirement already satisfied: ninja in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (1.13.0)
+Requirement already satisfied: numpy in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (2.4.4)
+Requirement already satisfied: nvidia-cudnn-frontend>=1.13.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (1.21.0)
+Requirement already satisfied: nvidia-cutlass-dsl>=4.4.2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (4.4.2)
+Requirement already satisfied: nvidia-ml-py in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (13.595.45)
+Requirement already satisfied: packaging>=24.2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (26.0)
+Requirement already satisfied: requests in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (2.33.1)
+Requirement already satisfied: tabulate in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (0.10.0)
+Requirement already satisfied: tqdm in /opt/conda/envs/py312/lib/python3.12/site-packages (from flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (4.67.3)
+Requirement already satisfied: nvidia-cutlass-dsl-libs-base==4.4.2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from nvidia-cutlass-dsl>=4.4.2->flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (4.4.2)
+Requirement already satisfied: cuda-python>=12.8 in /opt/conda/envs/py312/lib/python3.12/site-packages (from nvidia-cutlass-dsl-libs-base==4.4.2->nvidia-cutlass-dsl>=4.4.2->flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (13.0.0)
+Requirement already satisfied: cuda-bindings~=13.0.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-python>=12.8->nvidia-cutlass-dsl-libs-base==4.4.2->nvidia-cutlass-dsl>=4.4.2->flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (13.0.3)
+Requirement already satisfied: cuda-pathfinder~=1.1 in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-bindings~=13.0.0->cuda-python>=12.8->nvidia-cutlass-dsl-libs-base==4.4.2->nvidia-cutlass-dsl>=4.4.2->flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (1.2.2)
+Collecting annotated-types>=0.6.0 (from pydantic>=2.0.0->flashinfer-bench==0.0.1.dev1)
+  Downloading http://pypi-mirror.modal.local:5555/simple/annotated-types/annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+Collecting pydantic-core==2.46.3 (from pydantic>=2.0.0->flashinfer-bench==0.0.1.dev1)
+  Downloading http://pypi-mirror.modal.local:5555/simple/pydantic-core/pydantic_core-2.46.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+Collecting typing-inspection>=0.4.2 (from pydantic>=2.0.0->flashinfer-bench==0.0.1.dev1)
+  Downloading http://pypi-mirror.modal.local:5555/simple/typing-inspection/typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+Requirement already satisfied: filelock in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (3.25.2)
+Requirement already satisfied: setuptools<82 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (78.1.0)
+Requirement already satisfied: sympy>=1.13.3 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (1.14.0)
+Requirement already satisfied: networkx>=2.5.1 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (3.6.1)
+Requirement already satisfied: jinja2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (3.1.6)
+Requirement already satisfied: fsspec>=0.8.5 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (2026.2.0)
+Requirement already satisfied: cuda-toolkit==13.2.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (13.2.0)
+Requirement already satisfied: nvidia-cudnn-cu13==9.20.0.48 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (9.20.0.48)
+Requirement already satisfied: nvidia-cusparselt-cu13==0.8.1 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (0.8.1)
+Requirement already satisfied: nvidia-nccl-cu13==2.29.7 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (2.29.7)
+Requirement already satisfied: nvidia-nvshmem-cu13==3.4.5 in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (3.4.5)
+Requirement already satisfied: triton==3.6.0+git7e48d5df in /opt/conda/envs/py312/lib/python3.12/site-packages (from torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (3.6.0+git7e48d5df)
+Requirement already satisfied: nvidia-cublas==13.3.0.5.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (13.3.0.5)
+Requirement already satisfied: nvidia-cuda-runtime==13.2.51.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (13.2.51)
+Requirement already satisfied: nvidia-cufft==12.2.0.37.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (12.2.0.37)
+Requirement already satisfied: nvidia-cufile==1.17.0.44.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (1.17.0.44)
+Requirement already satisfied: nvidia-cuda-cupti==13.2.23.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (13.2.23)
+Requirement already satisfied: nvidia-curand==10.4.2.51.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (10.4.2.51)
+Requirement already satisfied: nvidia-cusolver==12.1.0.51.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (12.1.0.51)
+Requirement already satisfied: nvidia-cusparse==12.7.9.17.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (12.7.9.17)
+Requirement already satisfied: nvidia-nvjitlink==13.2.51.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (13.2.51)
+Requirement already satisfied: nvidia-cuda-nvrtc==13.2.51.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (13.2.51)
+Requirement already satisfied: nvidia-nvtx==13.2.20.* in /opt/conda/envs/py312/lib/python3.12/site-packages (from cuda-toolkit[cublas,cudart,cufft,cufile,cupti,curand,cusolver,cusparse,nvjitlink,nvrtc,nvtx]==13.2.0; platform_system == "Linux"->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (13.2.20)
+Requirement already satisfied: mpmath<1.4,>=1.1.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from sympy>=1.13.3->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (1.3.0)
+Requirement already satisfied: MarkupSafe>=2.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from jinja2->torch>=2.8.0->flashinfer-bench==0.0.1.dev1) (3.0.2)
+Requirement already satisfied: charset_normalizer<4,>=2 in /opt/conda/envs/py312/lib/python3.12/site-packages (from requests->flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (3.4.6)
+Requirement already satisfied: idna<4,>=2.5 in /opt/conda/envs/py312/lib/python3.12/site-packages (from requests->flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (3.11)
+Requirement already satisfied: urllib3<3,>=1.26 in /opt/conda/envs/py312/lib/python3.12/site-packages (from requests->flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (2.6.3)
+Requirement already satisfied: certifi>=2023.5.7 in /opt/conda/envs/py312/lib/python3.12/site-packages (from requests->flashinfer-python>=0.6.4->flashinfer-bench==0.0.1.dev1) (2026.2.25)
+Downloading http://pypi-mirror.modal.local:5555/simple/docstring-parser/docstring_parser-0.18.0-py3-none-any.whl (22 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/pydantic/pydantic-2.13.3-py3-none-any.whl (471 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/pydantic-core/pydantic_core-2.46.3-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 240.3 MB/s  0:00:00
+Downloading http://pypi-mirror.modal.local:5555/simple/annotated-types/annotated_types-0.7.0-py3-none-any.whl (13 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/safetensors/safetensors-0.7.0-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (507 kB)
+Downloading http://pypi-mirror.modal.local:5555/simple/typing-inspection/typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+Building wheels for collected packages: flashinfer-bench
+  Building wheel for flashinfer-bench (pyproject.toml): started
+  Building wheel for flashinfer-bench (pyproject.toml): finished with status 'done'
+  Created wheel for flashinfer-bench: filename=flashinfer_bench-0.0.1.dev1-py3-none-any.whl size=161917 sha256=7443a4733a0e8bc74cc565cb5441951f0de95fd1b9ae42012f2dad4857dfb6f6
+  Stored in directory: /tmp/pip-ephem-wheel-cache-lb6paaep/wheels/88/a4/24/adf4511709b38f0369b3882151418aad0dee475767a6a8bddd
+Successfully built flashinfer-bench
+Installing collected packages: typing-inspection, safetensors, pydantic-core, docstring-parser, annotated-types, pydantic, flashinfer-bench
+
+Successfully installed annotated-types-0.7.0 docstring-parser-0.18.0 flashinfer-bench-0.0.1.dev1 pydantic-2.13.3 pydantic-core-2.46.3 safetensors-0.7.0 typing-inspection-0.4.2
+Saving image...
+Image saved, took 7.87s
+
+Built image im-VAY669LGXEugdrVNMPiEJb in 184.71s
+
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_shape_ab.py
+└── 🔨 Created function run_ab.
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+workload        base_ms   shape_ms    delta    base_x   shape_x
+----------------------------------------------------------------
+02d6ae9c        0.05468    0.05525     1.1%     47.13     47.41
+05f6de65        0.02662    0.02664     0.1%     48.06     51.40
+0a63b87b        0.01024    0.01028     0.3%    124.71    123.80
+0c23b10c        0.00819    0.00821     0.2%    129.13    147.81
+2207f0fd        0.05430    0.05429    -0.0%     45.10     45.47
+232ed014        0.05423    0.05426     0.1%     47.57     48.22
+38389961        0.05421    0.05424     0.1%     43.27     44.49
+385742b2        0.04192    0.04196     0.1%     60.77     62.77
+4c46a94b        0.03988    0.03991     0.1%     63.88     66.21
+5096e459        0.05481    0.05433    -0.9%     48.01     49.81
+564007ac        0.05626    0.05628     0.0%     46.54     47.01
+68d6817d        0.01327    0.01329     0.1%    160.57    162.59
+78b2e11c        0.05464    0.05431    -0.6%     47.40     48.16
+7a389715        0.05425    0.05427     0.0%     47.74     48.64
+9d4a5f21        0.00820    0.00823     0.4%    153.43    156.83
+9f3f891b        0.02262    0.02339     3.4%     57.14     56.16
+ae4219a9        0.05543    0.05549     0.1%     42.30     43.69
+b7668cfd        0.01025    0.01023    -0.2%    124.92    123.93
+d57eb9e1        0.05425    0.05429     0.1%     40.49     41.83
+ddfa9e34        0.05423    0.05426     0.1%     39.49     40.09
+e6b849f2        0.01229    0.01240     0.9%    103.14    110.05
+f77df5ce        0.00819    0.00820     0.1%    154.22    157.28
+fc85411e        0.00820    0.00823     0.4%    153.29    156.15
+----------------------------------------------------------------
+TOTAL           0.81117    0.81226     0.1%
+
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-dOaafeA9jKv5Bvof4uj5KH

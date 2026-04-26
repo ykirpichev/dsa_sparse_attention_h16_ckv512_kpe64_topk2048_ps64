@@ -1,0 +1,40 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-cC9wHuCTI8iu9id2rNuP8B
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_paired.py
+└── 🔨 Created function run_paired.
+Packing our solution...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_cuda_v5_fused
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: cuda
+  our: wombat_dsa_sparse_mla_cuda_v5_fused
+  fi : flashinfer_wrapper_5af199
+
+Running FULL paired on Modal B200...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+  Config: warmup=3 iterations=100 num_trials=5
+  Workloads: 23
+
+=== Running wombat_dsa_sparse_mla_cuda_v5_fused ===

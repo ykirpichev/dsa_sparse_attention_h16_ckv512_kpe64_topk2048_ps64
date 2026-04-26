@@ -1,0 +1,90 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-Cl4kWL0GmY35mewfrT9B6v
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_compare.py
+└── 🔨 Created function run_compare.
+Loading 7 solutions:
+  - wombat_dsa_variant_A_baseline  <-  
+artifacts/staging/variants/A_baseline.solution.json
+  - wombat_dsa_variant_B_expensive  <-  
+artifacts/staging/variants/B_expensive.solution.json
+  - wombat_dsa_variant_C_regs72  <-  
+artifacts/staging/variants/C_regs72.solution.json
+  - wombat_dsa_variant_D_regs64  <-  
+artifacts/staging/variants/D_regs64.solution.json
+  - wombat_dsa_variant_E_dlcm_ca  <-  
+artifacts/staging/variants/E_dlcm_ca.solution.json
+  - wombat_dsa_variant_F_combo_BxC  <-  
+artifacts/staging/variants/F_combo_BxC.solution.json
+  - wombat_dsa_variant_G_regs96  <-  
+artifacts/staging/variants/G_regs96.solution.json
+
+Running paired benchmark on Modal B200 (repeats=5)...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Comparing 7 solutions on 23 workloads, repeats=5:
+  - wombat_dsa_variant_A_baseline  (SupportedLanguages.PYTHON)
+  - wombat_dsa_variant_B_expensive  (SupportedLanguages.PYTHON)
+  - wombat_dsa_variant_C_regs72  (SupportedLanguages.PYTHON)
+  - wombat_dsa_variant_D_regs64  (SupportedLanguages.PYTHON)
+  - wombat_dsa_variant_E_dlcm_ca  (SupportedLanguages.PYTHON)
+  - wombat_dsa_variant_F_combo_BxC  (SupportedLanguages.PYTHON)
+  - wombat_dsa_variant_G_regs96  (SupportedLanguages.PYTHON)
+
+--- repeat 1/5 ---
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+--- repeat 1 done in 113.9s ---
+
+--- repeat 2/5 ---
+--- repeat 2 done in 111.6s ---
+
+--- repeat 3/5 ---
+--- repeat 3 done in 106.9s ---
+
+--- repeat 4/5 ---
+--- repeat 4 done in 108.4s ---
+
+--- repeat 5/5 ---
+--- repeat 5 done in 106.9s ---
+
+Full per-workload results written to artifacts/flag_sweep_5repeats.json
+
+=== Aggregate across 5 repeats ===
+solution                                    mean(us)   stddev_run(%)   gmean(sp)
+amean(sp)   min(sp)   max(sp)    passed
+wombat_dsa_variant_A_baseline                  66.88           0.20%       52.89
+66.91     22.84    225.28  115/115
+wombat_dsa_variant_B_expensive                 66.91           0.25%       52.79
+66.73     22.84    225.34  115/115
+wombat_dsa_variant_C_regs72                    66.88           0.19%       52.90
+66.93     22.84    225.13  115/115
+wombat_dsa_variant_D_regs64                    66.90           0.21%       52.82
+66.77     22.84    225.29  115/115
+wombat_dsa_variant_E_dlcm_ca                   66.88           0.19%       52.90
+66.93     22.84    225.19  115/115
+wombat_dsa_variant_F_combo_BxC                 66.90           0.21%       52.82
+66.78     22.84    225.28  115/115
+wombat_dsa_variant_G_regs96                    66.88           0.18%       52.90
+66.94     22.84    225.30  115/115
+
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-Cl4kWL0GmY35mewfrT9B6v

@@ -1,0 +1,160 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-DmsDUcItCCOR825ra9ibo3
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_compare.py
+└── 🔨 Created function run_benchmark.
+Packing our solution from source...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+Loading FlashInfer baseline from 
+/home/ykirpichev/sources/mlsys26-contest/solutions/baseline/dsa/dsa_sparse_atten
+tion_h16_ckv512_kpe64_topk2048_ps64/flashinfer_wrapper_5af199.json...
+
+Launching combined benchmark on Modal B200 (our solution + FlashInfer baseline, 
+same reference, same B200)...
+
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+=== Raw per-workload numbers (wombat_dsa_sparse_mla_sm100a_final) ===
+  02d6ae9c  lat=0.0551 ms  ref=1.9746 ms  speedup=35.87x
+  05f6de65  lat=0.0266 ms  ref=1.1098 ms  speedup=41.74x
+  0a63b87b  lat=0.0102 ms  ref=1.0969 ms  speedup=107.79x
+  0c23b10c  lat=0.0081 ms  ref=0.9498 ms  speedup=116.86x
+  2207f0fd  lat=0.0551 ms  ref=1.7809 ms  speedup=32.34x
+  232ed014  lat=0.0552 ms  ref=1.9701 ms  speedup=35.67x
+  38389961  lat=0.0549 ms  ref=1.8047 ms  speedup=32.85x
+  385742b2  lat=0.0427 ms  ref=1.9562 ms  speedup=45.76x
+  4c46a94b  lat=0.0407 ms  ref=1.8849 ms  speedup=46.35x
+  5096e459  lat=0.0552 ms  ref=1.9124 ms  speedup=34.65x
+  564007ac  lat=0.0569 ms  ref=1.9338 ms  speedup=33.99x
+  68d6817d  lat=0.0141 ms  ref=1.6502 ms  speedup=117.31x
+  78b2e11c  lat=0.0551 ms  ref=1.9444 ms  speedup=35.28x
+  7a389715  lat=0.0552 ms  ref=1.9169 ms  speedup=34.70x
+  9d4a5f21  lat=0.0081 ms  ref=1.0975 ms  speedup=134.93x
+  9f3f891b  lat=0.0225 ms  ref=1.0975 ms  speedup=48.69x
+  ae4219a9  lat=0.0550 ms  ref=1.7573 ms  speedup=31.94x
+  b7668cfd  lat=0.0102 ms  ref=1.0918 ms  speedup=107.16x
+  d57eb9e1  lat=0.0551 ms  ref=1.6389 ms  speedup=29.77x
+  ddfa9e34  lat=0.0550 ms  ref=1.6749 ms  speedup=30.47x
+  e6b849f2  lat=0.0122 ms  ref=1.0952 ms  speedup=89.59x
+  f77df5ce  lat=0.0082 ms  ref=1.0890 ms  speedup=133.45x
+  fc85411e  lat=0.0081 ms  ref=1.0902 ms  speedup=134.13x
+
+=== Raw per-workload numbers (flashinfer_wrapper_5af199) ===
+  02d6ae9c  lat=0.2656 ms  ref=1.9746 ms  speedup=7.44x
+  05f6de65  lat=0.2578 ms  ref=1.1098 ms  speedup=4.31x
+  0a63b87b  lat=0.2523 ms  ref=1.0969 ms  speedup=4.35x
+  0c23b10c  lat=0.2527 ms  ref=0.9498 ms  speedup=3.76x
+  2207f0fd  lat=0.2652 ms  ref=1.7809 ms  speedup=6.72x
+  232ed014  lat=0.2646 ms  ref=1.9701 ms  speedup=7.45x
+  38389961  lat=0.2654 ms  ref=1.8047 ms  speedup=6.80x
+  385742b2  lat=0.2648 ms  ref=1.9562 ms  speedup=7.39x
+  4c46a94b  lat=0.2641 ms  ref=1.8849 ms  speedup=7.14x
+  5096e459  lat=0.2663 ms  ref=1.9124 ms  speedup=7.18x
+  564007ac  lat=0.2660 ms  ref=1.9338 ms  speedup=7.27x
+  68d6817d  lat=0.2540 ms  ref=1.6502 ms  speedup=6.50x
+  78b2e11c  lat=0.2659 ms  ref=1.9444 ms  speedup=7.31x
+  7a389715  lat=0.2665 ms  ref=1.9169 ms  speedup=7.19x
+  9d4a5f21  lat=0.2526 ms  ref=1.0975 ms  speedup=4.35x
+  9f3f891b  lat=0.2581 ms  ref=1.0975 ms  speedup=4.25x
+  ae4219a9  lat=0.2648 ms  ref=1.7573 ms  speedup=6.64x
+  b7668cfd  lat=0.2536 ms  ref=1.0918 ms  speedup=4.31x
+  d57eb9e1  lat=0.2641 ms  ref=1.6389 ms  speedup=6.21x
+  ddfa9e34  lat=0.2639 ms  ref=1.6749 ms  speedup=6.35x
+  e6b849f2  lat=0.2526 ms  ref=1.0952 ms  speedup=4.34x
+  f77df5ce  lat=0.2532 ms  ref=1.0890 ms  speedup=4.30x
+  fc85411e  lat=0.2530 ms  ref=1.0902 ms  speedup=4.31x
+
+  workload    python ref    flashinfer    prev (off)    current    vs FI  vs 
+prev
+--------------------------------------------------------------------------------
+-
+  02d6ae9c      1.975 ms      0.266 ms             -   0.055 ms    4.82x        
+-
+  05f6de65      1.110 ms      0.258 ms             -   0.027 ms    9.69x        
+-
+  0a63b87b      1.097 ms      0.252 ms             -   0.010 ms   24.79x        
+-
+  0c23b10c      0.950 ms      0.253 ms             -   0.008 ms   31.10x        
+-
+  2207f0fd      1.781 ms      0.265 ms             -   0.055 ms    4.82x        
+-
+  232ed014      1.970 ms      0.265 ms             -   0.055 ms    4.79x        
+-
+  38389961      1.805 ms      0.265 ms             -   0.055 ms    4.83x        
+-
+  385742b2      1.956 ms      0.265 ms             -   0.043 ms    6.19x        
+-
+  4c46a94b      1.885 ms      0.264 ms             -   0.041 ms    6.49x        
+-
+  5096e459      1.912 ms      0.266 ms             -   0.055 ms    4.83x        
+-
+  564007ac      1.934 ms      0.266 ms             -   0.057 ms    4.68x        
+-
+  68d6817d      1.650 ms      0.254 ms             -   0.014 ms   18.06x        
+-
+  78b2e11c      1.944 ms      0.266 ms             -   0.055 ms    4.82x        
+-
+  7a389715      1.917 ms      0.266 ms             -   0.055 ms    4.82x        
+-
+  9d4a5f21      1.098 ms      0.253 ms             -   0.008 ms   31.05x        
+-
+  9f3f891b      1.097 ms      0.258 ms             -   0.023 ms   11.45x        
+-
+  ae4219a9      1.757 ms      0.265 ms             -   0.055 ms    4.81x        
+-
+  b7668cfd      1.092 ms      0.254 ms             -   0.010 ms   24.89x        
+-
+  d57eb9e1      1.639 ms      0.264 ms             -   0.055 ms    4.80x        
+-
+  ddfa9e34      1.675 ms      0.264 ms             -   0.055 ms    4.80x        
+-
+  e6b849f2      1.095 ms      0.253 ms             -   0.012 ms   20.66x        
+-
+  f77df5ce      1.089 ms      0.253 ms             -   0.008 ms   31.03x        
+-
+  fc85411e      1.090 ms      0.253 ms             -   0.008 ms   31.13x        
+-
+
+Stopping app - uncaught exception raised locally: KeyError('02d6ae9c64ab42ff93f05c23c53bcb7d').
+╭───────────────────── Traceback (most recent call last) ──────────────────────╮
+│ /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64 │
+│ /scripts/run_modal_compare.py:283 in main                                    │
+│                                                                              │
+│   282 │                                                                      │
+│ ❱ 283 │   print_comparison_table(                                            │
+│   284 │   │   current=our_results, flashinfer=fi_results, previous=previous, │
+│                                                                              │
+│ /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64 │
+│ /scripts/run_modal_compare.py:201 in print_comparison_table                  │
+│                                                                              │
+│   200 │                                                                      │
+│ ❱ 201 │   vs_fi = [fi[u]["latency_ms"] / current[u]["latency_ms"]            │
+│   202 │   │   │    for u in all_uuids                                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+KeyError: '02d6ae9c64ab42ff93f05c23c53bcb7d'

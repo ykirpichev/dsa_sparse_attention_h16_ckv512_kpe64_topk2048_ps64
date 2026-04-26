@@ -1,0 +1,117 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-A82J6MwnS8t2vG2XJ2UY1l
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_v5_fused_sm100a
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_v5_fused_sm100a 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running FULL benchmark on Modal B200...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+  Split-K G=16 enabled (MLA_SPARSE_ATTN_SPLIT_G16=1)
+  Split-K diag enabled (MLA_SPARSE_ATTN_SPLIT_DIAG=1)
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: PASSED | 0.008 ms | 118.60x speedup | abs_err=7.81e-03, 
+rel_err=7.63e-03
+    error: [mla_sparse_attn] regs/thread=69  localSz=0  static_smem=0  
+max_dyn_smem=48128  max_threads=256  occ@cap=3  occ@actual(46K)=3 blocks/SM
+[mla_split_partial<4>] regs/thread=68  static_smem=0  max_dyn_smem=48128  
+occ(40160 B)=3 blocks/SM
+[split_dispatch] T=1 H=16 base_ctas=16 -> G=1
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+  Workload 9d4a5f21...: PASSED | 0.008 ms | 134.90x speedup | abs_err=1.95e-03, 
+rel_err=1.66e-02
+    error: [split_dispatch] T=2 H=16 base_ctas=32 -> G=1
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+  Workload b7668cfd...: PASSED | 0.010 ms | 107.97x speedup | abs_err=3.91e-03, 
+rel_err=1.15e-02
+  Workload 0a63b87b...: PASSED | 0.010 ms | 107.76x speedup | abs_err=9.77e-04, 
+rel_err=3.37e-02
+  Workload 05f6de65...: PASSED | 0.027 ms | 41.67x speedup | abs_err=3.91e-03, 
+rel_err=2.52e-02
+  Workload fc85411e...: PASSED | 0.008 ms | 135.19x speedup | abs_err=1.95e-03, 
+rel_err=9.37e-03
+  Workload e6b849f2...: PASSED | 0.012 ms | 89.78x speedup | abs_err=3.91e-03, 
+rel_err=3.04e-02
+  Workload 9f3f891b...: PASSED | 0.023 ms | 48.76x speedup | abs_err=7.81e-03, 
+rel_err=1.35e-01
+  Workload f77df5ce...: PASSED | 0.008 ms | 134.94x speedup | abs_err=1.95e-03, 
+rel_err=2.10e-02
+  Workload 385742b2...: PASSED | 0.042 ms | 45.91x speedup | abs_err=1.56e-02, 
+rel_err=5.61e+01
+    error: [split_dispatch] T=8 H=16 base_ctas=128 -> G=4
+
+  Workload 4c46a94b...: PASSED | 0.040 ms | 48.17x speedup | abs_err=3.12e-02, 
+rel_err=1.96e+02
+  Workload 38389961...: PASSED | 0.052 ms | 34.36x speedup | abs_err=1.56e-02, 
+rel_err=3.12e+02
+    error: [split_dispatch] T=7 H=16 base_ctas=112 -> G=4
+
+  Workload 02d6ae9c...: PASSED | 0.059 ms | 32.45x speedup | abs_err=1.56e-02, 
+rel_err=3.72e+01
+  Workload ddfa9e34...: PASSED | 0.029 ms | 57.25x speedup | abs_err=3.12e-02, 
+rel_err=3.06e+01
+    error: [split_dispatch] T=6 H=16 base_ctas=96 -> G=16
+
+  Workload 78b2e11c...: PASSED | 0.057 ms | 33.53x speedup | abs_err=1.56e-02, 
+rel_err=3.52e+01
+  Workload 68d6817d...: PASSED | 0.013 ms | 123.91x speedup | abs_err=1.56e-02, 
+rel_err=2.83e-01
+  Workload 564007ac...: PASSED | 0.073 ms | 26.47x speedup | abs_err=1.56e-02, 
+rel_err=2.40e+01
+  Workload ae4219a9...: PASSED | 0.054 ms | 32.76x speedup | abs_err=1.56e-02, 
+rel_err=2.46e+02
+  Workload 232ed014...: PASSED | 0.057 ms | 33.86x speedup | abs_err=1.56e-02, 
+rel_err=4.26e+01
+  Workload 7a389715...: PASSED | 0.055 ms | 34.65x speedup | abs_err=1.56e-02, 
+rel_err=2.00e+01
+  Workload 5096e459...: PASSED | 0.070 ms | 27.39x speedup | abs_err=1.56e-02, 
+rel_err=6.73e+01
+  Workload d57eb9e1...: PASSED | 0.036 ms | 46.68x speedup | abs_err=1.56e-02, 
+rel_err=2.43e+02
+  Workload 2207f0fd...: PASSED | 0.054 ms | 33.02x speedup | abs_err=1.56e-02, 
+rel_err=1.99e+03
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-23T02:11:09-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-A82J6MwnS8t2vG2XJ2UY1l

@@ -1,0 +1,50 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-2QqHPV6hBAVKOpW3eSoyF2
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_compare.py
+└── 🔨 Created function run_compare.
+Loading 1 solutions:
+  - wombat_dsa_sparse_mla_v5_fused_sm100a  <-  
+artifacts/staging/v5_python_sm100a.solution.json
+
+Running paired benchmark on Modal B200 (repeats=1)...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Smoke mode: 5 workloads (seed=42), warmup=1, iters=1, trials=1
+Comparing 1 solutions on 5 workloads, repeats=1:
+  - wombat_dsa_sparse_mla_v5_fused_sm100a  (SupportedLanguages.PYTHON)
+
+--- repeat 1/1 ---
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+--- repeat 1 done in 6.2s ---
+
+Full per-workload results written to artifacts/smoke_python_sm100a.json
+
+=== Aggregate across 1 repeats ===
+solution                                    mean(us)   stddev_run(%)   gmean(sp)
+amean(sp)   min(sp)   max(sp)    passed
+wombat_dsa_sparse_mla_v5_fused_sm100a          37.66           0.00%       52.63
+62.98     15.54     92.85    5/5  
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-22T03:38:47-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-2QqHPV6hBAVKOpW3eSoyF2

@@ -1,0 +1,92 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-hCCzO9wqi9vKT1qNQCEHQI
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_sm100a_final 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running benchmark on Modal B200 (WOMBAT_CUDA_GRAPH=0)...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: PASSED | 0.009 ms | 123.77x speedup | abs_err=7.81e-03, 
+rel_err=7.63e-03
+  Workload 9d4a5f21...: PASSED | 0.009 ms | 138.12x speedup | abs_err=1.95e-03, 
+rel_err=2.08e+00
+  Workload b7668cfd...: PASSED | 0.011 ms | 112.78x speedup | abs_err=3.91e-03, 
+rel_err=7.19e-03
+  Workload 0a63b87b...: PASSED | 0.011 ms | 113.12x speedup | abs_err=3.91e-03, 
+rel_err=6.92e-02
+  Workload 05f6de65...: PASSED | 0.028 ms | 46.49x speedup | abs_err=7.81e-03, 
+rel_err=2.76e-02
+  Workload fc85411e...: PASSED | 0.009 ms | 138.53x speedup | abs_err=1.95e-03, 
+rel_err=4.25e-02
+  Workload e6b849f2...: PASSED | 0.013 ms | 95.64x speedup | abs_err=7.81e-03, 
+rel_err=4.19e-02
+  Workload 9f3f891b...: PASSED | 0.024 ms | 54.74x speedup | abs_err=9.77e-04, 
+rel_err=4.43e-02
+  Workload f77df5ce...: PASSED | 0.009 ms | 137.48x speedup | abs_err=3.91e-03, 
+rel_err=1.89e-02
+  Workload 385742b2...: PASSED | 0.042 ms | 62.01x speedup | abs_err=7.81e-03, 
+rel_err=8.72e-02
+  Workload 4c46a94b...: PASSED | 0.040 ms | 65.35x speedup | abs_err=7.81e-03, 
+rel_err=3.08e-02
+  Workload 38389961...: PASSED | 0.055 ms | 43.55x speedup | abs_err=1.56e-02, 
+rel_err=1.34e+02
+  Workload 02d6ae9c...: PASSED | 0.056 ms | 45.92x speedup | abs_err=1.56e-02, 
+rel_err=3.13e+02
+  Workload ddfa9e34...: PASSED | 0.055 ms | 39.68x speedup | abs_err=1.56e-02, 
+rel_err=1.88e+01
+  Workload 78b2e11c...: PASSED | 0.056 ms | 46.60x speedup | abs_err=1.56e-02, 
+rel_err=1.69e+01
+  Workload 68d6817d...: PASSED | 0.013 ms | 163.59x speedup | abs_err=7.81e-03, 
+rel_err=7.81e-03
+  Workload 564007ac...: PASSED | 0.057 ms | 46.29x speedup | abs_err=1.56e-02, 
+rel_err=2.15e+02
+  Workload ae4219a9...: PASSED | 0.056 ms | 42.15x speedup | abs_err=1.56e-02, 
+rel_err=1.19e+02
+  Workload 232ed014...: PASSED | 0.055 ms | 48.17x speedup | abs_err=1.56e-02, 
+rel_err=2.63e+02
+  Workload 7a389715...: PASSED | 0.056 ms | 46.46x speedup | abs_err=1.56e-02, 
+rel_err=1.08e+02
+  Workload 5096e459...: PASSED | 0.056 ms | 46.51x speedup | abs_err=1.56e-02, 
+rel_err=2.29e+01
+  Workload d57eb9e1...: PASSED | 0.056 ms | 39.10x speedup | abs_err=1.56e-02, 
+rel_err=6.49e+02
+  Workload 2207f0fd...: PASSED | 0.056 ms | 42.81x speedup | abs_err=1.56e-02, 
+rel_err=5.14e+01
+
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-hCCzO9wqi9vKT1qNQCEHQI

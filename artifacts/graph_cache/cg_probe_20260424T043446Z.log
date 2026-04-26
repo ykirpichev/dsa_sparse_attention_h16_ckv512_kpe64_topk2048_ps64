@@ -1,0 +1,61 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-JAYbHBoCq4km8ZHXWR0txo
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_cg_probe.py
+└── 🔨 Created function probe_kernel.
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+[probe] Running 5 iterations on workload 0c23b10c (graph_cache=1, debug=1)
+[probe] iter 0: ERROR
+Traceback (most recent call last):
+  File "/root/run_modal_cg_probe.py", line 91, in probe_kernel
+    runnable(*args)
+  File "/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/compile/runnable.py", line 95, in __call__
+    ret = self._callable(*args)
+          ^^^^^^^^^^^^^^^^^^^^^
+TypeError: run() missing 2 required positional arguments: 'out' and 'lse'
+
+
+=== PROBE RESULTS ===
+per_iter_ok = [False]
+
+[iter 0] TypeError: run() missing 2 required positional arguments: 'out' and 
+'lse'
+Traceback (most recent call last):
+  File "/root/run_modal_cg_probe.py", line 91, in probe_kernel
+    runnable(*args)
+  File 
+"/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/compile/run
+nable.py", line 95, in __call__
+    ret = self._callable(*args)
+          ^^^^^^^^^^^^^^^^^^^^^
+TypeError: run() missing 2 required positional arguments: 'out' and 'lse'
+
+
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-JAYbHBoCq4km8ZHXWR0txo

@@ -1,0 +1,79 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-yxU2Jxno9dosmwmKprN8KE
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_v5_fused_sm100a
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_v5_fused_sm100a 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running SMOKE benchmark on Modal B200 (8 random workloads, seed=42)...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+  Smoke mode: 8 workloads (seed=42), warmup=1, iterations=1, num_trials=1
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 5096e459...: PASSED | 0.070 ms | 26.90x speedup | abs_err=1.56e-02, 
+rel_err=3.95e+01
+    error: [mla_sparse_attn] regs/thread=69  localSz=0  static_smem=0  
+max_dyn_smem=48128  max_threads=256  occ@cap=3  occ@actual(46K)=3 blocks/SM
+[mla_split_partial<4>] regs/thread=68  static_smem=0  max_dyn_smem=48128  
+occ(40160 B)=3 blocks/SM
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+  Workload 0a63b87b...: PASSED | 0.010 ms | 108.83x speedup | abs_err=1.53e-05, 
+rel_err=6.90e-03
+    error: 
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+  Workload 0c23b10c...: PASSED | 0.008 ms | 118.06x speedup | abs_err=2.44e-04, 
+rel_err=4.90e-03
+  Workload f77df5ce...: PASSED | 0.009 ms | 122.63x speedup | abs_err=1.95e-03, 
+rel_err=7.46e-03
+  Workload 9f3f891b...: PASSED | 0.025 ms | 44.69x speedup | abs_err=9.77e-04, 
+rel_err=7.21e-02
+  Workload 232ed014...: PASSED | 0.057 ms | 34.09x speedup | abs_err=1.56e-02, 
+rel_err=7.58e+00
+  Workload 05f6de65...: PASSED | 0.027 ms | 41.49x speedup | abs_err=1.22e-04, 
+rel_err=7.13e-03
+  Workload d57eb9e1...: PASSED | 0.042 ms | 39.69x speedup | abs_err=1.56e-02, 
+rel_err=1.28e+01
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-22T22:58:25-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-yxU2Jxno9dosmwmKprN8KE

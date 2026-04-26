@@ -1,0 +1,269 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-oLY8IvsFZYfPJbNo14HzKC
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_probe.py
+└── 🔨 Created function probe.
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+[
+  {
+    "uuid": "0c23b10c7b7645719517828c12eaa1d2",
+    "T": 1,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 2,
+    "topk_total": 2048,
+    "density_avg_per_t": 2
+  },
+  {
+    "uuid": "9d4a5f21268e484ea05a2f2af91d9fa7",
+    "T": 2,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 29,
+    "topk_total": 4096,
+    "density_avg_per_t": 14
+  },
+  {
+    "uuid": "b7668cfd194c4b95ab600feb205ebac6",
+    "T": 2,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 85,
+    "topk_total": 4096,
+    "density_avg_per_t": 42
+  },
+  {
+    "uuid": "0a63b87bb2e54e9db1ca3c4c53a1d521",
+    "T": 2,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 72,
+    "topk_total": 4096,
+    "density_avg_per_t": 36
+  },
+  {
+    "uuid": "05f6de657db543ae9e4c46796522843a",
+    "T": 2,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 343,
+    "topk_total": 4096,
+    "density_avg_per_t": 171
+  },
+  {
+    "uuid": "fc85411e250c41879b6d6a1edb80f0a7",
+    "T": 2,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 30,
+    "topk_total": 4096,
+    "density_avg_per_t": 15
+  },
+  {
+    "uuid": "e6b849f2900446148c01d81152efae23",
+    "T": 2,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 140,
+    "topk_total": 4096,
+    "density_avg_per_t": 70
+  },
+  {
+    "uuid": "9f3f891bfbe24776adfcd5a579d093dd",
+    "T": 2,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 292,
+    "topk_total": 4096,
+    "density_avg_per_t": 146
+  },
+  {
+    "uuid": "f77df5ce21634f7ca0586af7e3c13434",
+    "T": 2,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 37,
+    "topk_total": 4096,
+    "density_avg_per_t": 18
+  },
+  {
+    "uuid": "385742b2717e4f02b918c7349dde23d8",
+    "T": 8,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 1663,
+    "topk_total": 16384,
+    "density_avg_per_t": 207
+  },
+  {
+    "uuid": "4c46a94ba2364dc7ab476286dee8dce3",
+    "T": 8,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 1423,
+    "topk_total": 16384,
+    "density_avg_per_t": 177
+  },
+  {
+    "uuid": "3838996164a94d728710f913477feba8",
+    "T": 7,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 1682,
+    "topk_total": 14336,
+    "density_avg_per_t": 240
+  },
+  {
+    "uuid": "02d6ae9c64ab42ff93f05c23c53bcb7d",
+    "T": 8,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 2424,
+    "topk_total": 16384,
+    "density_avg_per_t": 303
+  },
+  {
+    "uuid": "ddfa9e340b264f76abe7418692faa876",
+    "T": 6,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 1748,
+    "topk_total": 12288,
+    "density_avg_per_t": 291
+  },
+  {
+    "uuid": "78b2e11c30004cceb84355722a7c6b0a",
+    "T": 8,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 2628,
+    "topk_total": 16384,
+    "density_avg_per_t": 328
+  },
+  {
+    "uuid": "68d6817dcfd1433aa8d2ddeefd54b6ea",
+    "T": 6,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 111,
+    "topk_total": 12288,
+    "density_avg_per_t": 18
+  },
+  {
+    "uuid": "564007ac354e4662a62cc4d6352dc494",
+    "T": 8,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 4758,
+    "topk_total": 16384,
+    "density_avg_per_t": 594
+  },
+  {
+    "uuid": "ae4219a95f044f45bd10e17ab63c6e8f",
+    "T": 7,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 2308,
+    "topk_total": 14336,
+    "density_avg_per_t": 329
+  },
+  {
+    "uuid": "232ed014bafc4835b9881bb308c659b0",
+    "T": 8,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 1697,
+    "topk_total": 16384,
+    "density_avg_per_t": 212
+  },
+  {
+    "uuid": "7a389715dcc3479e9b0512309f9d1d56",
+    "T": 8,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 1762,
+    "topk_total": 16384,
+    "density_avg_per_t": 220
+  },
+  {
+    "uuid": "5096e459ce3f4cdf82773ce1a0c73c8a",
+    "T": 8,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 4513,
+    "topk_total": 16384,
+    "density_avg_per_t": 564
+  },
+  {
+    "uuid": "d57eb9e19f0642e8af9bd76ad0823303",
+    "T": 6,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 3282,
+    "topk_total": 12288,
+    "density_avg_per_t": 547
+  },
+  {
+    "uuid": "2207f0fdc96347c59d106e4976cfad57",
+    "T": 7,
+    "H": 16,
+    "num_kv_rows": 541568,
+    "valid_count": 3599,
+    "topk_total": 14336,
+    "density_avg_per_t": 514
+  }
+]
+
+uuid           T    H   num_kv    valid    topk  avg/t dispatch
+0c23b10c       1   16   541568        2    2048      2 LEGACY(lowdens)
+9d4a5f21       2   16   541568       29    4096     14 LEGACY(lowdens)
+b7668cfd       2   16   541568       85    4096     42 LEGACY(lowdens)
+0a63b87b       2   16   541568       72    4096     36 LEGACY(lowdens)
+05f6de65       2   16   541568      343    4096    171 LEGACY(lowdens)
+fc85411e       2   16   541568       30    4096     15 LEGACY(lowdens)
+e6b849f2       2   16   541568      140    4096     70 LEGACY(lowdens)
+9f3f891b       2   16   541568      292    4096    146 LEGACY(lowdens)
+f77df5ce       2   16   541568       37    4096     18 LEGACY(lowdens)
+385742b2       8   16   541568     1663   16384    207 LEGACY(lowdens)
+4c46a94b       8   16   541568     1423   16384    177 LEGACY(lowdens)
+38389961       7   16   541568     1682   14336    240 CPT
+02d6ae9c       8   16   541568     2424   16384    303 CPT
+ddfa9e34       6   16   541568     1748   12288    291 CPT
+78b2e11c       8   16   541568     2628   16384    328 CPT
+68d6817d       6   16   541568      111   12288     18 LEGACY(lowdens)
+564007ac       8   16   541568     4758   16384    594 CPT
+ae4219a9       7   16   541568     2308   14336    329 CPT
+232ed014       8   16   541568     1697   16384    212 CPT
+7a389715       8   16   541568     1762   16384    220 CPT
+5096e459       8   16   541568     4513   16384    564 CPT
+d57eb9e1       6   16   541568     3282   12288    547 CPT
+2207f0fd       7   16   541568     3599   14336    514 CPT
+
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-oLY8IvsFZYfPJbNo14HzKC

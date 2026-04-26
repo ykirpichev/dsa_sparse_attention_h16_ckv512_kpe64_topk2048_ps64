@@ -1,0 +1,94 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-y3zoPl5Eb5F4NNi2T4GmgG
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_sm100a_final 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running benchmark on Modal B200 (WOMBAT_CUDA_GRAPH=1, 
+WOMBAT_CUDA_GRAPH_DEBUG=0)...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: PASSED | 0.008 ms | 118.52x speedup | abs_err=1.91e-06, 
+rel_err=7.63e-03
+  Workload 9d4a5f21...: PASSED | 0.008 ms | 135.17x speedup | abs_err=7.81e-03, 
+rel_err=7.81e-03
+  Workload b7668cfd...: PASSED | 0.010 ms | 107.40x speedup | abs_err=3.91e-03, 
+rel_err=3.92e-02
+  Workload 0a63b87b...: PASSED | 0.010 ms | 107.38x speedup | abs_err=3.91e-03, 
+rel_err=7.63e-03
+  Workload 05f6de65...: PASSED | 0.026 ms | 41.16x speedup | abs_err=3.91e-03, 
+rel_err=8.93e-03
+  Workload fc85411e...: PASSED | 0.008 ms | 135.05x speedup | abs_err=7.81e-03, 
+rel_err=1.13e-01
+  Workload e6b849f2...: PASSED | 0.012 ms | 89.02x speedup | abs_err=3.91e-03, 
+rel_err=7.81e-03
+  Workload 9f3f891b...: PASSED | 0.024 ms | 45.54x speedup | abs_err=3.91e-03, 
+rel_err=1.01e-02
+  Workload f77df5ce...: PASSED | 0.008 ms | 134.75x speedup | abs_err=3.91e-03, 
+rel_err=1.41e-01
+  Workload 385742b2...: PASSED | 0.043 ms | 44.26x speedup | abs_err=7.81e-03, 
+rel_err=4.68e-02
+  Workload 4c46a94b...: PASSED | 0.041 ms | 46.42x speedup | abs_err=3.91e-03, 
+rel_err=3.37e-02
+  Workload 38389961...: PASSED | 0.054 ms | 32.66x speedup | abs_err=1.56e-02, 
+rel_err=4.13e+01
+  Workload 02d6ae9c...: PASSED | 0.055 ms | 34.27x speedup | abs_err=1.56e-02, 
+rel_err=1.72e+02
+  Workload ddfa9e34...: PASSED | 0.055 ms | 29.40x speedup | abs_err=1.56e-02, 
+rel_err=4.80e+02
+  Workload 78b2e11c...: PASSED | 0.055 ms | 34.41x speedup | abs_err=1.56e-02, 
+rel_err=3.27e+02
+  Workload 68d6817d...: PASSED | 0.014 ms | 114.70x speedup | abs_err=1.95e-03, 
+rel_err=1.48e-02
+  Workload 564007ac...: PASSED | 0.056 ms | 34.26x speedup | abs_err=1.56e-02, 
+rel_err=2.09e+02
+  Workload ae4219a9...: PASSED | 0.055 ms | 31.92x speedup | abs_err=1.56e-02, 
+rel_err=2.05e+03
+  Workload 232ed014...: PASSED | 0.055 ms | 34.56x speedup | abs_err=1.56e-02, 
+rel_err=1.50e+02
+  Workload 7a389715...: PASSED | 0.055 ms | 34.33x speedup | abs_err=1.56e-02, 
+rel_err=2.47e+01
+  Workload 5096e459...: PASSED | 0.055 ms | 34.54x speedup | abs_err=1.56e-02, 
+rel_err=2.04e+02
+  Workload d57eb9e1...: PASSED | 0.055 ms | 29.81x speedup | abs_err=1.56e-02, 
+rel_err=1.97e+01
+  Workload 2207f0fd...: PASSED | 0.055 ms | 32.30x speedup | abs_err=1.56e-02, 
+rel_err=1.10e+03
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-23T21:43:13-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-y3zoPl5Eb5F4NNi2T4GmgG

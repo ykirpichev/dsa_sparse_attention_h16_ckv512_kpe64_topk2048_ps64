@@ -1,0 +1,66 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-3lAsKBqfJU7WpK3fhtNJoI
+
+Building image im-uF7CyiYEB8uEuGyQTVv4nU
+
+=> Step 0: FROM base
+
+=> Step 1: ENV CUDA_HOME=/usr/local/cuda
+
+=> Step 2: ENV WOMBAT_CUDA_GRAPH=0
+Saving image...
+Image saved, took 1.08s
+
+Built image im-uF7CyiYEB8uEuGyQTVv4nU in 3.67s
+
+
+Building image im-D7lIgsAXz4rxPy388bH7Sl
+
+=> Step 0: FROM base
+
+=> Step 1: RUN python -m pip install setuptools wheel
+Looking in indexes: http://pypi-mirror.modal.local:5555/simple
+Requirement already satisfied: setuptools in /opt/conda/envs/py312/lib/python3.12/site-packages (78.1.0)
+Requirement already satisfied: wheel in /opt/conda/envs/py312/lib/python3.12/site-packages (0.46.3)
+Requirement already satisfied: packaging>=24.0 in /opt/conda/envs/py312/lib/python3.12/site-packages (from wheel) (26.0)
+Saving image...
+Image saved, took 3.71s
+
+Built image im-D7lIgsAXz4rxPy388bH7Sl in 7.84s
+
+
+Building image im-h3E1oUnC1ZijiRSlZs7IBU
+
+=> Step 0: FROM base
+
+=> Step 1: RUN git clone --recursive --depth 1 https://github.com/deepseek-ai/DeepGEMM.git /tmp/DeepGEMM
+Cloning into '/tmp/DeepGEMM'...
+Submodule 'third-party/cutlass' (https://github.com/NVIDIA/cutlass.git) registered for path 'third-party/cutlass'
+Submodule 'third-party/fmt' (https://github.com/fmtlib/fmt.git) registered for path 'third-party/fmt'
+Cloning into '/tmp/DeepGEMM/third-party/cutlass'...
+Cloning into '/tmp/DeepGEMM/third-party/fmt'...
+From https://github.com/NVIDIA/cutlass
+ * branch              f3fde58372d33e9a5650ba7b80fc48b3b49d40c8 -> FETCH_HEAD
+Submodule path 'third-party/cutlass': checked out 'f3fde58372d33e9a5650ba7b80fc48b3b49d40c8'
+Submodule path 'third-party/fmt': checked out '553ec11ec06fbe0beebfbb45f9dc3c9eabd83d28'
+
+=> Step 2: RUN pip install --no-build-isolation /tmp/DeepGEMM
+Looking in indexes: http://pypi-mirror.modal.local:5555/simple
+Processing /tmp/DeepGEMM
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Building wheels for collected packages: deep_gemm
+  Building wheel for deep_gemm (pyproject.toml): started
+  Building wheel for deep_gemm (pyproject.toml): finished with status 'done'
+  Created wheel for deep_gemm: filename=deep_gemm-2.4.2+7f2a703-cp312-cp312-linux_x86_64.whl size=4215315 sha256=0dd8161192ed6008a39c7020883f22801fe0d9d4792f394f0c6182cd3cbb153f
+  Stored in directory: /tmp/pip-ephem-wheel-cache-l2ioooe1/wheels/5e/4b/15/9b33372dafeb7dc5eeaea42ffcc59e73140faab2956db3f5cf
+Successfully built deep_gemm
+Installing collected packages: deep_gemm
+Successfully installed deep_gemm-2.4.2+7f2a703
+
+=> Step 3: RUN git clone --recursive --depth 1 https://github.com/flashinfer-ai/flashinfer.git /tmp/flashinfer
+Cloning into '/tmp/flashinfer'...
+Submodule '3rdparty/cccl' (https://github.com/NVIDIA/cccl.git) registered for path '3rdparty/cccl'
+Submodule '3rdparty/cutlass' (https://github.com/NVIDIA/cutlass.git) registered for path '3rdparty/cutlass'
+Submodule '3rdparty/spdlog' (https://github.com/gabime/spdlog.git) registered for path '3rdparty/spdlog'
+Cloning into '/tmp/flashinfer/3rdparty/cccl'...
