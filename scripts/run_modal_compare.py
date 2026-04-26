@@ -42,6 +42,10 @@ image = (
     .apt_install("git")
     .env({"CUDA_HOME": "/usr/local/cuda"})
     .pip_install("wheel", "setuptools")
+    # cupti-python is in the evaluation environment (see EVALUATION.md);
+    # without it flashinfer-bench falls back to CUDA-event timing, which
+    # is noticeably noisier for our kernel at the ~8 us end.
+    .pip_install("cupti-python")
     .run_commands(
         "git clone --recursive --depth 1 https://github.com/deepseek-ai/DeepGEMM.git /tmp/DeepGEMM",
         "pip install --no-build-isolation /tmp/DeepGEMM",

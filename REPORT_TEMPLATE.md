@@ -169,14 +169,11 @@ tag contains the unconditional graph-cache path without extra diagnostic code.
 
 ## Final Kernel Design
 
-The final kernel is a small dispatcher plus a set of specialized CUDA kernels.
-The host wrapper validates tensor device, dtype, and shape, computes the flat
-KV row count, converts `sm_scale` into base-2 scale, chooses a path, ensures
-scratch buffers are large enough, and then launches through the CUDA graph
-cache. The submitted `solution.py` has no external runtime dependencies beyond
-PyTorch and the CUDA extension build path.
-
-The dispatcher logic is summarized below.
+The final kernel is a small dispatcher plus specialized CUDA kernels. The
+host wrapper validates tensors, computes the flat KV row count, converts
+`sm_scale` into base-2 scale, picks a path, sizes scratch buffers, and
+launches through the CUDA graph cache. `solution.py` has no runtime
+dependencies beyond PyTorch and the JIT build path.
 
 ```mermaid
 flowchart LR
@@ -197,19 +194,12 @@ flowchart LR
 
 
 
-The legacy kernel maps one CTA to one `(token, head)` pair. Each CTA first
-loads the query vectors and sparse indices. Sparse indices are prescanned with
-vectorized `int4` loads and invalid entries are canonicalized to `-1`; invalid
-KV rows are zero-initialized in shared memory rather than fetched from global
-memory. The K loop is fused: a tile of compressed value and positional key data
-is loaded, logits are computed, the online-softmax running state is updated,
-and the value contribution is accumulated. This keeps memory traffic close to
-one use per tile and avoids materializing a full `TOPK` logit array.
-
-The fused K-loop pipeline is sketched below. The key property is that each
-loaded tile is consumed in three steps before the next tile arrives, and
-neither the full `TOPK` logit vector nor an intermediate softmax array is ever
-materialized.
+**Legacy kernel.** One CTA per `(token, head)` pair. Sparse indices are
+prescanned with vectorized `int4` loads and invalid entries are
+canonicalized to `-1`; invalid KV rows are zero-filled in shared memory
+rather than fetched. The K loop is fused (load tile -> logits -> online
+softmax update -> value accumulate), which keeps memory traffic close to
+one use per tile and never materializes a full `TOPK` logit array.
 
 ```mermaid
 flowchart LR
@@ -226,42 +216,31 @@ flowchart LR
 
 
 
-The split-K path handles small grids that would otherwise underfill B200.
-For a chosen split factor `G`, each partial kernel processes a K slice and
-writes FP32 partial output, maximum, and normalizer buffers. A reducer combines
-the `G` online-softmax states using the same max/sum rescaling identity and
-writes the final BF16 output plus FP32 LSE. Scratch buffers are persistent but
-their contents are recomputed by the kernels for each run. The final version
-uses FP32 partial output storage because BF16 partials caused intermittent
-accuracy spikes.
+**Split-K.** For grids that underfill B200, a split factor `G` runs `G`
+partial kernels that emit FP32 partial output, max, and normalizer buffers;
+a reducer combines the `G` online-softmax states with the same max/sum
+rescaling identity and writes BF16 output + FP32 LSE. Scratch buffers are
+persistent but overwritten every launch. FP32 partials replaced an earlier
+BF16 variant that caused intermittent accuracy spikes.
 
-The CTA-per-token path is the fastest path for dense enough `H=16` workloads.
-It assigns one CTA to a token and, when needed, one split-K group. The CTA has
-16 warps, one per head. It uses WMMA for a small dense matrix formulation of
-the logit step and the value accumulation step. This design converts the
-16-head batch into work that better matches tensor-core instructions while
-keeping online-softmax state per head. The kernel uses shared memory overlays
-for MMA scratch and output scratch because these buffers are live in disjoint
-phases. This was one of the main late-stage wins over the older scalar
-per-head path.
+**CTA-per-token (H=16).** One CTA per token, one warp per head, with WMMA
+on the logit and value-accumulation steps. This converts the 16-head batch
+into tensor-core-shaped work while keeping online-softmax state per head.
+MMA scratch and output scratch share shared-memory overlays because their
+lifetimes are disjoint. This was one of the main late-stage wins over the
+scalar per-head path.
 
-The density pre-scan is a dispatch mechanism. It counts valid sparse-index
-entries on the GPU, computes average valid K per token, and selects the
-CTA-per-token path only when the density is high enough to amortize its fixed
-cost. Low-density examples such as `385742b2` and `4c46a94b` are routed to the
-legacy path. In report language, this should be described as follows:
-"A GPU pre-scan computes sparse-index density to select between two correct
-kernels; the attention output and LSE are always recomputed from the current
-input tensors."
+**Density pre-scan.** A GPU pre-scan counts valid sparse-index entries and
+selects the CTA-per-token path only when the average valid K is high enough
+to amortize its fixed cost; low-density inputs (e.g. `385742b2`, `4c46a94b`)
+are routed to the legacy path. The selected kernel always recomputes the
+attention output and LSE from the current input tensors.
 
-The CUDA graph cache addresses launch overhead on the smallest workloads.
-The graph cache is keyed by stream, shape, KV row count, scale bits, dispatch
-path, and split factor. It does not key on tensor pointers; instead, each call
-captures a fresh graph containing the current pointers, then attempts
-`cudaGraphExecUpdate` against the cached executable graph. If the topology
-matches, the updated executable is launched. If not, the cache entry is
-re-instantiated. This caches launch topology rather than attention results,
-and the launched kernels still read the current tensors.
+**CUDA graph cache.** Keyed by stream, shape, KV row count, scale bits,
+dispatch path, and split factor (no tensor pointers). Each call captures a
+fresh graph with current pointers and tries `cudaGraphExecUpdate` against
+the cached executable; on topology mismatch the entry is re-instantiated.
+This caches launch topology, not attention results.
 
 ```mermaid
 stateDiagram-v2
@@ -285,14 +264,11 @@ stateDiagram-v2
 
 
 
-Several features were deliberately not adopted. Blackwell `tcgen05.mma`/UMMA
-was investigated but did not match the problem shape well: the natural tile
-expects far larger N dimensions, while the value accumulation here is closer
-to a GEMV/skinny-GEMM problem. Full warp specialization was correct but slower
-because useful work became issue-slot limited. TMA/gather-style attempts and
-some deeper pipeline variants also failed to beat the simpler async-copy path.
-Keeping these negative results in the process narrative is important because
-they explain why the final code is not simply "use every Blackwell feature."
+**Negative results.** Blackwell `tcgen05.mma`/UMMA expected far larger N
+than this skinny-GEMM-shaped value accumulation provides; full warp
+specialization was correct but issue-slot limited; TMA/gather variants and
+deeper pipelines lost to the simpler `cp.async` path. The final design is
+therefore deliberately not "use every Blackwell feature."
 
 ## Validation, Results, and Reproducibility
 
