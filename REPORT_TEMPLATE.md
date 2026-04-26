@@ -7,18 +7,20 @@ Final solution: `wombat_dsa_sparse_mla_sm100a_final`
 
 ## Headline Summary
 
-| Field | Value |
-|---|---|
-| Track | `dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64` |
-| Hardware | NVIDIA B200 / `sm_100a` (BF16, FP32 LSE) |
-| Tag | `submission-final-v2` (commit `de475b9`) |
-| Workloads | 23 / 23, `abs_err <= 1.56e-2` |
-| vs PyTorch ref | 126.03x (cupti-timed; submitted side) |
-| vs FlashInfer | 14.18x (unclear whether FlashInfer side was actually cupti-timed; needs remeasurement) |
-| Aggregate latency | 0.719 ms (vs 6.793 ms FlashInfer, 66.079 ms PyTorch) |
-| Latency band | 0.003 ms - 0.052 ms |
-| Source files | `solution/python/solution.py`, `solution/python/kernel.cu` |
-| Methodology | Agent-assisted (Cursor + LLM agents); all decisions and commits owned by the human author. See "AI / Agent-Assisted Development Disclosure" after the References. |
+
+| Field             | Value                                                                                                                                                             |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Track             | `dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64`                                                                                                             |
+| Hardware          | NVIDIA B200 / `sm_100a` (BF16, FP32 LSE)                                                                                                                          |
+| Tag               | `submission-final-v2` (commit `de475b9`)                                                                                                                          |
+| Workloads         | 23 / 23, `abs_err <= 1.56e-2`                                                                                                                                     |
+| vs PyTorch ref    | 126.03x (unclear if cupti-timed; needs remeasurement)                                                                                                             |
+| vs FlashInfer     | 14.18x (unclear if cupti-timed; needs remeasurement)                                                                                                              |
+| Aggregate latency | 0.719 ms (vs 6.793 ms FlashInfer, 66.079 ms PyTorch)                                                                                                              |
+| Latency band      | 0.003 ms - 0.052 ms                                                                                                                                               |
+| Source files      | `solution/python/solution.py`, `solution/python/kernel.cu`                                                                                                        |
+| Methodology       | Agent-assisted (Cursor + LLM agents); all decisions and commits owned by the human author. See "AI / Agent-Assisted Development Disclosure" after the References. |
+
 
 ## Problem, Constraints, and Development Method
 
@@ -96,6 +98,8 @@ flowchart LR
     class P0,P1,P3,P5,P6,P7 kept
     class P2,P4 rejected
 ```
+
+
 
 Phase 0 established baselines and measurement. The initial repository started
 from the starter kit, added Modal full-suite runners, and recorded FlashInfer
@@ -191,6 +195,8 @@ flowchart LR
     G --> O["Write BF16 out, FP32 LSE<br/>destination-passing style"]
 ```
 
+
+
 The legacy kernel maps one CTA to one `(token, head)` pair. Each CTA first
 loads the query vectors and sparse indices. Sparse indices are prescanned with
 vectorized `int4` loads and invalid entries are canonicalized to `-1`; invalid
@@ -217,6 +223,8 @@ flowchart LR
     L5 -. next tile .-> L1
     L4 --> Out["On loop exit:<br/>O / l yields BF16 out<br/>log2 of l plus m yields FP32 LSE"]
 ```
+
+
 
 The split-K path handles small grids that would otherwise underfill B200.
 For a chosen split factor `G`, each partial kernel processes a K slice and
@@ -274,6 +282,8 @@ stateDiagram-v2
     Launch: cudaGraphLaunch(exec, stream)
     Launch --> [*]
 ```
+
+
 
 Several features were deliberately not adopted. Blackwell `tcgen05.mma`/UMMA
 was investigated but did not match the problem shape well: the natural tile
@@ -355,39 +365,39 @@ and limited to source code included in the submission.
 
 All in-repo references below are pinned to the `submission-final-v2` tag
 (commit `de475b9`) of the submission repository:
-[`ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64).
+`[ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)`.
 
 ### Submitted source
 
 1. Final kernel implementation -
-   [`solution/python/kernel.cu`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/solution/python/kernel.cu).
+  `[solution/python/kernel.cu](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/solution/python/kernel.cu)`.
 2. Python entry point and JIT compile flags -
-   [`solution/python/solution.py`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/solution/python/solution.py).
+  `[solution/python/solution.py](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/solution/python/solution.py)`.
 3. Submission manifest (DPS entry point, language) -
-   [`config.toml`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/config.toml).
+  `[config.toml](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/config.toml)`.
 
 ### Contest documentation in the repo
 
-4. Contest rules and submission contract -
-   [`README.md`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/README.md).
-5. FAQ (allowed optimizations, persistent buffers, custom compile flags) -
-   [`FAQ.md`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/FAQ.md).
-6. Evaluation environment (Docker image, hardware, `cupti-python`) -
-   [`EVALUATION.md`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/EVALUATION.md).
-7. Submission summary, integrity checklist, kernel architecture -
-   [`SUBMISSION.md`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/SUBMISSION.md).
+1. Contest rules and submission contract -
+  `[README.md](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/README.md)`.
+2. FAQ (allowed optimizations, persistent buffers, custom compile flags) -
+  `[FAQ.md](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/FAQ.md)`.
+3. Evaluation environment (Docker image, hardware, `cupti-python`) -
+  `[EVALUATION.md](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/EVALUATION.md)`.
+4. Submission summary, integrity checklist, kernel architecture -
+  `[SUBMISSION.md](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/submission-final-v2/SUBMISSION.md)`.
 
 ### Tags and commit history
 
-8. Tag `submission-v1` (early clean baseline) -
-   [`7e1a3497`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/releases/tag/submission-v1).
-9. Tag `submission-final` (Torch-extension final kernel before graph-cache
-   cleanup) -
-   [`7d585157`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/releases/tag/submission-final).
-10. Tag `submission-final-v2` (cleaned graph-cache branch, this submission) -
-    [`b4f055b1`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/releases/tag/submission-final-v2).
-11. Full chronological history -
-    [`git log --all --decorate --date=short`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/commits/submission-final-v2).
+1. Tag `submission-v1` (early clean baseline) -
+  `[7e1a3497](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/releases/tag/submission-v1)`.
+2. Tag `submission-final` (Torch-extension final kernel before graph-cache
+  cleanup) -
+   `[7d585157](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/releases/tag/submission-final)`.
+3. Tag `submission-final-v2` (cleaned graph-cache branch, this submission) -
+  `[b4f055b1](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/releases/tag/submission-final-v2)`.
+4. Full chronological history -
+  `[git log --all --decorate --date=short](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/commits/submission-final-v2)`.
 
 ### Performance and correctness artifacts
 
@@ -398,43 +408,43 @@ All in-repo references below are pinned to the `submission-final-v2` tag
 > GitHub release for the tag. The paths below are the canonical paths in the
 > working tree.
 
-12. Final cupti-timed comparison report (vs PyTorch ref and FlashInfer
-    baseline, same Modal invocation) -
+1. Final cupti-timed comparison report (vs PyTorch ref and FlashInfer
+  baseline, same Modal invocation) -
     `artifacts/compare/REPORT_submission_final_v2_cupti_20260424T090435Z.md`.
-13. Raw Modal log for the cupti-timed comparison -
-    `artifacts/compare/compare_submission_final_v2_cupti_20260424T085836Z.log`.
-14. Graph-cache cleanup benchmark, confirms `23/23 PASSED` -
-    `artifacts/graph_cache/bench_cleanup_20260424T083607Z.log`.
-15. Earlier event-timed comparison (kept as regression check, not the
-    headline number) -
+2. Raw Modal log for the cupti-timed comparison -
+  `artifacts/compare/compare_submission_final_v2_cupti_20260424T085836Z.log`.
+3. Graph-cache cleanup benchmark, confirms `23/23 PASSED` -
+  `artifacts/graph_cache/bench_cleanup_20260424T083607Z.log`.
+4. Earlier event-timed comparison (kept as regression check, not the
+  headline number) -
     `artifacts/compare/REPORT_submission_final_v2_20260424T085540Z.md`.
-16. Graph-cache A/B logs (graph-on / graph-off / probe runs) -
-    `artifacts/graph_cache/`.
-17. Aggregate per-phase experiment logs and ablations -
-    `artifacts/`.
+5. Graph-cache A/B logs (graph-on / graph-off / probe runs) -
+  `artifacts/graph_cache/`.
+6. Aggregate per-phase experiment logs and ablations -
+  `artifacts/`.
 
 ### External references
 
-18. NVIDIA CUDA C++ Programming Guide, CUDA graphs and `cudaGraphExecUpdate` -
-    [docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#cuda-graphs](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#cuda-graphs).
-19. NVIDIA CUDA C++ Programming Guide, `nvcuda::wmma` API -
-    [docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#wmma](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#wmma).
-20. PyTorch JIT C++/CUDA extensions, `torch.utils.cpp_extension.load` -
-    [pytorch.org/docs/stable/cpp_extension.html](https://pytorch.org/docs/stable/cpp_extension.html).
-21. Dao et al., "FlashAttention: Fast and Memory-Efficient Exact Attention with
-    IO-Awareness", NeurIPS 2022 -
+1. NVIDIA CUDA C++ Programming Guide, CUDA graphs and `cudaGraphExecUpdate` -
+  [docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#cuda-graphs](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#cuda-graphs).
+2. NVIDIA CUDA C++ Programming Guide, `nvcuda::wmma` API -
+  [docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#wmma](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#wmma).
+3. PyTorch JIT C++/CUDA extensions, `torch.utils.cpp_extension.load` -
+  [pytorch.org/docs/stable/cpp_extension.html](https://pytorch.org/docs/stable/cpp_extension.html).
+4. Dao et al., "FlashAttention: Fast and Memory-Efficient Exact Attention with
+  IO-Awareness", NeurIPS 2022 -
     [arXiv:2205.14135](https://arxiv.org/abs/2205.14135).
-22. Dao, "FlashAttention-2: Faster Attention with Better Parallelism and Work
-    Partitioning", 2023 -
+5. Dao, "FlashAttention-2: Faster Attention with Better Parallelism and Work
+  Partitioning", 2023 -
     [arXiv:2307.08691](https://arxiv.org/abs/2307.08691).
-23. Hong et al. / FlashDecoding, "Flash-Decoding for long-context inference",
-    Stanford CRFM blog post, 2023 -
+6. Hong et al. / FlashDecoding, "Flash-Decoding for long-context inference",
+  Stanford CRFM blog post, 2023 -
     [crfm.stanford.edu/2023/10/12/flashdecoding.html](https://crfm.stanford.edu/2023/10/12/flashdecoding.html).
-24. FlashInfer attention library (baseline used by the contest harness) -
-    [github.com/flashinfer-ai/flashinfer](https://github.com/flashinfer-ai/flashinfer).
-25. MLSys 2026 FlashInfer AI Kernel Generation Contest entry definitions -
-    [github.com/flashinfer-ai/mlsys26-contest](https://github.com/flashinfer-ai/mlsys26-contest).
+7. FlashInfer attention library (baseline used by the contest harness) -
+  [github.com/flashinfer-ai/flashinfer](https://github.com/flashinfer-ai/flashinfer).
+8. MLSys 2026 FlashInfer AI Kernel Generation Contest entry definitions -
+  [github.com/flashinfer-ai/mlsys26-contest](https://github.com/flashinfer-ai/mlsys26-contest).
 
 ## AI / Agent-Assisted Development Disclosure
 
-Agent-assisted (Cursor + Claude/GPT-family LLMs); direction and acceptance criteria were human, all changes were accepted on measured B200 numbers. Full statement: [`REPORT_AI_DISCLOSURE.md`](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/reports/submission-final-v2-draft/REPORT_AI_DISCLOSURE.md).
+Agent-assisted (Cursor + Claude/GPT-family LLMs); direction and acceptance criteria were human, all changes were accepted on measured B200 numbers. Full statement: `[REPORT_AI_DISCLOSURE.md](https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/reports/submission-final-v2-draft/REPORT_AI_DISCLOSURE.md)`.
