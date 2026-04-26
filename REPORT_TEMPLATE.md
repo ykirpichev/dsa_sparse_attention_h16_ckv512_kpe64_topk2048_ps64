@@ -293,26 +293,6 @@ latencies for every workload, with the separate benchmark run reporting
 `23/23 PASSED` and `abs_err <= 1.56e-2`. The final output remains within the
 contest tolerances while using BF16 output and FP32 LSE.
 
-Performance was measured against both the PyTorch reference and the FlashInfer
-baseline using `cupti-python`, matching the official evaluator backend.
-
-| Metric (cupti-timed, B200) | Submitted | FlashInfer | PyTorch ref |
-|---|---:|---:|---:|
-| Aggregate latency over 23 workloads | 0.719 ms | 6.793 ms | 66.079 ms |
-| Geomean speedup vs PyTorch ref | 126.03x | n/a | 1.00x |
-| Geomean speedup vs FlashInfer | 14.18x | 1.00x | n/a |
-| Min / max per-workload latency | ~0.003 / ~0.052 ms | -- | -- |
-| Workloads passed | 23 / 23 | -- | -- |
-| Max abs error | 1.56e-2 | -- | -- |
-
-The result should be interpreted with the timing backend in mind. Earlier
-reports used CUDA-event fallback timing and showed lower apparent speedups
-because event overhead was significant for sub-10-microsecond kernels. The
-final report reran the comparison with `cupti-python`, matching the evaluator
-environment described in `EVALUATION.md`, and this is the number set that
-should be cited in the final write-up. The older event-timed comparison is
-still useful as a regression check, but not as the primary performance claim.
-
 ### Measurement scope and limitations
 
 The headline `vs PyTorch reference` (126.03x) and `vs FlashInfer baseline`
