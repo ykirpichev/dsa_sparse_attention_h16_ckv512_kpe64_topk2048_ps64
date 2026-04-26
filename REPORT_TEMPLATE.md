@@ -5,10 +5,6 @@ Track: `dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64`
 Submission tags: `submission-v1`, `submission-final`, `submission-final-v2`  
 Final solution: `wombat_dsa_sparse_mla_sm100a_final`
 
-> This is a four-page technical report template focused on process. Edit or
-> trim sections as needed if the target venue has a strict page limit. Mermaid
-> diagrams render natively on GitHub/GitLab and via most Markdown to PDF tools.
-
 ## Headline Summary
 
 | Field | Value |
@@ -378,30 +374,6 @@ kernel before graph-cache cleanup, and `submission-final-v2` for the cleaned
 graph-cache branch. The final source package contains `solution.py` and
 `kernel.cu` only, and `config.toml` declares a Python DPS entry point:
 `solution.py::run`.
-
-Reproducibility (Modal B200, evaluator-equivalent image):
-
-```bash
-git checkout submission-final-v2
-flashinfer-bench pack solution
-flashinfer-bench check solution-pack.tar.gz
-modal run scripts/run_modal.py --tag submission-final-v2
-```
-
-Validity claims (factual, single-line each):
-
-- Self-contained: no FlashInfer / DeepGEMM / cuDNN / cuBLAS at runtime, no
-  prebuilt cubins, no network or file I/O during `run`.
-- Harness untouched: only `solution.py` and `kernel.cu` are submitted; the
-  evaluation harness is not modified.
-- CUDA graph cache stores launch topology only; tensor pointers are spliced
-  in via `cudaGraphExecUpdate` at every call and the kernels read current
-  tensors, so attention outputs are recomputed each run.
-- Persistent scratch buffers (split-K partials, density scratch) are
-  overwritten by every kernel launch.
-- Density pre-scan is a runtime dispatch heuristic between two correct
-  kernels; the chosen kernel always recomputes the attention output and LSE
-  from the current input tensors.
 
 Suggested final conclusion:
 
