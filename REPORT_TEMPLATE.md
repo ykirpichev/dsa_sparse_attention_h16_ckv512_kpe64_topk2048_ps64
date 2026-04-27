@@ -76,9 +76,7 @@ output and LSE from the current input tensors on every call.
 
 ## Chronological Optimization Story
 
-The repo history naturally clusters into eight phases. The figure below
-summarizes the spine of the development process, including positive results
-that survived to the final submission and intentionally rejected experiments.
+The repo history clusters into eight phases (kept in green, reverted in red):
 
 ```mermaid
 flowchart LR
@@ -294,15 +292,10 @@ final source package is `solution.py` + `kernel.cu` only, with
 `config.toml` declaring `solution.py::run` as the Python DPS entry
 point.
 
-Suggested final conclusion:
-
-This submission was produced by a measurement-driven optimization process that
-combined simple memory-system improvements, online softmax fusion, split-K
-parallelism, shape/density-aware dispatch, tensor-core use for the 16-head
-CTA-per-token path, and CUDA graph replay for launch overhead. The final
-implementation passes all public workloads and improves substantially over both
-the Python reference and the FlashInfer baseline while remaining self-contained
-and limited to source code included in the submission.
+In summary, the submission combines memory-traffic reduction, online-softmax
+fusion, split-K, shape/density-aware dispatch, a tensor-core CTA-per-token
+path for `H=16`, and CUDA graph replay for launch overhead, passing all 23
+public workloads while remaining self-contained.
 
 ## References { .page-break }
 
