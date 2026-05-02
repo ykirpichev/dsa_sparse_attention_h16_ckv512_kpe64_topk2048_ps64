@@ -1573,18 +1573,73 @@ struct DensityCache {
   int* h_count = nullptr;
   std::mutex mu;
 
+  // [DEBUG] Local-only diagnostics for verifying cache effectiveness on
+  // FlashInfer-driven runs. The suspicion is that FI may allocate a fresh
+  // sparse_indices buffer per invocation, defeating the pointer-keyed cache.
+  // Remove before submitting.
+  size_t calls   = 0;
+  size_t hits    = 0;
+  size_t misses  = 0;
+  // Default OFF: only opt-in via env var so we don't slow the perf timing
+  // path with stderr writes (the worker redirects stderr into a log file).
+  bool   dbg_on  = []() {
+    const char* v = std::getenv("MLA_DENSITY_CACHE_DEBUG");
+    return v && !(v[0] == '0' && v[1] == '\0');
+  }();
+  // [DEBUG] Force every call to recompute, ignoring cache. Used to measure
+  // the perf delta of disabling the density-count cache. Set the env var
+  // MLA_DENSITY_CACHE_DISABLE=1 to enable. Local-only.
+  bool   disabled = []() {
+    const char* v = std::getenv("MLA_DENSITY_CACHE_DISABLE");
+    return v && !(v[0] == '0' && v[1] == '\0');
+  }();
+
   int get_or_compute(const int32_t* si,
                      int64_t T,
                      int64_t num_kv_rows,
                      cudaStream_t stream) {
     std::lock_guard<std::mutex> lk(mu);
-    for (int i = 0; i < N; ++i) {
-      if (e[i].count >= 0 &&
-          e[i].si_ptr == si &&
-          e[i].T == T &&
-          e[i].num_kv_rows == num_kv_rows) {
-        return e[i].count;
+    ++calls;
+    if (!disabled) {
+      for (int i = 0; i < N; ++i) {
+        if (e[i].count >= 0 &&
+            e[i].si_ptr == si &&
+            e[i].T == T &&
+            e[i].num_kv_rows == num_kv_rows) {
+          ++hits;
+          if (dbg_on) {
+            fprintf(stderr,
+                    "[density_cache] HIT  call=%zu hits=%zu miss=%zu "
+                    "si=%p T=%lld nkv=%lld slot=%d count=%d\n",
+                    calls, hits, misses, (const void*)si,
+                    (long long)T, (long long)num_kv_rows, i, e[i].count);
+            fflush(stderr);
+          }
+          return e[i].count;
+        }
       }
+    }
+    ++misses;
+    if (dbg_on) {
+      // Dump the most-recent few entries so we can see which keys are in
+      // the cache when a miss happens (helps tell "pointer changed" from
+      // "T/nkv changed" from "cold cache").
+      fprintf(stderr,
+              "[density_cache] MISS call=%zu hits=%zu miss=%zu "
+              "si=%p T=%lld nkv=%lld head=%d\n",
+              calls, hits, misses, (const void*)si,
+              (long long)T, (long long)num_kv_rows, head);
+      const int dump = (misses <= 4 || (misses % 64) == 0) ? N : 4;
+      for (int j = 0; j < dump; ++j) {
+        const int idx = (head - 1 - j + N) % N;
+        const Entry& en = e[idx];
+        if (en.count < 0) continue;
+        fprintf(stderr,
+                "  [density_cache]   slot=%d si=%p T=%lld nkv=%lld count=%d\n",
+                idx, (const void*)en.si_ptr,
+                (long long)en.T, (long long)en.num_kv_rows, en.count);
+      }
+      fflush(stderr);
     }
     if (!d_count) {
       cudaMalloc(reinterpret_cast<void**>(&d_count), sizeof(int));
@@ -1999,15 +2054,39 @@ void kernel_fn(
   uint8_t path = 0;     // 0 = legacy, 1 = CTA-per-t
   uint8_t G_cpt = 0;    // split factor for CTA-per-t path (only valid if path==1)
   if (H == CPT_H) {
-    const int density_count = g_density_cache.get_or_compute(
-        si_p, T, num_kv_rows, stream);
-    const int density_avg = density_count /
-        static_cast<int>(std::max<int64_t>(T, 1));
-    if (density_avg >= CTA_PER_T_DENSITY_MIN_AVG) {
-      path = 1;
-      G_cpt = static_cast<uint8_t>(pick_split_G_cta_per_t(static_cast<int>(T)));
+    // [DEBUG] Sync-free shape-based dispatch. When MLA_SHAPE_DISPATCH=1
+    // (default off), bypass the density-count scan + cudaStreamSynchronize
+    // entirely and dispatch purely from the host-known T. Threshold is
+    // T >= MLA_SHAPE_DISPATCH_T_MIN (default 6) chosen to minimize total
+    // mis-dispatches against the observed density-cache decisions on the
+    // 23-workload contest set. Local-only.
+    static const bool   shape_dispatch = []() {
+      const char* v = std::getenv("MLA_SHAPE_DISPATCH");
+      return v && !(v[0] == '0' && v[1] == '\0');
+    }();
+    static const int    shape_t_min = []() {
+      const char* v = std::getenv("MLA_SHAPE_DISPATCH_T_MIN");
+      if (!v) return 6;
+      const int x = std::atoi(v);
+      return x > 0 ? x : 6;
+    }();
+
+    if (shape_dispatch) {
+      if (static_cast<int>(T) >= shape_t_min) {
+        path = 1;
+        G_cpt = static_cast<uint8_t>(pick_split_G_cta_per_t(static_cast<int>(T)));
+      }
+    } else {
+      const int density_count = g_density_cache.get_or_compute(
+          si_p, T, num_kv_rows, stream);
+      const int density_avg = density_count /
+          static_cast<int>(std::max<int64_t>(T, 1));
+      if (density_avg >= CTA_PER_T_DENSITY_MIN_AVG) {
+        path = 1;
+        G_cpt = static_cast<uint8_t>(pick_split_G_cta_per_t(static_cast<int>(T)));
+      }
+      // else: fall through to legacy dispatch for low-density workloads.
     }
-    // else: fall through to legacy dispatch for low-density workloads.
   }
 
   // Pre-capture setup: ensure split-K scratch is big enough, and pre-run the
