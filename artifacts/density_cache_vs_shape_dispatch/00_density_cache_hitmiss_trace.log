@@ -1,0 +1,549 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-3m6AJ1ASRoLMp0OnIDAzDt
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_sm100a_final 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running benchmark on Modal B200...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: PASSED | 0.003 ms | 368.47x speedup | abs_err=1.22e-04, 
+rel_err=6.99e-03
+  Workload 9d4a5f21...: PASSED | 0.004 ms | 334.63x speedup | abs_err=3.91e-03, 
+rel_err=8.03e-03
+  Workload b7668cfd...: PASSED | 0.006 ms | 229.47x speedup | abs_err=3.91e-03, 
+rel_err=5.97e-01
+  Workload 0a63b87b...: PASSED | 0.006 ms | 229.99x speedup | abs_err=3.91e-03, 
+rel_err=9.43e-03
+  Workload 05f6de65...: PASSED | 0.023 ms | 61.55x speedup | abs_err=3.91e-03, 
+rel_err=7.69e-03
+  Workload fc85411e...: PASSED | 0.004 ms | 336.28x speedup | abs_err=7.81e-03, 
+rel_err=2.16e-02
+  Workload e6b849f2...: PASSED | 0.008 ms | 176.09x speedup | abs_err=7.81e-03, 
+rel_err=1.37e-02
+  Workload 9f3f891b...: PASSED | 0.019 ms | 73.72x speedup | abs_err=1.95e-03, 
+rel_err=1.44e-02
+  Workload f77df5ce...: PASSED | 0.004 ms | 326.78x speedup | abs_err=3.91e-03, 
+rel_err=7.41e-03
+  Workload 385742b2...: PASSED | 0.038 ms | 83.25x speedup | abs_err=3.91e-03, 
+rel_err=3.19e-02
+  Workload 4c46a94b...: PASSED | 0.036 ms | 88.14x speedup | abs_err=7.81e-03, 
+rel_err=5.97e-02
+  Workload 38389961...: PASSED | 0.050 ms | 57.22x speedup | abs_err=1.56e-02, 
+rel_err=6.98e+01
+  Workload 02d6ae9c...: PASSED | 0.051 ms | 61.54x speedup | abs_err=1.56e-02, 
+rel_err=3.32e+01
+  Workload ddfa9e34...: PASSED | 0.050 ms | 51.10x speedup | abs_err=1.56e-02, 
+rel_err=4.81e+01
+  Workload 78b2e11c...: PASSED | 0.051 ms | 61.77x speedup | abs_err=1.56e-02, 
+rel_err=9.51e+02
+  Workload 68d6817d...: PASSED | 0.009 ms | 271.88x speedup | abs_err=3.91e-03, 
+rel_err=1.10e-02
+  Workload 564007ac...: PASSED | 0.052 ms | 61.18x speedup | abs_err=1.56e-02, 
+rel_err=1.54e+03
+  Workload ae4219a9...: PASSED | 0.051 ms | 55.94x speedup | abs_err=1.56e-02, 
+rel_err=3.07e+02
+  Workload 232ed014...: PASSED | 0.050 ms | 79.82x speedup | abs_err=1.56e-02, 
+rel_err=4.64e+01
+  Workload 7a389715...: PASSED | 0.051 ms | 62.50x speedup | abs_err=1.56e-02, 
+rel_err=3.17e+01
+  Workload 5096e459...: PASSED | 0.051 ms | 62.38x speedup | abs_err=1.56e-02, 
+rel_err=2.25e+02
+  Workload d57eb9e1...: PASSED | 0.051 ms | 51.58x speedup | abs_err=1.56e-02, 
+rel_err=1.67e+01
+  Workload 2207f0fd...: PASSED | 0.051 ms | 57.29x speedup | abs_err=7.81e-03, 
+rel_err=9.87e+01
+
+=== [density_cache] diagnostics (per workload) ===
+
+[0c23b10c] hits=545 misses=5 (showing first 6 + last 4 of 560 lines):
+    [density_cache] MISS call=1 hits=0 miss=1 si=0x2b913f004800 T=1 nkv=541568 
+head=0
+    [density_cache] MISS call=2 hits=0 miss=2 si=0x2b913f00b000 T=1 nkv=541568 
+head=1
+      [density_cache]   slot=0 si=0x2b913f004800 T=1 nkv=541568 count=2
+    [density_cache] MISS call=3 hits=0 miss=3 si=0x2b913f011800 T=1 nkv=541568 
+head=2
+      [density_cache]   slot=1 si=0x2b913f00b000 T=1 nkv=541568 count=2
+      [density_cache]   slot=0 si=0x2b913f004800 T=1 nkv=541568 count=2
+    ... (550 lines elided) ...
+    [density_cache] HIT  call=547 hits=542 miss=5 si=0x2b913f01e800 T=1 
+nkv=541568 slot=4 count=2
+    [density_cache] HIT  call=548 hits=543 miss=5 si=0x2b913f01e800 T=1 
+nkv=541568 slot=4 count=2
+    [density_cache] HIT  call=549 hits=544 miss=5 si=0x2b913f01e800 T=1 
+nkv=541568 slot=4 count=2
+    [density_cache] HIT  call=550 hits=545 miss=5 si=0x2b913f01e800 T=1 
+nkv=541568 slot=4 count=2
+
+[9d4a5f21] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=551 hits=545 miss=6 si=0x2b913f029800 T=2 
+nkv=541568 head=5
+      [density_cache]   slot=4 si=0x2b913f01e800 T=1 nkv=541568 count=2
+      [density_cache]   slot=3 si=0x2b913f018000 T=1 nkv=541568 count=2
+      [density_cache]   slot=2 si=0x2b913f011800 T=1 nkv=541568 count=2
+      [density_cache]   slot=1 si=0x2b913f00b000 T=1 nkv=541568 count=2
+    [density_cache] MISS call=552 hits=545 miss=7 si=0x2b913f036800 T=2 
+nkv=541568 head=6
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=1097 hits=1087 miss=10 si=0x2b913f05d800 T=2 
+nkv=541568 slot=9 count=29
+    [density_cache] HIT  call=1098 hits=1088 miss=10 si=0x2b913f05d800 T=2 
+nkv=541568 slot=9 count=29
+    [density_cache] HIT  call=1099 hits=1089 miss=10 si=0x2b913f05d800 T=2 
+nkv=541568 slot=9 count=29
+    [density_cache] HIT  call=1100 hits=1090 miss=10 si=0x2b913f05d800 T=2 
+nkv=541568 slot=9 count=29
+
+[b7668cfd] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=1101 hits=1090 miss=11 si=0x2b913f009000 T=2 
+nkv=541568 head=10
+      [density_cache]   slot=9 si=0x2b913f05d800 T=2 nkv=541568 count=29
+      [density_cache]   slot=8 si=0x2b913f050800 T=2 nkv=541568 count=29
+      [density_cache]   slot=7 si=0x2b913f043800 T=2 nkv=541568 count=29
+      [density_cache]   slot=6 si=0x2b913f036800 T=2 nkv=541568 count=29
+    [density_cache] MISS call=1102 hits=1090 miss=12 si=0x2b913f016000 T=2 
+nkv=541568 head=11
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=1647 hits=1632 miss=15 si=0x2b913f07e800 T=2 
+nkv=541568 slot=14 count=85
+    [density_cache] HIT  call=1648 hits=1633 miss=15 si=0x2b913f07e800 T=2 
+nkv=541568 slot=14 count=85
+    [density_cache] HIT  call=1649 hits=1634 miss=15 si=0x2b913f07e800 T=2 
+nkv=541568 slot=14 count=85
+    [density_cache] HIT  call=1650 hits=1635 miss=15 si=0x2b913f07e800 T=2 
+nkv=541568 slot=14 count=85
+
+[0a63b87b] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=1651 hits=1635 miss=16 si=0x2b913f029000 T=2 
+nkv=541568 head=15
+      [density_cache]   slot=14 si=0x2b913f07e800 T=2 nkv=541568 count=85
+      [density_cache]   slot=13 si=0x2b913f071800 T=2 nkv=541568 count=85
+      [density_cache]   slot=12 si=0x2b913f01b000 T=2 nkv=541568 count=85
+      [density_cache]   slot=11 si=0x2b913f016000 T=2 nkv=541568 count=85
+    [density_cache] MISS call=1652 hits=1635 miss=17 si=0x2b913f036000 T=2 
+nkv=541568 head=16
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=2197 hits=2177 miss=20 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=2198 hits=2178 miss=20 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=2199 hits=2179 miss=20 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=2200 hits=2180 miss=20 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+
+[05f6de65] hits=548 misses=2 (showing first 6 + last 4 of 558 lines):
+    [density_cache] HIT  call=2201 hits=2181 miss=20 si=0x2b913f009000 T=2 
+nkv=541568 slot=10 count=85
+    [density_cache] HIT  call=2202 hits=2182 miss=20 si=0x2b913f016000 T=2 
+nkv=541568 slot=11 count=85
+    [density_cache] HIT  call=2203 hits=2183 miss=20 si=0x2b913f01b000 T=2 
+nkv=541568 slot=12 count=85
+    [density_cache] MISS call=2204 hits=2183 miss=21 si=0x2b913f071000 T=2 
+nkv=541568 head=20
+      [density_cache]   slot=19 si=0x2b913f05d000 T=2 nkv=541568 count=72
+      [density_cache]   slot=18 si=0x2b913f050000 T=2 nkv=541568 count=72
+    ... (548 lines elided) ...
+    [density_cache] HIT  call=2747 hits=2725 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=2748 hits=2726 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=2749 hits=2727 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=2750 hits=2728 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+
+[fc85411e] hits=550 misses=0 (showing first 6 + last 4 of 550 lines):
+    [density_cache] HIT  call=2751 hits=2729 miss=22 si=0x2b913f029000 T=2 
+nkv=541568 slot=15 count=72
+    [density_cache] HIT  call=2752 hits=2730 miss=22 si=0x2b913f036000 T=2 
+nkv=541568 slot=16 count=72
+    [density_cache] HIT  call=2753 hits=2731 miss=22 si=0x2b913f043000 T=2 
+nkv=541568 slot=17 count=72
+    [density_cache] HIT  call=2754 hits=2732 miss=22 si=0x2b913f050000 T=2 
+nkv=541568 slot=18 count=72
+    [density_cache] HIT  call=2755 hits=2733 miss=22 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=2756 hits=2734 miss=22 si=0x2b913f029000 T=2 
+nkv=541568 slot=15 count=72
+    ... (540 lines elided) ...
+    [density_cache] HIT  call=3297 hits=3275 miss=22 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=3298 hits=3276 miss=22 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=3299 hits=3277 miss=22 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=3300 hits=3278 miss=22 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+
+[e6b849f2] hits=550 misses=0 (showing first 6 + last 4 of 550 lines):
+    [density_cache] HIT  call=3301 hits=3279 miss=22 si=0x2b913f009000 T=2 
+nkv=541568 slot=10 count=85
+    [density_cache] HIT  call=3302 hits=3280 miss=22 si=0x2b913f016000 T=2 
+nkv=541568 slot=11 count=85
+    [density_cache] HIT  call=3303 hits=3281 miss=22 si=0x2b913f01b000 T=2 
+nkv=541568 slot=12 count=85
+    [density_cache] HIT  call=3304 hits=3282 miss=22 si=0x2b913f071000 T=2 
+nkv=541568 slot=20 count=343
+    [density_cache] HIT  call=3305 hits=3283 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=3306 hits=3284 miss=22 si=0x2b913f009000 T=2 
+nkv=541568 slot=10 count=85
+    ... (540 lines elided) ...
+    [density_cache] HIT  call=3847 hits=3825 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=3848 hits=3826 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=3849 hits=3827 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=3850 hits=3828 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+
+[9f3f891b] hits=550 misses=0 (showing first 6 + last 4 of 550 lines):
+    [density_cache] HIT  call=3851 hits=3829 miss=22 si=0x2b913f029000 T=2 
+nkv=541568 slot=15 count=72
+    [density_cache] HIT  call=3852 hits=3830 miss=22 si=0x2b913f036000 T=2 
+nkv=541568 slot=16 count=72
+    [density_cache] HIT  call=3853 hits=3831 miss=22 si=0x2b913f043000 T=2 
+nkv=541568 slot=17 count=72
+    [density_cache] HIT  call=3854 hits=3832 miss=22 si=0x2b913f050000 T=2 
+nkv=541568 slot=18 count=72
+    [density_cache] HIT  call=3855 hits=3833 miss=22 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=3856 hits=3834 miss=22 si=0x2b913f029000 T=2 
+nkv=541568 slot=15 count=72
+    ... (540 lines elided) ...
+    [density_cache] HIT  call=4397 hits=4375 miss=22 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=4398 hits=4376 miss=22 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=4399 hits=4377 miss=22 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+    [density_cache] HIT  call=4400 hits=4378 miss=22 si=0x2b913f05d000 T=2 
+nkv=541568 slot=19 count=72
+
+[f77df5ce] hits=550 misses=0 (showing first 6 + last 4 of 550 lines):
+    [density_cache] HIT  call=4401 hits=4379 miss=22 si=0x2b913f009000 T=2 
+nkv=541568 slot=10 count=85
+    [density_cache] HIT  call=4402 hits=4380 miss=22 si=0x2b913f016000 T=2 
+nkv=541568 slot=11 count=85
+    [density_cache] HIT  call=4403 hits=4381 miss=22 si=0x2b913f01b000 T=2 
+nkv=541568 slot=12 count=85
+    [density_cache] HIT  call=4404 hits=4382 miss=22 si=0x2b913f071000 T=2 
+nkv=541568 slot=20 count=343
+    [density_cache] HIT  call=4405 hits=4383 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=4406 hits=4384 miss=22 si=0x2b913f009000 T=2 
+nkv=541568 slot=10 count=85
+    ... (540 lines elided) ...
+    [density_cache] HIT  call=4947 hits=4925 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=4948 hits=4926 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=4949 hits=4927 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+    [density_cache] HIT  call=4950 hits=4928 miss=22 si=0x2b913f07e000 T=2 
+nkv=541568 slot=21 count=343
+
+[385742b2] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=4951 hits=4928 miss=23 si=0x2b913f044000 T=8 
+nkv=541568 head=22
+      [density_cache]   slot=21 si=0x2b913f07e000 T=2 nkv=541568 count=343
+      [density_cache]   slot=20 si=0x2b913f071000 T=2 nkv=541568 count=343
+      [density_cache]   slot=19 si=0x2b913f05d000 T=2 nkv=541568 count=72
+      [density_cache]   slot=18 si=0x2b913f050000 T=2 nkv=541568 count=72
+    [density_cache] MISS call=4952 hits=4928 miss=24 si=0x2b913f0a2000 T=8 
+nkv=541568 head=23
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=5497 hits=5470 miss=27 si=0x2b913f136000 T=8 
+nkv=541568 slot=26 count=1663
+    [density_cache] HIT  call=5498 hits=5471 miss=27 si=0x2b913f136000 T=8 
+nkv=541568 slot=26 count=1663
+    [density_cache] HIT  call=5499 hits=5472 miss=27 si=0x2b913f136000 T=8 
+nkv=541568 slot=26 count=1663
+    [density_cache] HIT  call=5500 hits=5473 miss=27 si=0x2b913f136000 T=8 
+nkv=541568 slot=26 count=1663
+
+[4c46a94b] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=5501 hits=5473 miss=28 si=0x2b913f064000 T=8 
+nkv=541568 head=27
+      [density_cache]   slot=26 si=0x2b913f136000 T=8 nkv=541568 count=1663
+      [density_cache]   slot=25 si=0x2b913f102000 T=8 nkv=541568 count=1663
+      [density_cache]   slot=24 si=0x2b913f0d2000 T=8 nkv=541568 count=1663
+      [density_cache]   slot=23 si=0x2b913f0a2000 T=8 nkv=541568 count=1663
+    [density_cache] MISS call=5502 hits=5473 miss=29 si=0x2b913f166000 T=8 
+nkv=541568 head=28
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=6047 hits=6015 miss=32 si=0x2b920f200000 T=8 
+nkv=541568 slot=31 count=1423
+    [density_cache] HIT  call=6048 hits=6016 miss=32 si=0x2b920f200000 T=8 
+nkv=541568 slot=31 count=1423
+    [density_cache] HIT  call=6049 hits=6017 miss=32 si=0x2b920f200000 T=8 
+nkv=541568 slot=31 count=1423
+    [density_cache] HIT  call=6050 hits=6018 miss=32 si=0x2b920f200000 T=8 
+nkv=541568 slot=31 count=1423
+
+[38389961] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=6051 hits=6018 miss=33 si=0x2b913f03c000 T=7 
+nkv=541568 head=0
+      [density_cache]   slot=31 si=0x2b920f200000 T=8 nkv=541568 count=1423
+      [density_cache]   slot=30 si=0x2b913f1c6000 T=8 nkv=541568 count=1423
+      [density_cache]   slot=29 si=0x2b913f196000 T=8 nkv=541568 count=1423
+      [density_cache]   slot=28 si=0x2b913f166000 T=8 nkv=541568 count=1423
+    [density_cache] MISS call=6052 hits=6018 miss=34 si=0x2b913f04d800 T=7 
+nkv=541568 head=1
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=6597 hits=6560 miss=37 si=0x2b913f113000 T=7 
+nkv=541568 slot=4 count=1682
+    [density_cache] HIT  call=6598 hits=6561 miss=37 si=0x2b913f113000 T=7 
+nkv=541568 slot=4 count=1682
+    [density_cache] HIT  call=6599 hits=6562 miss=37 si=0x2b913f113000 T=7 
+nkv=541568 slot=4 count=1682
+    [density_cache] HIT  call=6600 hits=6563 miss=37 si=0x2b913f113000 T=7 
+nkv=541568 slot=4 count=1682
+
+[02d6ae9c] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=6601 hits=6563 miss=38 si=0x2b913f063000 T=8 
+nkv=541568 head=5
+      [density_cache]   slot=4 si=0x2b913f113000 T=7 nkv=541568 count=1682
+      [density_cache]   slot=3 si=0x2b913f0e5800 T=7 nkv=541568 count=1682
+      [density_cache]   slot=2 si=0x2b913f0b8000 T=7 nkv=541568 count=1682
+      [density_cache]   slot=1 si=0x2b913f04d800 T=7 nkv=541568 count=1682
+    [density_cache] MISS call=6602 hits=6563 miss=39 si=0x2b913f141000 T=8 
+nkv=541568 head=6
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=7147 hits=7105 miss=42 si=0x2b913f1d5000 T=8 
+nkv=541568 slot=9 count=2424
+    [density_cache] HIT  call=7148 hits=7106 miss=42 si=0x2b913f1d5000 T=8 
+nkv=541568 slot=9 count=2424
+    [density_cache] HIT  call=7149 hits=7107 miss=42 si=0x2b913f1d5000 T=8 
+nkv=541568 slot=9 count=2424
+    [density_cache] HIT  call=7150 hits=7108 miss=42 si=0x2b913f1d5000 T=8 
+nkv=541568 slot=9 count=2424
+
+[ddfa9e34] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=7151 hits=7108 miss=43 si=0x2b913f020000 T=6 
+nkv=541568 head=10
+      [density_cache]   slot=9 si=0x2b913f1d5000 T=8 nkv=541568 count=2424
+      [density_cache]   slot=8 si=0x2b913f1a1000 T=8 nkv=541568 count=2424
+      [density_cache]   slot=7 si=0x2b913f171000 T=8 nkv=541568 count=2424
+      [density_cache]   slot=6 si=0x2b913f141000 T=8 nkv=541568 count=2424
+    [density_cache] MISS call=7152 hits=7108 miss=44 si=0x2b913f047000 T=6 
+nkv=541568 head=11
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=7697 hits=7650 miss=47 si=0x2b913f0df000 T=6 
+nkv=541568 slot=14 count=1748
+    [density_cache] HIT  call=7698 hits=7651 miss=47 si=0x2b913f0df000 T=6 
+nkv=541568 slot=14 count=1748
+    [density_cache] HIT  call=7699 hits=7652 miss=47 si=0x2b913f0df000 T=6 
+nkv=541568 slot=14 count=1748
+    [density_cache] HIT  call=7700 hits=7653 miss=47 si=0x2b913f0df000 T=6 
+nkv=541568 slot=14 count=1748
+
+[78b2e11c] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=7701 hits=7653 miss=48 si=0x2b913f060000 T=8 
+nkv=541568 head=15
+      [density_cache]   slot=14 si=0x2b913f0df000 T=6 nkv=541568 count=1748
+      [density_cache]   slot=13 si=0x2b913f0bb000 T=6 nkv=541568 count=1748
+      [density_cache]   slot=12 si=0x2b913f097000 T=6 nkv=541568 count=1748
+      [density_cache]   slot=11 si=0x2b913f047000 T=6 nkv=541568 count=1748
+    [density_cache] MISS call=7702 hits=7653 miss=49 si=0x2b913f10b000 T=8 
+nkv=541568 head=16
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=8247 hits=8195 miss=52 si=0x2b913f19f000 T=8 
+nkv=541568 slot=19 count=2628
+    [density_cache] HIT  call=8248 hits=8196 miss=52 si=0x2b913f19f000 T=8 
+nkv=541568 slot=19 count=2628
+    [density_cache] HIT  call=8249 hits=8197 miss=52 si=0x2b913f19f000 T=8 
+nkv=541568 slot=19 count=2628
+    [density_cache] HIT  call=8250 hits=8198 miss=52 si=0x2b913f19f000 T=8 
+nkv=541568 slot=19 count=2628
+
+[68d6817d] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=8251 hits=8198 miss=53 si=0x2b913f03b000 T=6 
+nkv=541568 head=20
+      [density_cache]   slot=19 si=0x2b913f19f000 T=8 nkv=541568 count=2628
+      [density_cache]   slot=18 si=0x2b913f16b000 T=8 nkv=541568 count=2628
+      [density_cache]   slot=17 si=0x2b913f13b000 T=8 nkv=541568 count=2628
+      [density_cache]   slot=16 si=0x2b913f10b000 T=8 nkv=541568 count=2628
+    [density_cache] MISS call=8252 hits=8198 miss=54 si=0x2b913f04a000 T=6 
+nkv=541568 head=21
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=8797 hits=8740 miss=57 si=0x2b913f0ac000 T=6 
+nkv=541568 slot=24 count=111
+    [density_cache] HIT  call=8798 hits=8741 miss=57 si=0x2b913f0ac000 T=6 
+nkv=541568 slot=24 count=111
+    [density_cache] HIT  call=8799 hits=8742 miss=57 si=0x2b913f0ac000 T=6 
+nkv=541568 slot=24 count=111
+    [density_cache] HIT  call=8800 hits=8743 miss=57 si=0x2b913f0ac000 T=6 
+nkv=541568 slot=24 count=111
+
+[564007ac] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=8801 hits=8743 miss=58 si=0x2b913f05c000 T=8 
+nkv=541568 head=25
+      [density_cache]   slot=24 si=0x2b913f0ac000 T=6 nkv=541568 count=111
+      [density_cache]   slot=23 si=0x2b913f1eb000 T=6 nkv=541568 count=111
+      [density_cache]   slot=22 si=0x2b913f1df000 T=6 nkv=541568 count=111
+      [density_cache]   slot=21 si=0x2b913f04a000 T=6 nkv=541568 count=111
+    [density_cache] MISS call=8802 hits=8743 miss=59 si=0x2b913f0d8000 T=8 
+nkv=541568 head=26
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=9347 hits=9285 miss=62 si=0x2b913f168000 T=8 
+nkv=541568 slot=29 count=4758
+    [density_cache] HIT  call=9348 hits=9286 miss=62 si=0x2b913f168000 T=8 
+nkv=541568 slot=29 count=4758
+    [density_cache] HIT  call=9349 hits=9287 miss=62 si=0x2b913f168000 T=8 
+nkv=541568 slot=29 count=4758
+    [density_cache] HIT  call=9350 hits=9288 miss=62 si=0x2b913f168000 T=8 
+nkv=541568 slot=29 count=4758
+
+[ae4219a9] hits=545 misses=5 (showing first 6 + last 4 of 598 lines):
+    [density_cache] MISS call=9351 hits=9288 miss=63 si=0x2b913f03f800 T=7 
+nkv=541568 head=30
+      [density_cache]   slot=29 si=0x2b913f168000 T=8 nkv=541568 count=4758
+      [density_cache]   slot=28 si=0x2b913f138000 T=8 nkv=541568 count=4758
+      [density_cache]   slot=27 si=0x2b913f108000 T=8 nkv=541568 count=4758
+      [density_cache]   slot=26 si=0x2b913f0d8000 T=8 nkv=541568 count=4758
+    [density_cache] MISS call=9352 hits=9288 miss=64 si=0x2b913f098000 T=7 
+nkv=541568 head=31
+    ... (588 lines elided) ...
+    [density_cache] HIT  call=9897 hits=9830 miss=67 si=0x2b913f1da000 T=7 
+nkv=541568 slot=2 count=2308
+    [density_cache] HIT  call=9898 hits=9831 miss=67 si=0x2b913f1da000 T=7 
+nkv=541568 slot=2 count=2308
+    [density_cache] HIT  call=9899 hits=9832 miss=67 si=0x2b913f1da000 T=7 
+nkv=541568 slot=2 count=2308
+    [density_cache] HIT  call=9900 hits=9833 miss=67 si=0x2b913f1da000 T=7 
+nkv=541568 slot=2 count=2308
+
+[232ed014] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=9901 hits=9833 miss=68 si=0x2b913f1ec000 T=8 
+nkv=541568 head=3
+      [density_cache]   slot=2 si=0x2b913f1da000 T=7 nkv=541568 count=2308
+      [density_cache]   slot=1 si=0x2b913f1b0000 T=7 nkv=541568 count=2308
+      [density_cache]   slot=0 si=0x2b913f0a6000 T=7 nkv=541568 count=2308
+      [density_cache]   slot=31 si=0x2b913f098000 T=7 nkv=541568 count=2308
+    [density_cache] MISS call=9902 hits=9833 miss=69 si=0x2b913f0b7800 T=8 
+nkv=541568 head=4
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=10447 hits=10375 miss=72 si=0x2b913f14f800 T=8 
+nkv=541568 slot=7 count=1697
+    [density_cache] HIT  call=10448 hits=10376 miss=72 si=0x2b913f14f800 T=8 
+nkv=541568 slot=7 count=1697
+    [density_cache] HIT  call=10449 hits=10377 miss=72 si=0x2b913f14f800 T=8 
+nkv=541568 slot=7 count=1697
+    [density_cache] HIT  call=10450 hits=10378 miss=72 si=0x2b913f14f800 T=8 
+nkv=541568 slot=7 count=1697
+
+[7a389715] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=10451 hits=10378 miss=73 si=0x2b913f044000 T=8 
+nkv=541568 head=8
+      [density_cache]   slot=7 si=0x2b913f14f800 T=8 nkv=541568 count=1697
+      [density_cache]   slot=6 si=0x2b913f11b800 T=8 nkv=541568 count=1697
+      [density_cache]   slot=5 si=0x2b913f0e7800 T=8 nkv=541568 count=1697
+      [density_cache]   slot=4 si=0x2b913f0b7800 T=8 nkv=541568 count=1697
+    [density_cache] MISS call=10452 hits=10378 miss=74 si=0x2b913f09c000 T=8 
+nkv=541568 head=9
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=10997 hits=10920 miss=77 si=0x2b920f200000 T=8 
+nkv=541568 slot=12 count=1762
+    [density_cache] HIT  call=10998 hits=10921 miss=77 si=0x2b920f200000 T=8 
+nkv=541568 slot=12 count=1762
+    [density_cache] HIT  call=10999 hits=10922 miss=77 si=0x2b920f200000 T=8 
+nkv=541568 slot=12 count=1762
+    [density_cache] HIT  call=11000 hits=10923 miss=77 si=0x2b920f200000 T=8 
+nkv=541568 slot=12 count=1762
+
+[5096e459] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=11001 hits=10923 miss=78 si=0x2b913f1e7800 T=8 
+nkv=541568 head=13
+      [density_cache]   slot=12 si=0x2b920f200000 T=8 nkv=541568 count=1762
+      [density_cache]   slot=11 si=0x2b913f1af800 T=8 nkv=541568 count=1762
+      [density_cache]   slot=10 si=0x2b913f17f800 T=8 nkv=541568 count=1762
+      [density_cache]   slot=9 si=0x2b913f09c000 T=8 nkv=541568 count=1762
+    [density_cache] MISS call=11002 hits=10923 miss=79 si=0x2b913f0b4000 T=8 
+nkv=541568 head=14
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=11547 hits=11465 miss=82 si=0x2b913f148000 T=8 
+nkv=541568 slot=17 count=4513
+    [density_cache] HIT  call=11548 hits=11466 miss=82 si=0x2b913f148000 T=8 
+nkv=541568 slot=17 count=4513
+    [density_cache] HIT  call=11549 hits=11467 miss=82 si=0x2b913f148000 T=8 
+nkv=541568 slot=17 count=4513
+    [density_cache] HIT  call=11550 hits=11468 miss=82 si=0x2b913f148000 T=8 
+nkv=541568 slot=17 count=4513
+
+[d57eb9e1] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] HIT  call=11551 hits=11469 miss=82 si=0x2b913f03b000 T=6 
+nkv=541568 slot=20 count=111
+    [density_cache] HIT  call=11552 hits=11470 miss=82 si=0x2b913f04a000 T=6 
+nkv=541568 slot=21 count=111
+    [density_cache] MISS call=11553 hits=11470 miss=83 si=0x2b913f158000 T=6 
+nkv=541568 head=18
+      [density_cache]   slot=17 si=0x2b913f148000 T=8 nkv=541568 count=4513
+      [density_cache]   slot=16 si=0x2b913f114000 T=8 nkv=541568 count=4513
+      [density_cache]   slot=15 si=0x2b913f0e4000 T=8 nkv=541568 count=4513
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=12097 hits=12010 miss=87 si=0x2b913f1a3000 T=6 
+nkv=541568 slot=20 count=3282
+    [density_cache] HIT  call=12098 hits=12011 miss=87 si=0x2b913f1a3000 T=6 
+nkv=541568 slot=20 count=3282
+    [density_cache] HIT  call=12099 hits=12012 miss=87 si=0x2b913f1a3000 T=6 
+nkv=541568 slot=20 count=3282
+    [density_cache] HIT  call=12100 hits=12013 miss=87 si=0x2b913f1a3000 T=6 
+nkv=541568 slot=20 count=3282
+
+[2207f0fd] hits=545 misses=5 (showing first 6 + last 4 of 570 lines):
+    [density_cache] MISS call=12101 hits=12013 miss=88 si=0x2b913f056000 T=7 
+nkv=541568 head=23
+      [density_cache]   slot=22 si=0x2b913f04a000 T=6 nkv=541568 count=3282
+      [density_cache]   slot=21 si=0x2b913f03b000 T=6 nkv=541568 count=3282
+      [density_cache]   slot=20 si=0x2b913f1a3000 T=6 nkv=541568 count=3282
+      [density_cache]   slot=19 si=0x2b913f17c000 T=6 nkv=541568 count=3282
+    [density_cache] MISS call=12102 hits=12013 miss=89 si=0x2b913f067800 T=7 
+nkv=541568 head=24
+    ... (560 lines elided) ...
+    [density_cache] HIT  call=12647 hits=12555 miss=92 si=0x2b913f0f8000 T=7 
+nkv=541568 slot=27 count=3599
+    [density_cache] HIT  call=12648 hits=12556 miss=92 si=0x2b913f0f8000 T=7 
+nkv=541568 slot=27 count=3599
+    [density_cache] HIT  call=12649 hits=12557 miss=92 si=0x2b913f0f8000 T=7 
+nkv=541568 slot=27 count=3599
+    [density_cache] HIT  call=12650 hits=12558 miss=92 si=0x2b913f0f8000 T=7 
+nkv=541568 slot=27 count=3599
+
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-3m6AJ1ASRoLMp0OnIDAzDt

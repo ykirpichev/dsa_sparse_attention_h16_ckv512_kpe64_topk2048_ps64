@@ -1,0 +1,93 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-IOwDQ2OmaRb2l2OGAzi9Vv
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_sm100a_final 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running benchmark on Modal B200... (mode=SHAPE_DISPATCH(T_min=7), debug=OFF)
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: PASSED | 0.003 ms | 363.22x speedup | abs_err=1.95e-03, 
+rel_err=5.95e-03
+  Workload 9d4a5f21...: PASSED | 0.004 ms | 367.76x speedup | abs_err=3.91e-03, 
+rel_err=2.80e-02
+  Workload b7668cfd...: PASSED | 0.006 ms | 252.49x speedup | abs_err=1.95e-03, 
+rel_err=9.37e-02
+  Workload 0a63b87b...: PASSED | 0.006 ms | 252.72x speedup | abs_err=1.95e-03, 
+rel_err=3.90e-02
+  Workload 05f6de65...: PASSED | 0.023 ms | 72.25x speedup | abs_err=1.95e-03, 
+rel_err=7.69e-03
+  Workload fc85411e...: PASSED | 0.004 ms | 371.00x speedup | abs_err=3.91e-03, 
+rel_err=6.47e-02
+  Workload e6b849f2...: PASSED | 0.008 ms | 193.47x speedup | abs_err=3.91e-03, 
+rel_err=1.10e-01
+  Workload 9f3f891b...: PASSED | 0.019 ms | 81.44x speedup | abs_err=1.95e-03, 
+rel_err=5.26e-02
+  Workload f77df5ce...: PASSED | 0.004 ms | 359.87x speedup | abs_err=1.56e-02, 
+rel_err=9.43e-03
+  Workload 385742b2...: PASSED | 0.050 ms | 72.71x speedup | abs_err=1.56e-02, 
+rel_err=4.14e+02
+  Workload 4c46a94b...: PASSED | 0.050 ms | 73.27x speedup | abs_err=1.56e-02, 
+rel_err=2.09e+02
+  Workload 38389961...: PASSED | 0.050 ms | 65.68x speedup | abs_err=1.56e-02, 
+rel_err=3.82e+02
+  Workload 02d6ae9c...: PASSED | 0.051 ms | 71.43x speedup | abs_err=1.56e-02, 
+rel_err=2.15e+01
+  Workload ddfa9e34...: PASSED | 0.025 ms | 120.24x speedup | abs_err=3.91e-03, 
+rel_err=1.40e-02
+  Workload 78b2e11c...: PASSED | 0.051 ms | 72.49x speedup | abs_err=1.56e-02, 
+rel_err=7.64e+01
+  Workload 68d6817d...: PASSED | 0.010 ms | 307.55x speedup | abs_err=7.81e-03, 
+rel_err=1.98e-01
+  Workload 564007ac...: PASSED | 0.052 ms | 72.08x speedup | abs_err=1.56e-02, 
+rel_err=2.62e+02
+  Workload ae4219a9...: PASSED | 0.051 ms | 65.16x speedup | abs_err=1.56e-02, 
+rel_err=1.19e+02
+  Workload 232ed014...: PASSED | 0.050 ms | 79.34x speedup | abs_err=1.56e-02, 
+rel_err=7.24e+01
+  Workload 7a389715...: PASSED | 0.051 ms | 72.67x speedup | abs_err=1.56e-02, 
+rel_err=3.08e+01
+  Workload 5096e459...: PASSED | 0.051 ms | 72.92x speedup | abs_err=1.56e-02, 
+rel_err=6.05e+01
+  Workload d57eb9e1...: PASSED | 0.032 ms | 95.33x speedup | abs_err=3.91e-03, 
+rel_err=7.01e-02
+  Workload 2207f0fd...: PASSED | 0.051 ms | 66.68x speedup | abs_err=1.56e-02, 
+rel_err=6.26e+01
+
+=== [density_cache] diagnostics (per workload) ===
+
+Stopping app - local entrypoint completed.
+Runner terminated.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-IOwDQ2OmaRb2l2OGAzi9Vv
