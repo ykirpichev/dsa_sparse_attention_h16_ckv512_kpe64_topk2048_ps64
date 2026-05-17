@@ -1,0 +1,101 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-yy4KGWI9LVQ2Lw8n33Aie2
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_sm100a_final 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running benchmark on Modal B200...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 0c23b10c7b7645719517828c12eaa1d2: RUNTIME_ERROR
+GPU context corrupted on device cuda:0
+Worker on device cuda:0 is unhealthy, attempting restart
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 9d4a5f21268e484ea05a2f2af91d9fa7: RUNTIME_ERROR
+GPU context corrupted on device cuda:0
+Worker on device cuda:0 is unhealthy, attempting restart
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload b7668cfd194c4b95ab600feb205ebac6: RUNTIME_ERROR
+GPU context corrupted on device cuda:0
+Worker on device cuda:0 is unhealthy, attempting restart
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 0a63b87bb2e54e9db1ca3c4c53a1d521: RUNTIME_ERROR
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 05f6de657db543ae9e4c46796522843a: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload fc85411e250c41879b6d6a1edb80f0a7: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload e6b849f2900446148c01d81152efae23: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 9f3f891bfbe24776adfcd5a579d093dd: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload f77df5ce21634f7ca0586af7e3c13434: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 385742b2717e4f02b918c7349dde23d8: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 4c46a94ba2364dc7ab476286dee8dce3: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 3838996164a94d728710f913477feba8: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 02d6ae9c64ab42ff93f05c23c53bcb7d: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload ddfa9e340b264f76abe7418692faa876: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 78b2e11c30004cceb84355722a7c6b0a: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 68d6817dcfd1433aa8d2ddeefd54b6ea: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 564007ac354e4662a62cc4d6352dc494: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload ae4219a95f044f45bd10e17ab63c6e8f: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 232ed014bafc4835b9881bb308c659b0: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 7a389715dcc3479e9b0512309f9d1d56: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 5096e459ce3f4cdf82773ce1a0c73c8a: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload d57eb9e19f0642e8af9bd76ad0823303: RUNTIME_ERROR
+Solution 'wombat_dsa_sparse_mla_sm100a_final' for workload 2207f0fdc96347c59d106e4976cfad57: RUNTIME_ERROR
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: RUNTIME_ERROR
+  Workload 9d4a5f21...: RUNTIME_ERROR
+  Workload b7668cfd...: RUNTIME_ERROR
+  Workload 0a63b87b...: RUNTIME_ERROR
+  Workload 05f6de65...: RUNTIME_ERROR
+  Workload fc85411e...: RUNTIME_ERROR
+  Workload e6b849f2...: RUNTIME_ERROR
+  Workload 9f3f891b...: RUNTIME_ERROR
+  Workload f77df5ce...: RUNTIME_ERROR
+  Workload 385742b2...: RUNTIME_ERROR
+  Workload 4c46a94b...: RUNTIME_ERROR
+  Workload 38389961...: RUNTIME_ERROR
+  Workload 02d6ae9c...: RUNTIME_ERROR
+  Workload ddfa9e34...: RUNTIME_ERROR
+  Workload 78b2e11c...: RUNTIME_ERROR
+  Workload 68d6817d...: RUNTIME_ERROR
+  Workload 564007ac...: RUNTIME_ERROR
+  Workload ae4219a9...: RUNTIME_ERROR
+  Workload 232ed014...: RUNTIME_ERROR
+  Workload 7a389715...: RUNTIME_ERROR
+  Workload 5096e459...: RUNTIME_ERROR
+  Workload d57eb9e1...: RUNTIME_ERROR
+  Workload 2207f0fd...: RUNTIME_ERROR
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-23T21:14:38-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-yy4KGWI9LVQ2Lw8n33Aie2

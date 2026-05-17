@@ -1,0 +1,94 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-i8kT4NA78u7SmKiwEumPzm
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_sm100a_final 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running benchmark on Modal B200... (mode=SHAPE_DISPATCH(T_min=8), debug=OFF)
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+[modal-client] 2026-05-02T17:56:37+0000 Modal Client → Modal Worker Heartbeat attempt failed (attempt_dur=61.96, time_since_heartbeat_success=61.96, error=ConnectionError('Deadline exceeded'))
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: PASSED | 0.003 ms | 302.97x speedup | abs_err=3.91e-03, 
+rel_err=7.30e-03
+  Workload 9d4a5f21...: PASSED | 0.004 ms | 300.77x speedup | abs_err=3.91e-03, 
+rel_err=1.28e-02
+  Workload b7668cfd...: PASSED | 0.006 ms | 206.07x speedup | abs_err=1.95e-03, 
+rel_err=2.78e-02
+  Workload 0a63b87b...: PASSED | 0.006 ms | 207.53x speedup | abs_err=3.91e-03, 
+rel_err=4.79e-01
+  Workload 05f6de65...: PASSED | 0.023 ms | 55.64x speedup | abs_err=3.91e-03, 
+rel_err=2.00e-02
+  Workload fc85411e...: PASSED | 0.004 ms | 298.88x speedup | abs_err=1.95e-03, 
+rel_err=9.51e-03
+  Workload e6b849f2...: PASSED | 0.008 ms | 156.26x speedup | abs_err=3.91e-03, 
+rel_err=1.31e-02
+  Workload 9f3f891b...: PASSED | 0.019 ms | 65.80x speedup | abs_err=3.91e-03, 
+rel_err=1.78e-02
+  Workload f77df5ce...: PASSED | 0.004 ms | 294.08x speedup | abs_err=3.91e-03, 
+rel_err=1.45e-02
+  Workload 385742b2...: PASSED | 0.050 ms | 51.03x speedup | abs_err=1.56e-02, 
+rel_err=2.49e+01
+  Workload 4c46a94b...: PASSED | 0.050 ms | 50.95x speedup | abs_err=1.56e-02, 
+rel_err=8.95e+01
+  Workload 38389961...: PASSED | 0.047 ms | 49.18x speedup | abs_err=3.91e-03, 
+rel_err=4.67e-01
+  Workload 02d6ae9c...: PASSED | 0.051 ms | 49.56x speedup | abs_err=1.56e-02, 
+rel_err=2.60e+02
+  Workload ddfa9e34...: PASSED | 0.025 ms | 85.54x speedup | abs_err=3.91e-03, 
+rel_err=2.27e-02
+  Workload 78b2e11c...: PASSED | 0.051 ms | 49.81x speedup | abs_err=1.56e-02, 
+rel_err=9.98e+01
+  Workload 68d6817d...: PASSED | 0.010 ms | 220.68x speedup | abs_err=7.81e-03, 
+rel_err=7.41e-02
+  Workload 564007ac...: PASSED | 0.052 ms | 49.12x speedup | abs_err=1.56e-02, 
+rel_err=1.25e+02
+  Workload ae4219a9...: PASSED | 0.050 ms | 46.39x speedup | abs_err=3.91e-03, 
+rel_err=5.79e-02
+  Workload 232ed014...: PASSED | 0.051 ms | 51.53x speedup | abs_err=1.56e-02, 
+rel_err=6.45e+02
+  Workload 7a389715...: PASSED | 0.050 ms | 50.22x speedup | abs_err=1.56e-02, 
+rel_err=2.22e+02
+  Workload 5096e459...: PASSED | 0.051 ms | 50.09x speedup | abs_err=1.56e-02, 
+rel_err=8.43e+01
+  Workload d57eb9e1...: PASSED | 0.032 ms | 67.31x speedup | abs_err=7.81e-03, 
+rel_err=6.37e-02
+  Workload 2207f0fd...: PASSED | 0.050 ms | 46.58x speedup | abs_err=7.81e-03, 
+rel_err=3.32e-02
+
+=== [density_cache] diagnostics (per workload) ===
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-05-02T10:57:07-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-i8kT4NA78u7SmKiwEumPzm

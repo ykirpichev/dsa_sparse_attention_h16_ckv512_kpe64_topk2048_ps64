@@ -1,0 +1,65 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-wyrlrfHRQeobFWPIHycEH8
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_compare.py
+└── 🔨 Created function run_compare.
+Loading 3 solutions:
+  - flashinfer_wrapper_5af199  <-  
+artifacts/staging/flashinfer_wrapper_5af199.solution.json
+  - wombat_dsa_sparse_mla_v5_fused_sm100a  <-  
+artifacts/staging/v5_python_sm100a.solution.json
+  - wombat_dsa_sparse_mla_v5_p1p3_latest  <-  /tmp/v5_p1p3_latest.solution.json
+
+Running paired benchmark on Modal B200 (repeats=3)...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Comparing 3 solutions on 23 workloads, repeats=3:
+  - flashinfer_wrapper_5af199  (SupportedLanguages.PYTHON)
+  - wombat_dsa_sparse_mla_v5_fused_sm100a  (SupportedLanguages.PYTHON)
+  - wombat_dsa_sparse_mla_v5_p1p3_latest  (SupportedLanguages.PYTHON)
+
+--- repeat 1/3 ---
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+--- repeat 1 done in 54.1s ---
+
+--- repeat 2/3 ---
+--- repeat 2 done in 38.3s ---
+
+--- repeat 3/3 ---
+--- repeat 3 done in 36.3s ---
+
+Full per-workload results written to 
+artifacts/p3/compare_fi_v5fused_v5p1p3_3repeats.json
+
+=== Aggregate across 3 repeats ===
+solution                                    mean(us)   stddev_run(%)   gmean(sp)
+amean(sp)   min(sp)   max(sp)    passed
+flashinfer_wrapper_5af199                     258.35           0.27%        5.54
+5.68      3.76      6.99   69/69 
+wombat_dsa_sparse_mla_v5_fused_sm100a          66.76           0.22%       32.13
+43.77     12.68    126.96   69/69 
+wombat_dsa_sparse_mla_v5_p1p3_latest           35.36           0.52%       53.25
+64.32     25.16    141.54   69/69 
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-22T23:15:26-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-wyrlrfHRQeobFWPIHycEH8

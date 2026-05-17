@@ -1,0 +1,306 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-0N1yDVJQe3gndNOun2Hvz5
+
+
+✓ Created objects.
+├── 🔨 Created mount PythonPackage:scripts
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_v5_fused_sm100a
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_v5_fused_sm100a 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running FULL benchmark on Modal B200 [CPT=1 mma_v regs=2 min_t=1 density=on 
+min_avg=99999]...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+  Split-K diag enabled (MLA_SPARSE_ATTN_SPLIT_DIAG=1)
+  CTA-per-t ENABLED [mma_v variant] (regs variant=2, min_t=1, density=on, density_min_avg=99999)
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: PASSED | 0.008 ms | 119.94x speedup | abs_err=9.77e-04, 
+rel_err=6.99e-03
+    error: [mla_sparse_attn] regs/thread=69  localSz=0  static_smem=0  
+max_dyn_smem=48128  max_threads=256  occ@cap=3  occ@actual(46K)=3 blocks/SM
+[mla_split_partial<4>] regs/thread=72  static_smem=16  max_dyn_smem=48128  
+occ(40160 B)=3 blocks/SM
+[split_dispatch] T=1 H=16 base_ctas=16 -> G=1
+[cpt_dispatch] T=1 H=16 num_kv_rows=541568 avg_k=2 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=1 H=16 num_kv_rows=541568 avg_k=2 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=1 H=16 num_kv_rows=541568 avg_k=2 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=1 H=16 num_kv_rows=541568 avg_k=2 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=1 H=16 num_kv_rows=541568 avg_k=2 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+  Workload 9d4a5f21...: PASSED | 0.008 ms | 134.26x speedup | abs_err=3.91e-03, 
+rel_err=1.87e-02
+    error: [split_dispatch] T=2 H=16 base_ctas=32 -> G=1
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=14 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=14 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=14 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=14 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=14 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+  Workload b7668cfd...: PASSED | 0.010 ms | 109.62x speedup | abs_err=1.95e-03, 
+rel_err=2.83e-02
+    error: [cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=42 (min_t=1 min_kv=0
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=42 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=42 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=42 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=42 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 0a63b87b...: PASSED | 0.010 ms | 110.28x speedup | abs_err=3.91e-03, 
+rel_err=1.79e-02
+    error: [cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=36 (min_t=1 min_kv=0
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=36 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=36 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=36 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=36 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 05f6de65...: PASSED | 0.027 ms | 42.08x speedup | abs_err=3.91e-03, 
+rel_err=2.01e-02
+    error: [cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=171 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=2 H=16 num_kv_rows=541568 avg_k=171 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload fc85411e...: PASSED | 0.008 ms | 135.37x speedup | abs_err=9.77e-04, 
+rel_err=1.35e-02
+  Workload e6b849f2...: PASSED | 0.012 ms | 89.77x speedup | abs_err=7.81e-03, 
+rel_err=1.41e-02
+  Workload 9f3f891b...: PASSED | 0.023 ms | 48.39x speedup | abs_err=3.91e-03, 
+rel_err=1.19e-02
+  Workload f77df5ce...: PASSED | 0.008 ms | 135.53x speedup | abs_err=1.95e-03, 
+rel_err=1.67e-02
+  Workload 385742b2...: PASSED | 0.043 ms | 46.48x speedup | abs_err=3.12e-02, 
+rel_err=4.66e+01
+    error: [split_dispatch] T=8 H=16 base_ctas=128 -> G=4
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=207 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=207 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=207 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=207 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=207 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 4c46a94b...: PASSED | 0.040 ms | 46.66x speedup | abs_err=1.56e-02, 
+rel_err=1.46e+01
+    error: [cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=177 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=177 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=177 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=177 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=177 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 38389961...: PASSED | 0.052 ms | 35.84x speedup | abs_err=1.56e-02, 
+rel_err=1.22e+02
+    error: [split_dispatch] T=7 H=16 base_ctas=112 -> G=4
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=240 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=240 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=240 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=240 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=240 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 02d6ae9c...: PASSED | 0.063 ms | 32.04x speedup | abs_err=1.56e-02, 
+rel_err=3.74e+01
+    error: [cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=303 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=303 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=303 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=303 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=303 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload ddfa9e34...: PASSED | 0.029 ms | 59.51x speedup | abs_err=3.12e-02, 
+rel_err=2.96e+01
+    error: [split_dispatch] T=6 H=16 base_ctas=96 -> G=16
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=291 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=291 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=291 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=291 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=291 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 78b2e11c...: PASSED | 0.067 ms | 29.27x speedup | abs_err=1.56e-02, 
+rel_err=1.23e+02
+    error: [cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=328 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=328 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=328 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=328 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=328 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 68d6817d...: PASSED | 0.013 ms | 130.93x speedup | abs_err=3.12e-02, 
+rel_err=1.93e-01
+    error: [cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=18 (min_t=1 min_kv=0
+min_avg=2048) -> legacy
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=18 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=18 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=18 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=18 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 564007ac...: PASSED | 0.073 ms | 26.75x speedup | abs_err=1.56e-02, 
+rel_err=2.31e+01
+    error: [cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=594 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=594 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=594 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=594 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=594 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload ae4219a9...: PASSED | 0.055 ms | 32.94x speedup | abs_err=3.12e-02, 
+rel_err=1.41e+01
+    error: [cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=329 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=329 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=329 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=329 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=329 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 232ed014...: PASSED | 0.057 ms | 34.80x speedup | abs_err=1.56e-02, 
+rel_err=2.05e+01
+    error: [cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=212 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=212 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=212 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=212 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=212 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 7a389715...: PASSED | 0.056 ms | 34.65x speedup | abs_err=1.56e-02, 
+rel_err=2.28e+02
+    error: [cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=220 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=220 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=220 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 5096e459...: PASSED | 0.070 ms | 28.32x speedup | abs_err=1.56e-02, 
+rel_err=3.52e+01
+    error: [cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=564 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=564 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=564 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=564 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=8 H=16 num_kv_rows=541568 avg_k=564 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload d57eb9e1...: PASSED | 0.035 ms | 48.41x speedup | abs_err=1.56e-02, 
+rel_err=7.98e+01
+    error: [cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=547 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=547 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=6 H=16 num_kv_rows=541568 avg_k=547 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+  Workload 2207f0fd...: PASSED | 0.055 ms | 32.00x speedup | abs_err=1.56e-02, 
+rel_err=1.65e+01
+    error: [cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=514 (min_t=1 
+min_kv=0 min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=514 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=514 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=514 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+[cpt_dispatch] T=7 H=16 num_kv_rows=541568 avg_k=514 (min_t=1 min_kv=0 
+min_avg=2048) -> legacy
+
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-23T11:26:06-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-0N1yDVJQe3gndNOun2Hvz5

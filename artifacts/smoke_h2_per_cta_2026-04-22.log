@@ -1,0 +1,25 @@
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 5096e459...: PASSED | 0.221 ms | 8.31x speedup | abs_err=3.91e-03, 
+rel_err=1.10e-01
+    error: [mla_sparse_attn] regs/thread=77  localSz=24  static_smem=0  
+max_dyn_smem=102400  max_threads=256  occupancy=2 blocks/SM
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+  Workload 0a63b87b...: PASSED | 0.020 ms | 53.19x speedup | abs_err=9.77e-04, 
+rel_err=6.17e-03
+    error: 
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+  Workload 0c23b10c...: PASSED | 0.014 ms | 66.75x speedup | abs_err=9.54e-07, 
+rel_err=8.53e-07
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-21T22:56:11-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-vPOBTcbkbljhDWHcpNCDL4

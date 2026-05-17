@@ -1,0 +1,93 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-OaFr5QztUM58fmgtM5fFh9
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_paired.py
+└── 🔨 Created function run_paired.
+Packing our solution...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_cuda_v5_fused
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: cuda
+  our: wombat_dsa_sparse_mla_cuda_v5_fused
+  fi : flashinfer_wrapper_5af199
+
+Running SMOKE paired (10 workloads, seed=42)
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+  Smoke mode: 10 workloads (seed=42)
+  Config: warmup=1 iterations=1 num_trials=1
+  Workloads: 10
+
+=== Running wombat_dsa_sparse_mla_cuda_v5_fused ===
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+=== Running flashinfer_wrapper_5af199 ===
+Solution 'flashinfer_wrapper_5af199' for workload 9f3f891bfbe24776adfcd5a579d093dd: INCORRECT_NUMERICAL
+
+Saved raw results to 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/art
+ifacts/paired_smoke_20260422T031022Z.json
+Also saved to 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/art
+ifacts/paired_results.json
+
+=== Paired comparison: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64 ===
+  our: wombat_dsa_sparse_mla_cuda_v5_fused   (10 workloads)
+  fi : flashinfer_wrapper_5af199   (10 workloads)
+  common passing workloads: 10
+
+  workload      our_ms     fi_ms  pyref_our   pyref_fi  our_vs_py  fi_vs_py   
+fi/our
+  05f6de65      0.0307    0.2591     1.0895     1.0912      35.46      4.21     
+8.43
+  0a63b87b      0.0143    0.2521     1.0669     1.0763      74.42      4.27    
+17.59
+  0c23b10c      0.0103    0.2577     0.9438     0.9442      91.31      3.66    
+24.93
+  232ed014      0.0759    0.2724     1.8327     1.8500      24.14      6.79     
+3.59
+  38389961      0.0758    0.2617     1.6982     1.6964      22.41      6.48     
+3.45
+  4c46a94b      0.0717    0.2630     1.8298     1.8750      25.52      7.13     
+3.67
+  5096e459      0.1311    0.2702     1.8618     1.8688      14.20      6.92     
+2.06
+  d57eb9e1      0.1311    0.2621     1.5845     1.6363      12.08      6.24     
+2.00
+  f77df5ce      0.0123    0.2514     1.0721     1.0680      87.48      4.25    
+20.51
+
+=== Aggregate ===
+  mean latency our : 61.5 us  (total 0.553 ms)
+  mean latency fi  : 261.1 us  (total 2.350 ms)
+  geomean speedup our vs PyTorch : 33.27x (min 12.08, max 91.31)
+  geomean speedup fi  vs PyTorch : 5.38x (min 3.66, max 7.13)
+  per-workload geomean latency ratio fi/our : 6.23x
+  per-workload geomean speedup ratio our/fi : 6.18x
+  aggregate total-time fi/our  : 4.25x
+
+Stopping app - local entrypoint completed.
+Runner terminated.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-OaFr5QztUM58fmgtM5fFh9

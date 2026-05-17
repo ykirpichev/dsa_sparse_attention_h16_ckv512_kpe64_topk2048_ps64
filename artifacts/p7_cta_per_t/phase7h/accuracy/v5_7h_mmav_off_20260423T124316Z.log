@@ -1,0 +1,5 @@
+Usage: modal run scripts.run_modal [OPTIONS]
+Try 'modal run scripts.run_modal -h' for help.
+╭─ Error ──────────────────────────────────────────────────────────────────────╮
+│ No such option: --num-repeats                                                │
+╰──────────────────────────────────────────────────────────────────────────────╯

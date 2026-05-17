@@ -1,0 +1,111 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-xMbpSlVMoAgrllP6urg7DC
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_v5_fused_sm100a
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_v5_fused_sm100a 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running FULL benchmark on Modal B200 [WS3=1]...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+  WS3 enabled (MLA_SPARSE_ATTN_WS3=1)
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: PASSED | 0.010 ms | 93.49x speedup | abs_err=4.88e-04, 
+rel_err=6.41e-03
+    error: [mla_sparse_attn] regs/thread=69  localSz=0  static_smem=0  
+max_dyn_smem=48128  max_threads=256  occ@cap=3  occ@actual(46K)=3 blocks/SM
+[mla_split_partial<4>] regs/thread=68  static_smem=0  max_dyn_smem=48128  
+occ(40160 B)=3 blocks/SM
+[mla_sparse_attn_ws3] regs/thread=232  static_smem=0  max_dyn_smem=73728  
+max_threads=256
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+  Workload 9d4a5f21...: PASSED | 0.011 ms | 97.00x speedup | abs_err=7.81e-03, 
+rel_err=3.23e-02
+    error: 
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing
+.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. 
+Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+  Workload b7668cfd...: PASSED | 0.014 ms | 74.76x speedup | abs_err=3.91e-03, 
+rel_err=1.53e-02
+  Workload 0a63b87b...: PASSED | 0.014 ms | 74.62x speedup | abs_err=1.95e-03, 
+rel_err=6.71e-03
+  Workload 05f6de65...: PASSED | 0.049 ms | 22.41x speedup | abs_err=3.91e-03, 
+rel_err=1.49e-01
+  Workload fc85411e...: PASSED | 0.012 ms | 95.57x speedup | abs_err=3.91e-03, 
+rel_err=7.63e-03
+  Workload e6b849f2...: PASSED | 0.018 ms | 57.86x speedup | abs_err=1.95e-03, 
+rel_err=8.66e-03
+  Workload 9f3f891b...: PASSED | 0.041 ms | 26.43x speedup | abs_err=3.91e-03, 
+rel_err=2.52e-02
+  Workload f77df5ce...: PASSED | 0.012 ms | 90.27x speedup | abs_err=7.81e-03, 
+rel_err=1.81e-02
+  Workload 385742b2...: PASSED | 0.041 ms | 45.89x speedup | abs_err=1.56e-02, 
+rel_err=9.43e+01
+  Workload 4c46a94b...: PASSED | 0.039 ms | 47.85x speedup | abs_err=3.12e-02, 
+rel_err=1.13e+02
+  Workload 38389961...: PASSED | 0.051 ms | 36.09x speedup | abs_err=1.56e-02, 
+rel_err=6.52e+00
+  Workload 02d6ae9c...: PASSED | 0.058 ms | 32.07x speedup | abs_err=3.12e-02, 
+rel_err=2.59e+01
+  Workload ddfa9e34...: PASSED | 0.034 ms | 49.38x speedup | abs_err=1.56e-02, 
+rel_err=9.09e+02
+  Workload 78b2e11c...: PASSED | 0.057 ms | 32.97x speedup | abs_err=1.56e-02, 
+rel_err=6.49e+01
+  Workload 68d6817d...: PASSED | 0.010 ms | 153.83x speedup | abs_err=1.56e-02, 
+rel_err=1.02e-02
+  Workload 564007ac...: PASSED | 0.073 ms | 25.66x speedup | abs_err=1.56e-02, 
+rel_err=3.09e+01
+  Workload ae4219a9...: PASSED | 0.054 ms | 34.55x speedup | abs_err=1.56e-02, 
+rel_err=2.97e+01
+  Workload 232ed014...: PASSED | 0.057 ms | 33.61x speedup | abs_err=1.56e-02, 
+rel_err=9.89e+00
+  Workload 7a389715...: PASSED | 0.056 ms | 35.86x speedup | abs_err=1.56e-02, 
+rel_err=6.77e+00
+  Workload 5096e459...: PASSED | 0.070 ms | 26.86x speedup | abs_err=3.12e-02, 
+rel_err=2.22e+01
+  Workload d57eb9e1...: PASSED | 0.043 ms | 37.69x speedup | abs_err=1.56e-02, 
+rel_err=8.44e+01
+  Workload 2207f0fd...: PASSED | 0.055 ms | 31.70x speedup | abs_err=1.56e-02, 
+rel_err=3.03e+01
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-23T01:59:11-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-xMbpSlVMoAgrllP6urg7DC

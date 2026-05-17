@@ -1,0 +1,71 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-WZmlfUQajCClzCSiL4ZXYQ
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_pdl_ab.py
+└── 🔨 Created function run_ab.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+Loaded: wombat_dsa_sparse_mla_sm100a_final 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running PDL A/B on Modal B200...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+workload       base_ms    pdl_ms    delta   base_x    pdl_x
+------------------------------------------------------------
+02d6ae9c        0.0561    0.0555    -1.0%    34.87    35.12
+05f6de65        0.0266    0.0266    -0.0%    42.06    41.40
+0a63b87b        0.0102    0.0102     0.1%   109.26   108.02
+0c23b10c        0.0081    0.0081     0.2%   122.87   119.13
+2207f0fd        0.0556    0.0549    -1.2%    33.14    32.57
+232ed014        0.0553    0.0549    -0.7%    36.31    35.07
+38389961        0.0548    0.0540    -1.5%    33.02    33.58
+385742b2        0.0419    0.0417    -0.5%    46.51    46.74
+4c46a94b        0.0398    0.0396    -0.4%    48.85    49.30
+5096e459        0.0558    0.0553    -0.8%    35.18    34.74
+564007ac        0.0562    0.0560    -0.3%    35.12    34.44
+68d6817d        0.0134    0.0131    -2.2%   124.45   126.17
+78b2e11c        0.0557    0.0554    -0.5%    35.24    34.42
+7a389715        0.0551    0.0547    -0.8%    35.50    34.73
+9d4a5f21        0.0081    0.0081     0.1%   136.47   136.33
+9f3f891b        0.0227    0.0227     0.2%    49.38    49.80
+ae4219a9        0.0560    0.0557    -0.4%    32.72    31.83
+b7668cfd        0.0102    0.0102    -0.2%   108.60   108.81
+d57eb9e1        0.0553    0.0542    -2.0%    29.79    30.50
+ddfa9e34        0.0552    0.0542    -1.8%    29.79    30.19
+e6b849f2        0.0122    0.0122    -0.1%    90.70    93.18
+f77df5ce        0.0082    0.0082     0.0%   136.10   136.30
+fc85411e        0.0081    0.0082     0.1%   136.27   137.03
+------------------------------------------------------------
+TOTAL           0.8206    0.8138    -0.8%
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-23T19:57:08-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-WZmlfUQajCClzCSiL4ZXYQ

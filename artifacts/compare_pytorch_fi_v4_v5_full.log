@@ -1,0 +1,57 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-rxnWkYdayxlN84zQgPn0wu
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_compare.py
+└── 🔨 Created function run_compare.
+Loading 3 solutions:
+  - flashinfer_wrapper_5af199  <-  
+artifacts/staging/flashinfer_wrapper_5af199.solution.json
+  - wombat_dsa_sparse_mla_cuda_v4  <-  
+artifacts/staging/v4_stage3c.solution.json
+  - wombat_dsa_sparse_mla_cuda_v5_fused  <-  
+artifacts/staging/v5_fused.solution.json
+
+Running paired benchmark on Modal B200...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Comparing 3 solutions on 23 workloads:
+  - flashinfer_wrapper_5af199  (SupportedLanguages.PYTHON)
+  - wombat_dsa_sparse_mla_cuda_v4  (SupportedLanguages.CUDA)
+  - wombat_dsa_sparse_mla_cuda_v5_fused  (SupportedLanguages.CUDA)
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+Solution 'flashinfer_wrapper_5af199' for workload 78b2e11c30004cceb84355722a7c6b0a: INCORRECT_NUMERICAL
+
+Full per-workload results written to 
+artifacts/compare_pytorch_fi_v4_v5_full.json
+
+=== Aggregate summary ===
+solution                                    mean(us)   gmean(sp)   amean(sp)   
+min(sp)   max(sp)    passed
+flashinfer_wrapper_5af199                     274.09        6.52        6.86    
+3.95      9.12   22/23 
+wombat_dsa_sparse_mla_cuda_v4                  82.95       33.81       45.88    
+13.51    155.24   23/23 
+wombat_dsa_sparse_mla_cuda_v5_fused            70.53       38.36       49.75    
+16.03    155.69   23/23 
+
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-rxnWkYdayxlN84zQgPn0wu

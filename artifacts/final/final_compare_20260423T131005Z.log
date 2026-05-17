@@ -1,0 +1,98 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-bPDrJkJYMd18biEkA40lal
+
+
+✓ Created objects.
+├── 🔨 Created mount PythonPackage:scripts
+└── 🔨 Created function run_compare.
+Loading 6 solutions:
+  - wombat_dsa_sparse_mla_v5_fused_sm100a  <-  
+artifacts/staging/v5_python_sm100a.solution.json
+  - flashinfer_wrapper_5af199  <-  
+artifacts/staging/flashinfer_wrapper_5af199.solution.json
+  - wombat_dsa_sparse_mla_cuda_v4  <-  
+artifacts/staging/v4_stage3c.solution.json
+  - wombat_dsa_sparse_mla_cuda_v5_fused  <-  
+artifacts/staging/v5_fused.solution.json
+  - wombat_dsa_sparse_mla_v5_7h  <-  artifacts/staging/v5_fused_7h.solution.json
+  - wombat_dsa_sparse_mla_v5_7i  <-  artifacts/staging/v5_fused_7i.solution.json
+
+Running paired benchmark on Modal B200 (repeats=10)...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Comparing 6 solutions on 23 workloads, repeats=10:
+  - wombat_dsa_sparse_mla_v5_fused_sm100a  (SupportedLanguages.PYTHON)
+  - flashinfer_wrapper_5af199  (SupportedLanguages.PYTHON)
+  - wombat_dsa_sparse_mla_cuda_v4  (SupportedLanguages.CUDA)
+  - wombat_dsa_sparse_mla_cuda_v5_fused  (SupportedLanguages.CUDA)
+  - wombat_dsa_sparse_mla_v5_7h  (SupportedLanguages.PYTHON)
+  - wombat_dsa_sparse_mla_v5_7i  (SupportedLanguages.PYTHON)
+
+--- repeat 1/10 ---
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+--- repeat 1 done in 94.4s ---
+
+--- repeat 2/10 ---
+--- repeat 2 done in 72.8s ---
+
+--- repeat 3/10 ---
+--- repeat 3 done in 72.7s ---
+
+--- repeat 4/10 ---
+--- repeat 4 done in 72.3s ---
+
+--- repeat 5/10 ---
+--- repeat 5 done in 71.6s ---
+
+--- repeat 6/10 ---
+--- repeat 6 done in 71.5s ---
+
+--- repeat 7/10 ---
+--- repeat 7 done in 73.1s ---
+
+--- repeat 8/10 ---
+--- repeat 8 done in 72.4s ---
+
+--- repeat 9/10 ---
+--- repeat 9 done in 73.4s ---
+
+--- repeat 10/10 ---
+--- repeat 10 done in 72.3s ---
+
+Full per-workload results written to 
+artifacts/final/final_compare_20260423T131005Z.json
+
+=== Aggregate across 10 repeats ===
+solution                                    mean(us)   stddev_run(%)   gmean(sp)
+amean(sp)   min(sp)   max(sp)    passed
+flashinfer_wrapper_5af199                     259.04           0.44%        5.51
+5.66      3.72      6.97  230/230
+wombat_dsa_sparse_mla_cuda_v4                  82.94           0.47%       26.85
+38.27     10.06    111.40  230/230
+wombat_dsa_sparse_mla_cuda_v5_fused            69.81           0.15%       31.09
+42.87     12.10    127.62  230/230
+wombat_dsa_sparse_mla_v5_7h                    33.17           0.45%       55.22
+64.96     30.60    129.89  230/230
+wombat_dsa_sparse_mla_v5_7i                    33.63           0.65%       54.60
+64.17     30.93    129.99  230/230
+wombat_dsa_sparse_mla_v5_fused_sm100a          66.66           0.33%       32.17
+43.78     12.70    127.66  230/230
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-23T13:23:09-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-bPDrJkJYMd18biEkA40lal

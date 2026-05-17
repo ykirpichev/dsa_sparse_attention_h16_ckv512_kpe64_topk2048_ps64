@@ -1,0 +1,74 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-FGdqi23avrlZdV1Vbgbv2T
+
+
+✓ Created objects.
+├── 🔨 Created mount PythonPackage:scripts
+└── 🔨 Created function run_compare.
+Loading 1 solutions:
+  - wombat_dsa_sparse_mla_v5_7i  <-  artifacts/staging/v5_fused_7i.solution.json
+
+Running paired benchmark on Modal B200 (repeats=10)...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Comparing 1 solutions on 23 workloads, repeats=10:
+  - wombat_dsa_sparse_mla_v5_7i  (SupportedLanguages.PYTHON)
+
+--- repeat 1/10 ---
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+--- repeat 1 done in 42.1s ---
+
+--- repeat 2/10 ---
+--- repeat 2 done in 40.8s ---
+
+--- repeat 3/10 ---
+--- repeat 3 done in 40.6s ---
+
+--- repeat 4/10 ---
+--- repeat 4 done in 40.5s ---
+
+--- repeat 5/10 ---
+--- repeat 5 done in 40.7s ---
+
+--- repeat 6/10 ---
+--- repeat 6 done in 40.9s ---
+
+--- repeat 7/10 ---
+--- repeat 7 done in 40.9s ---
+
+--- repeat 8/10 ---
+--- repeat 8 done in 40.9s ---
+
+--- repeat 9/10 ---
+--- repeat 9 done in 40.9s ---
+
+--- repeat 10/10 ---
+--- repeat 10 done in 40.9s ---
+
+Full per-workload results written to 
+artifacts/p7_cta_per_t/phase7i/v5_7i_only_10rep_20260423T125345Z.json
+
+=== Aggregate across 10 repeats ===
+solution                                    mean(us)   stddev_run(%)   gmean(sp)
+amean(sp)   min(sp)   max(sp)    passed
+wombat_dsa_sparse_mla_v5_7i                    33.31           0.20%       56.79
+66.41     32.74    132.61  230/230
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-23T13:01:12-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-FGdqi23avrlZdV1Vbgbv2T

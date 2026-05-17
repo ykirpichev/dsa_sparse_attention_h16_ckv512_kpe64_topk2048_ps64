@@ -1,0 +1,45 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-GYZXsbrluV76dnrd67uqOb
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_cg_probe.py
+└── 🔨 Created function probe_kernel.
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+[probe] Running 3 iterations on workload 0c23b10c
+[probe] destination_passing_style=True
+[mla_sparse_attn] regs/thread=69  localSz=0  static_smem=0  max_dyn_smem=48128  max_threads=256  occ@cap=3  occ@actual(46K)=3 blocks/SM
+[mla_split_partial<4>] regs/thread=68  static_smem=0  max_dyn_smem=48128  occ(40160 B)=3 blocks/SM
+[probe] iter 0: OK
+[probe] iter 1: OK
+[probe] iter 2: OK
+
+=== PROBE RESULTS ===
+per_iter_ok = [True, True, True]
+
+Stopping app - local entrypoint completed.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-GYZXsbrluV76dnrd67uqOb

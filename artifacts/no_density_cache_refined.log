@@ -1,0 +1,93 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-ChQmfE0Y0WmQr2WWHSU36p
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal.py
+└── 🔨 Created function run_benchmark.
+Packing solution from source files...
+Solution packed: 
+/home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/sol
+ution.json
+  Name: wombat_dsa_sparse_mla_sm100a_final
+  Definition: dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+  Author: Wombat
+  Language: python
+
+Loading solution...
+Loaded: wombat_dsa_sparse_mla_sm100a_final 
+(dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64)
+
+Running benchmark on Modal B200...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+
+dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64:
+  Workload 0c23b10c...: PASSED | 0.008 ms | 116.91x speedup | abs_err=7.81e-03, 
+rel_err=6.94e-03
+  Workload 9d4a5f21...: PASSED | 0.008 ms | 132.95x speedup | abs_err=3.91e-03, 
+rel_err=1.38e-02
+  Workload b7668cfd...: PASSED | 0.010 ms | 106.67x speedup | abs_err=7.81e-03, 
+rel_err=3.45e-02
+  Workload 0a63b87b...: PASSED | 0.010 ms | 107.38x speedup | abs_err=3.91e-03, 
+rel_err=2.19e-02
+  Workload 05f6de65...: PASSED | 0.027 ms | 41.05x speedup | abs_err=7.81e-03, 
+rel_err=1.76e-02
+  Workload fc85411e...: PASSED | 0.008 ms | 131.51x speedup | abs_err=3.91e-03, 
+rel_err=8.60e-03
+  Workload e6b849f2...: PASSED | 0.012 ms | 88.00x speedup | abs_err=3.91e-03, 
+rel_err=8.89e-03
+  Workload 9f3f891b...: PASSED | 0.023 ms | 47.78x speedup | abs_err=1.95e-03, 
+rel_err=5.10e-02
+  Workload f77df5ce...: PASSED | 0.008 ms | 132.64x speedup | abs_err=3.91e-03, 
+rel_err=1.42e-02
+  Workload 385742b2...: PASSED | 0.041 ms | 46.17x speedup | abs_err=7.81e-03, 
+rel_err=2.31e-02
+  Workload 4c46a94b...: PASSED | 0.039 ms | 49.06x speedup | abs_err=7.81e-03, 
+rel_err=1.07e-01
+  Workload 38389961...: PASSED | 0.054 ms | 32.64x speedup | abs_err=1.56e-02, 
+rel_err=1.50e+02
+  Workload 02d6ae9c...: PASSED | 0.055 ms | 34.54x speedup | abs_err=1.56e-02, 
+rel_err=1.06e+02
+  Workload ddfa9e34...: PASSED | 0.054 ms | 30.12x speedup | abs_err=1.56e-02, 
+rel_err=3.00e+02
+  Workload 78b2e11c...: PASSED | 0.055 ms | 34.90x speedup | abs_err=1.56e-02, 
+rel_err=3.62e+02
+  Workload 68d6817d...: PASSED | 0.013 ms | 129.68x speedup | abs_err=3.91e-03, 
+rel_err=1.66e-02
+  Workload 564007ac...: PASSED | 0.056 ms | 34.30x speedup | abs_err=1.56e-02, 
+rel_err=3.26e+02
+  Workload ae4219a9...: PASSED | 0.055 ms | 31.99x speedup | abs_err=1.56e-02, 
+rel_err=3.58e+02
+  Workload 232ed014...: PASSED | 0.054 ms | 35.43x speedup | abs_err=1.56e-02, 
+rel_err=1.96e+02
+  Workload 7a389715...: PASSED | 0.054 ms | 35.27x speedup | abs_err=1.56e-02, 
+rel_err=3.34e+02
+  Workload 5096e459...: PASSED | 0.055 ms | 35.58x speedup | abs_err=1.56e-02, 
+rel_err=1.52e+02
+  Workload d57eb9e1...: PASSED | 0.054 ms | 30.40x speedup | abs_err=1.56e-02, 
+rel_err=1.75e+02
+  Workload 2207f0fd...: PASSED | 0.054 ms | 33.09x speedup | abs_err=1.56e-02, 
+rel_err=1.73e+02
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-23T20:54:55-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-ChQmfE0Y0WmQr2WWHSU36p

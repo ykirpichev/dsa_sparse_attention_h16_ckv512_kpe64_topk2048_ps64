@@ -1,0 +1,77 @@
+✓ Initialized. View run at 
+https://modal.com/apps/ykirpichev/main/ap-aBFVePkUElcJC8PMugz9oy
+
+
+✓ Created objects.
+├── 🔨 Created mount 
+│   /home/ykirpichev/sources/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64
+│   /scripts/run_modal_compare.py
+└── 🔨 Created function run_compare.
+Loading 4 solutions:
+  - flashinfer_wrapper_5af199  <-  
+artifacts/staging/flashinfer_wrapper_5af199.solution.json
+  - wombat_dsa_sparse_mla_cuda_v4  <-  
+artifacts/staging/v4_stage3c.solution.json
+  - wombat_dsa_sparse_mla_cuda_v5_fused  <-  
+artifacts/staging/v5_fused.solution.json
+  - wombat_dsa_sparse_mla_v5_fused_sm100a  <-  
+artifacts/staging/v5_python_sm100a.solution.json
+
+Running paired benchmark on Modal B200 (repeats=5)...
+
+==========
+== CUDA ==
+==========
+
+CUDA Version 13.2.0
+
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+Comparing 4 solutions on 23 workloads, repeats=5:
+  - flashinfer_wrapper_5af199  (SupportedLanguages.PYTHON)
+  - wombat_dsa_sparse_mla_cuda_v4  (SupportedLanguages.CUDA)
+  - wombat_dsa_sparse_mla_cuda_v5_fused  (SupportedLanguages.CUDA)
+  - wombat_dsa_sparse_mla_v5_fused_sm100a  (SupportedLanguages.PYTHON)
+
+--- repeat 1/5 ---
+/opt/conda/envs/py312/lib/python3.12/site-packages/flashinfer_bench/bench/timing.py:74: UserWarning: CUPTI is not installed. Try 'pip install -U cupti-python'. Falling back to CUDA events for benchmarking.
+  times = bench_gpu_time_with_cupti(
+--- repeat 1 done in 59.2s ---
+
+--- repeat 2/5 ---
+--- repeat 2 done in 36.3s ---
+
+--- repeat 3/5 ---
+--- repeat 3 done in 35.6s ---
+
+--- repeat 4/5 ---
+--- repeat 4 done in 35.5s ---
+
+--- repeat 5/5 ---
+--- repeat 5 done in 36.9s ---
+
+Full per-workload results written to 
+artifacts/compare_fi_v4_v5cuda_v5py_5repeats.json
+
+=== Aggregate across 5 repeats ===
+solution                                    mean(us)   stddev_run(%)   gmean(sp)
+amean(sp)   min(sp)   max(sp)    passed
+flashinfer_wrapper_5af199                     258.86           0.47%        5.53
+5.68      3.73      6.98  115/115
+wombat_dsa_sparse_mla_cuda_v4                  82.86           0.42%       26.91
+38.24     10.18    110.40  115/115
+wombat_dsa_sparse_mla_cuda_v5_fused            69.78           0.26%       31.13
+42.79     12.22    127.67  115/115
+wombat_dsa_sparse_mla_v5_fused_sm100a          66.75           0.31%       32.22
+43.83     12.83    127.83  115/115
+
+Stopping app - local entrypoint completed.
+[modal-client] 2026-04-22T03:43:06-0700 Timed out waiting for final app logs.
+✓ App completed. View run at 
+https://modal.com/apps/ykirpichev/main/ap-aBFVePkUElcJC8PMugz9oy
