@@ -8,13 +8,13 @@
 <style>
 :root {
   --bg: #fff; --fg: #1b1f24; --muted: #5d6673; --line: #e6e8eb; --code-bg: #f4f6f8;
-  --cuda: #4d8a00; --t39: #2563eb; --tk: #6d28d9; --tl: #c2410c;
+  --cuda: #4d8a00; --t39: #2563eb; --tk: #6d28d9; --tl: #c2410c; --ref: #a16207;
   --card: #f7f8f9;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #111418; --fg: #e6e8eb; --muted: #9aa3ad; --line: #2a3038; --code-bg: #1b2128;
-    --cuda: #8fd14f; --t39: #60a5fa; --tk: #c4b5fd; --tl: #fdba74;
+    --cuda: #8fd14f; --t39: #60a5fa; --tk: #c4b5fd; --tl: #fdba74; --ref: #fbbf24;
     --card: #1b2128;
   }
 }
@@ -70,6 +70,7 @@ h3 { font-size: 1.05rem; margin: 28px 0 8px; }
 .tabs button.triton.on { border-bottom-color: var(--t39); }
 .tabs button.tilelang.on { border-bottom-color: var(--tl); }
 .tabs button.tk.on { border-bottom-color: var(--tk); }
+.tabs button.first.on { border-bottom-color: var(--ref); }
 .pane { display: none; }
 .pane.on { display: block; }
 .editor pre { margin: 0; border: 0; border-radius: 0; max-height: 32rem; padding: 16px 18px; background: transparent; }
@@ -131,7 +132,7 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 </table>
 
 <h2 id="code">The same pieces, side by side</h2>
-<p>Each step is below. Pick a language and every step follows. The listing is the source that was timed. A line that says <code>...</code> is a cut between two regions of the same file.</p>
+<p>Each step is below. Pick a language and every step follows. First place is <a href="../">Doğaç Eldenk's winning Triton kernel</a>, timed on the same 23 workloads. A line that says <code>...</code> is a cut between two regions of the same file.</p>
 <nav class="piece-nav">
 <a href="#piece-path">Which path runs</a>
 <a href="#piece-gather">Gather the sparse keys</a>
@@ -140,13 +141,14 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 </nav>
 <section class="piece" id="piece-path">
 <h3>Which path runs</h3>
-<p class="why">A short token is scored by one program and never publishes a partial. A long token is split across key-groups. CUDA chooses from the average number of valid keys. The other three choose from how many programs fit on the GPU at once, and Triton also looks at where the last valid index sits.</p>
+<p class="why">A short token is scored by one program and never publishes a partial. A long token is split across key-groups. CUDA chooses from the average number of valid keys. The other three choose from how many programs fit on the GPU at once. Triton also looks at where the last valid index sits. First place looks only at the token count: two tokens or fewer never split the keys, and three or more always do.</p>
 <div class="editor">
 <div class="tabs" role="tablist">
 <button type="button" role="tab" aria-selected="true" class="cuda on" data-lang="cuda">CUDA</button>
 <button type="button" role="tab" aria-selected="false" class="triton" data-lang="triton">Triton</button>
 <button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
 <button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
+<button type="button" role="tab" aria-selected="false" class="first" data-lang="first">First place</button>
 </div>
 <div class="pane on" data-lang="cuda" role="tabpanel">
 <pre><code class="lang-cpp">  if (H == CPT_H) {
@@ -210,6 +212,55 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
     else go(launch_g&lt;1&gt;);</code></pre>
 <p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu#L483-L487">solution/tk/attention.cu, lines 483–487 and 505–507</a></p>
 </div>
+<div class="pane" data-lang="first" role="tabpanel">
+<pre><code class="lang-python"># program_id(1) is reused as both split index (phase 1) and D-slice index
+# (phase 2), so NUM_SPLITS also sets the combine-phase D tiling.
+NUM_SPLITS = 16
+...
+    if num_tokens &lt;= 2:
+        _small_t_kernel[(num_tokens, NUM_SPLITS)](
+            q_nope, q_pe,
+            ckv_flat, kpe_flat,
+            sparse_indices,
+            output, lse,
+            sm_scale * LOG2E,
+            q_nope.stride(0), q_nope.stride(1),
+            q_pe.stride(0), q_pe.stride(1),
+            ckv_flat.stride(0),
+            kpe_flat.stride(0),
+            sparse_indices.stride(0),
+            output.stride(0), output.stride(1),
+            lse.stride(0),
+            TOPK=TOPK, H=num_heads, D_CKV=D_ckv, D_KPE=D_kpe,
+            BLOCK_N=64, BLOCK_D=BLOCK_D,
+            num_warps=4, num_stages=2,
+        )
+        return
+...
+    _fused_split_combine_kernel[(num_tokens, NUM_SPLITS)](
+        q_nope, q_pe,
+        ckv_flat, kpe_flat,
+        sparse_indices,
+        partial_m, partial_l, partial_acc,
+        counter,
+        output, lse,
+        sm_scale * LOG2E,
+        q_nope.stride(0), q_nope.stride(1),
+        q_pe.stride(0), q_pe.stride(1),
+        ckv_flat.stride(0),
+        kpe_flat.stride(0),
+        sparse_indices.stride(0),
+        partial_m.stride(0), partial_m.stride(1), partial_m.stride(2),
+        partial_l.stride(0), partial_l.stride(1), partial_l.stride(2),
+        partial_acc.stride(0), partial_acc.stride(1), partial_acc.stride(2), partial_acc.stride(3),
+        output.stride(0), output.stride(1),
+        lse.stride(0),
+        target_count,
+        TOPK=TOPK, H=num_heads, D_CKV=D_ckv, D_KPE=D_kpe,
+        BLOCK_N=128, NUM_SPLITS=NUM_SPLITS, BLOCK_D=BLOCK_D,
+        num_warps=4, num_stages=2,</code></pre>
+<p class="src">Doğaç Eldenk, contest first place, sparse_fused.py, lines 312–314 and 332–350 and 356–377. Shown for comparison; it is not part of this repository.</p>
+</div>
 </div>
 </section>
 <section class="piece" id="piece-gather">
@@ -221,6 +272,7 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 <button type="button" role="tab" aria-selected="false" class="triton" data-lang="triton">Triton</button>
 <button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
 <button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
+<button type="button" role="tab" aria-selected="false" class="first" data-lang="first">First place</button>
 </div>
 <div class="pane on" data-lang="cuda" role="tabpanel">
 <pre><code class="lang-cpp">    #pragma unroll
@@ -302,6 +354,24 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
         }</code></pre>
 <p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu#L85-L106">solution/tk/attention.cu, lines 85–106</a></p>
 </div>
+<div class="pane" data-lang="first" role="tabpanel">
+<pre><code class="lang-python">    offs_split = s + tl.arange(0, SPLIT_SIZE) * NUM_SPLITS
+    idx_scan = tl.load(Indices_ptr + t * stride_idx_t + offs_split)
+    num_valid = tl.sum((idx_scan &gt;= 0).to(tl.int32), axis=0)
+    max_bn = ((num_valid + BLOCK_N - 1) // BLOCK_N) * BLOCK_N
+
+    for bn in range(0, max_bn, BLOCK_N):
+        idx_ptrs = Indices_ptr + t * stride_idx_t + (s + (bn + offs_n) * NUM_SPLITS)
+        idx = tl.load(idx_ptrs)
+        valid = idx &gt;= 0
+        safe_idx = tl.where(valid, idx, 0).to(tl.int64)
+
+        kc_ptrs = Ckv_ptr + safe_idx[:, None] * stride_kc_s + offs_ckv[None, :]
+        kp_ptrs = Kpe_ptr + safe_idx[:, None] * stride_kp_s + offs_kpe[None, :]
+        kc = tl.load(kc_ptrs, mask=valid[:, None], other=0.0, cache_modifier=&quot;.cg&quot;, eviction_policy=&quot;evict_first&quot;)
+        kp = tl.load(kp_ptrs, mask=valid[:, None], other=0.0, cache_modifier=&quot;.cg&quot;, eviction_policy=&quot;evict_first&quot;)</code></pre>
+<p class="src">Doğaç Eldenk, contest first place, sparse_fused.py, lines 78–92. Shown for comparison; it is not part of this repository.</p>
+</div>
 </div>
 </section>
 <section class="piece" id="piece-score">
@@ -313,6 +383,7 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 <button type="button" role="tab" aria-selected="false" class="triton" data-lang="triton">Triton</button>
 <button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
 <button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
+<button type="button" role="tab" aria-selected="false" class="first" data-lang="first">First place</button>
 </div>
 <div class="pane on" data-lang="cuda" role="tabpanel">
 <pre><code class="lang-cpp">    // ---- Logit phase: WMMA GEMM, K-split across 16 warps ----------------
@@ -452,6 +523,21 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
                 s.l[tx] = s.l[tx] * alpha + l_tile * scale_tile;</code></pre>
 <p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu#L211-L246">solution/tk/attention.cu, lines 211–246</a></p>
 </div>
+<div class="pane" data-lang="first" role="tabpanel">
+<pre><code class="lang-python">        logits = tl.dot(q_nope, tl.trans(kc))
+        logits = tl.dot(q_pe, tl.trans(kp), acc=logits)
+        logits = logits * sm_scale_log2e
+        logits = tl.where(valid[None, :], logits, NEG_INF)
+
+        m_new = tl.maximum(m_i, tl.max(logits, axis=1))
+        m_new_safe = tl.where(m_new == NEG_INF, 0.0, m_new)
+        alpha = tl.where(m_i == NEG_INF, 0.0, tl.exp2(m_i - m_new_safe))
+        p = tl.exp2(logits - m_new_safe[:, None])
+        l_i = l_i * alpha + tl.sum(p, axis=1)
+        acc = acc * alpha[:, None]
+        acc = tl.dot(p.to(tl.bfloat16), kc, acc=acc)</code></pre>
+<p class="src">Doğaç Eldenk, contest first place, sparse_fused.py, lines 94–105. Shown for comparison; it is not part of this repository.</p>
+</div>
 </div>
 </section>
 <section class="piece" id="piece-merge">
@@ -463,6 +549,7 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 <button type="button" role="tab" aria-selected="false" class="triton" data-lang="triton">Triton</button>
 <button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
 <button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
+<button type="button" role="tab" aria-selected="false" class="first" data-lang="first">First place</button>
 </div>
 <div class="pane on" data-lang="cuda" role="tabpanel">
 <pre><code class="lang-cpp">
@@ -612,14 +699,97 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
                 lse_row[h] = l_sum[h] &gt; 0.f ? m_top[h] + log2f(l_sum[h]) : -INFINITY;</code></pre>
 <p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu#L370-L417">solution/tk/attention.cu, lines 370–417</a></p>
 </div>
+<div class="pane" data-lang="first" role="tabpanel">
+<pre><code class="lang-python">    # ===== Atomic barrier =====
+    tl.atomic_add(Counter_ptr + t, 1, sem=&quot;release&quot;)
+
+    count = tl.load(Counter_ptr + t, volatile=True)
+    while count &lt; target_count:
+        count = tl.load(Counter_ptr + t, volatile=True)
+    tl.debug_barrier()
+...
+    for si in tl.static_range(NUM_SPLITS):
+        pm_ptr_s = Partial_m_ptr + t * stride_pm_t + si * stride_pm_s + offs_h * stride_pm_h
+        pl_ptr_s = Partial_l_ptr + t * stride_pl_t + si * stride_pl_s + offs_h * stride_pl_h
+        m_si = tl.load(pm_ptr_s)
+        l_si = tl.load(pl_ptr_s)
+
+        pacc_ptr_s = (
+            Partial_acc_ptr
+            + t * stride_pacc_t
+            + si * stride_pacc_s
+            + offs_h[:, None] * stride_pacc_h
+            + offs_d[None, :] * stride_pacc_d
+        )
+        acc_si = tl.load(pacc_ptr_s)
+
+        m_new = tl.maximum(m_global, m_si)
+        m_new_safe = tl.where(m_new == NEG_INF, 0.0, m_new)
+        alpha = tl.where(m_global == NEG_INF, 0.0, tl.exp2(m_global - m_new_safe))
+        beta = tl.where(m_si == NEG_INF, 0.0, tl.exp2(m_si - m_new_safe))
+        acc_comb = acc_comb * alpha[:, None] + acc_si * beta[:, None]
+        l_global = l_global * alpha + l_si * beta
+        m_global = m_new
+</code></pre>
+<p class="src">Doğaç Eldenk, contest first place, sparse_fused.py, lines 121–127 and 137–159. Shown for comparison; it is not part of this repository.</p>
+</div>
 </div>
 </section>
+
+<h2 id="faster">Why the fused kernel is faster than first place</h2>
+<p>Doğaç Eldenk's kernel is the same idea: one Triton launch, 16 programs per token, and a counter that lets those programs merge. On the official 50-iteration run it averages 10.2 µs, 0.45× the CUDA submission. <code>run_fused</code> averages 8.6 µs, 0.37×, and it is faster on every one of the 23 workloads. The full five-way table is on the <a href="../">comparison page</a>. The gap comes from when the keys are split, and from how long a tile is.</p>
+<table>
+<thead><tr><th></th><th>Fused, this repository</th><th>Contest first place</th></tr></thead>
+<tbody>
+<tr><td>One or two tokens</td><td>If the last valid index is below 128, each program scores the row and writes its own columns. Past that, the keys are split.</td><td>Always the small kernel. All 16 programs score every key and each writes 32 columns. The keys are never split.</td></tr>
+<tr><td>Three or more tokens</td><td>The same test, per token. A short token does not publish a partial and does not wait.</td><td>Always a 16-way key split and the barrier, including a token with a few dozen keys.</td></tr>
+<tr><td>Tile</td><td>The smallest of 32, 64, and 128 that covers the positions up to the last valid index. The loads sit in a loop, so Triton pipelines them.</td><td>64 on the small kernel and 128 on the split kernel. If a split contains any valid index, that program gathers one full block.</td></tr>
+</tbody>
+</table>
+<p>Three workloads are enough to see it. On <code>05f6de65</code> there are two tokens and the longer one has 288–337 keys. First place stays on the small kernel, so every program gathers and scores that whole row: 16.4 µs. The fused kernel splits the keys, and each program scores about a sixteenth of the span: 8.1 µs. <code>9f3f891b</code> is the same situation, 14.3 µs against 8.0 µs.</p>
+<p><code>68d6817d</code> has 6 tokens and at most 32 keys each. First place splits because the token count is above 2. Each program gathers a 128-wide block as soon as its stride holds one valid index, writes a partial, and waits at the barrier: 11.2 µs. The fused kernel takes the direct path and skips the partials and the barrier: 4.4 µs.</p>
+<p>On a dense call both kernels split 16 ways, and the gap shrinks to the tile. First place gathers 128 keys per program. The fused kernel stops at the last valid index and takes the smallest tile that covers it. <code>02d6ae9c</code> (8 tokens, 303 keys) is 12.0 µs against 11.1 µs. Across the dense calls the difference stays inside about 1.3 µs.</p>
+<div class="scroll">
+<table>
+<thead><tr><th>Workload</th><th class="num">T</th><th class="num">Keys</th><th class="num">Fused</th><th class="num">First place</th></tr></thead>
+<tbody>
+<tr><td class="mono">0c23b10c</td><td class="num">1</td><td class="num">2</td><td class="num">3.9</td><td class="num">4.8</td></tr>
+<tr><td class="mono">9d4a5f21</td><td class="num">2</td><td class="num">14</td><td class="num">4.2</td><td class="num">5.0</td></tr>
+<tr><td class="mono">fc85411e</td><td class="num">2</td><td class="num">15</td><td class="num">4.2</td><td class="num">4.9</td></tr>
+<tr><td class="mono">f77df5ce</td><td class="num">2</td><td class="num">18</td><td class="num">4.3</td><td class="num">5.0</td></tr>
+<tr><td class="mono">0a63b87b</td><td class="num">2</td><td class="num">36</td><td class="num">4.8</td><td class="num">5.1</td></tr>
+<tr><td class="mono">b7668cfd</td><td class="num">2</td><td class="num">42</td><td class="num">4.9</td><td class="num">5.1</td></tr>
+<tr><td class="mono">e6b849f2</td><td class="num">2</td><td class="num">70</td><td class="num">6.5</td><td class="num">7.3</td></tr>
+<tr><td class="mono">9f3f891b</td><td class="num">2</td><td class="num">146</td><td class="num">8.0</td><td class="num">14.3</td></tr>
+<tr><td class="mono">05f6de65</td><td class="num">2</td><td class="num">171</td><td class="num">8.1</td><td class="num">16.4</td></tr>
+<tr><td class="mono">68d6817d</td><td class="num">6</td><td class="num">18</td><td class="num">4.4</td><td class="num">11.2</td></tr>
+<tr><td class="mono">ddfa9e34</td><td class="num">6</td><td class="num">291</td><td class="num">11.0</td><td class="num">11.6</td></tr>
+<tr><td class="mono">d57eb9e1</td><td class="num">6</td><td class="num">547</td><td class="num">11.2</td><td class="num">11.9</td></tr>
+<tr><td class="mono">38389961</td><td class="num">7</td><td class="num">240</td><td class="num">10.9</td><td class="num">11.7</td></tr>
+<tr><td class="mono">ae4219a9</td><td class="num">7</td><td class="num">329</td><td class="num">11.1</td><td class="num">11.8</td></tr>
+<tr><td class="mono">2207f0fd</td><td class="num">7</td><td class="num">514</td><td class="num">11.2</td><td class="num">12.2</td></tr>
+<tr><td class="mono">4c46a94b</td><td class="num">8</td><td class="num">177</td><td class="num">9.3</td><td class="num">11.8</td></tr>
+<tr><td class="mono">385742b2</td><td class="num">8</td><td class="num">207</td><td class="num">10.9</td><td class="num">12.0</td></tr>
+<tr><td class="mono">232ed014</td><td class="num">8</td><td class="num">212</td><td class="num">11.0</td><td class="num">11.9</td></tr>
+<tr><td class="mono">7a389715</td><td class="num">8</td><td class="num">220</td><td class="num">11.2</td><td class="num">11.9</td></tr>
+<tr><td class="mono">02d6ae9c</td><td class="num">8</td><td class="num">303</td><td class="num">11.1</td><td class="num">12.0</td></tr>
+<tr><td class="mono">78b2e11c</td><td class="num">8</td><td class="num">328</td><td class="num">11.1</td><td class="num">12.3</td></tr>
+<tr><td class="mono">5096e459</td><td class="num">8</td><td class="num">564</td><td class="num">11.6</td><td class="num">12.5</td></tr>
+<tr><td class="mono">564007ac</td><td class="num">8</td><td class="num">594</td><td class="num">11.8</td><td class="num">12.5</td></tr>
+</tbody>
+<tfoot>
+<tr><td colspan="3">Mean</td><td class="num">8.6</td><td class="num">10.2</td></tr>
+</tfoot>
+</table>
+</div>
+<p class="meta">Microseconds, the official flashinfer-bench timer: CUPTI span, L2 flushed, median of 50 calls. These two columns are the fused and first-place columns of the <a href="../">comparison page</a>. The four-way table above is a separate 10-iteration run and does not include this kernel.</p>
 
 <h2>Where the code is</h2>
 <ul>
 <li>CUDA: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/python/kernel.cu"><code>solution/python/kernel.cu</code></a> and <code>mla_cta.cuh</code>. The score reduction writes <code>s_logits_tile[tid] = (g_idx &gt;= 0) ? sum * sm_scale_log2e : −∞</code>.</li>
 <li>Triton: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/triton/kernel.py"><code>solution/triton/kernel.py</code></a>, <code>run_fused</code>. One program per key-group. Below the threshold it writes its own columns and skips the barrier. Above it, every key-group stores the whole value.</li>
 <li>TileLang: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tilelang/solution.py"><code>solution/tilelang/solution.py</code></a>. <code>T.gemm(q_s, k_s, score, transpose_B=True)</code> is the score, and one <code>T.gemm(p_s, k_s, mix)</code> is the whole output. A second kernel merges. Both are captured in one CUDA graph.</li>
+<li>Contest first place: Doğaç Eldenk's Triton kernel, shown in the First place tab. Two tokens or fewer use <code>_small_t_kernel</code> with a fixed block of 64. Three or more use <code>_fused_split_combine_kernel</code> with 16 splits and a block of 128.</li>
 <li>ThunderKittens: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu"><code>solution/tk/attention.cu</code></a>. <code>mm_ABt</code> scores 128 gathered keys by a 128-wide chunk of the latent. <code>mm_AB</code> mixes the softmax weights with the same latent. The loader is <code>solution/tk/solution.py</code>.</li>
 </ul>
 
