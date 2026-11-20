@@ -20,7 +20,11 @@ rescale as ``mla_split_reduce_kernel``.
 ``run`` is that port: tiles of 16 rows, no load pipelining, eager launches.
 ``launch`` exposes the knobs the port fixes (kernel, split factor, tile
 size, pipeline depth, CUDA-graph replay), and ``run_tuned`` is the setting
-that measured fastest on B200.
+of those knobs that measured fastest on B200.
+
+``run_fused`` is a different design and the fastest of the three: a single
+launch (``_fused``) in which the programs of a token split its keys, wait
+for each other at a barrier, and merge. It no longer mirrors the CUDA code.
 """
 
 from __future__ import annotations
@@ -392,6 +396,219 @@ def _reduce(
     tl.store(lse + token * stride_lt + head * stride_lh, lse_val)
 
 
+@triton.jit
+def _tile(
+    q, qp, ckv, kpe, idx, n_kv, sm_log2e, stride_ck, stride_kp, col0,
+    m, l, acc,
+    D: tl.constexpr, D_PE: tl.constexpr, W: tl.constexpr, FIRST: tl.constexpr,
+):
+    """Fold one tile of keys into the running softmax of all heads.
+
+    Scores use the whole key. ``acc`` holds output columns
+    [col0, col0 + W); with W == D that is the whole value.
+    """
+    valid = (idx >= 0) & (idx < n_kv)
+    rows = tl.where(valid, idx, 0).to(tl.int64)
+    k = tl.load(
+        ckv + rows[:, None] * stride_ck + tl.arange(0, D)[None, :],
+        mask=valid[:, None], other=0.0,
+    )
+    kp = tl.load(
+        kpe + rows[:, None] * stride_kp + tl.arange(0, D_PE)[None, :],
+        mask=valid[:, None], other=0.0,
+    )
+    score = tl.dot(q, tl.trans(k))
+    score = tl.dot(qp, tl.trans(kp), acc=score)
+    score = tl.where(valid[None, :], score * sm_log2e, float("-inf"))
+
+    m_new = tl.maximum(m, tl.max(score, axis=1))
+    m_ref = tl.where(m_new == float("-inf"), 0.0, m_new)
+    prob = tl.exp2(score - m_ref[:, None])
+    if W == D:
+        k_out = k
+    else:
+        k_out = tl.load(
+            ckv + rows[:, None] * stride_ck + (col0 + tl.arange(0, W))[None, :],
+            mask=valid[:, None], other=0.0,
+        )
+    mix = tl.dot(prob.to(tl.bfloat16), k_out)
+    if FIRST:
+        l_new = tl.sum(prob, axis=1)
+        acc_new = mix
+    else:
+        # exp2(-inf) is 0, so an empty running state drops out by itself.
+        alpha = tl.exp2(m - m_ref)
+        l_new = l * alpha + tl.sum(prob, axis=1)
+        acc_new = acc * alpha[:, None] + mix
+    return m_new, l_new, acc_new
+
+
+@triton.jit
+def _span(
+    q, qp, ckv, kpe, first, count, n_kv, sm_log2e, stride_ck, stride_kp, col0, m0, l0,
+    H: tl.constexpr, D: tl.constexpr, D_PE: tl.constexpr, W: tl.constexpr,
+    STEP: tl.constexpr, B0: tl.constexpr, B1: tl.constexpr, B2: tl.constexpr,
+):
+    """Softmax over ``count`` index slots: first, first + STEP, first + 2 * STEP, ...
+
+    A tile costs about as much as its size, valid slots or not, so the span
+    runs as the smallest tile that covers it: one tile of B0 slots, one of
+    B1, or a run of B2 tiles.
+
+    Every tile sits in a loop whose loads depend on the loop counter, even
+    where the loop has at most one trip. Triton only pipelines loads
+    (asynchronous copies straight into shared memory) inside such a loop,
+    and the same tile as straight-line code is slower.
+    """
+    m = m0
+    l = l0
+    acc = tl.zeros((H, W), tl.float32)
+    if count <= B0:
+        for tile in range(0, tl.minimum(count, 1)):
+            idx = tl.load(first + (tile * B0 + tl.arange(0, B0)) * STEP)
+            m, l, acc = _tile(
+                q, qp, ckv, kpe, idx, n_kv, sm_log2e, stride_ck, stride_kp, col0,
+                m, l, acc,
+                D=D, D_PE=D_PE, W=W, FIRST=False,
+            )
+    elif count <= B1:
+        for tile in range(0, tl.minimum(count, 1)):
+            idx = tl.load(first + (tile * B1 + tl.arange(0, B1)) * STEP)
+            m, l, acc = _tile(
+                q, qp, ckv, kpe, idx, n_kv, sm_log2e, stride_ck, stride_kp, col0,
+                m, l, acc,
+                D=D, D_PE=D_PE, W=W, FIRST=False,
+            )
+    else:
+        for tile in range(0, (count + B2 - 1) // B2):
+            idx = tl.load(first + (tile * B2 + tl.arange(0, B2)) * STEP)
+            m, l, acc = _tile(
+                q, qp, ckv, kpe, idx, n_kv, sm_log2e, stride_ck, stride_kp, col0,
+                m, l, acc,
+                D=D, D_PE=D_PE, W=W, FIRST=False,
+            )
+    return m, l, acc
+
+
+@triton.jit
+def _fused(
+    q_nope, q_pe, ckv, kpe, indices, out, lse,
+    part_acc, part_m, part_l, counter,
+    sm_log2e, n_kv,
+    stride_qt, stride_qh, stride_pt, stride_ph,
+    stride_ck, stride_kp,
+    stride_ot, stride_oh, stride_lt, stride_lh,
+    H: tl.constexpr, D: tl.constexpr, D_PE: tl.constexpr, TOPK: tl.constexpr,
+    G: tl.constexpr, B0: tl.constexpr, B1: tl.constexpr, B2: tl.constexpr,
+    THRESH: tl.constexpr,
+):
+    """One launch for the whole call. Grid (T, G): G programs per token.
+
+    Every program scans its token's index row first and finds the last
+    valid position. All programs of a token see the same row, so they all
+    take the same one of two paths.
+
+    Direct (last valid position below THRESH, a short token): program
+    ``slot`` scores every key and accumulates output columns
+    [slot * D/G, (slot + 1) * D/G) only. Nothing is shared between programs.
+
+    Split (a long token): program ``slot`` takes keys slot, slot + G,
+    slot + 2G, ... and publishes a partial softmax over the whole value. A
+    per-token counter is the barrier: when all G partials are in, program
+    ``slot`` merges its column range from them. This replaces the second
+    launch of split-K.
+
+    Both paths visit every position up to the last valid one, so padding
+    may sit anywhere; THRESH only picks the faster path.
+
+    The barrier only opens if all T * G programs are on the GPU at the same
+    time. ``fused_split`` picks G so that they are.
+    """
+    token = tl.program_id(0)
+    slot = tl.program_id(1)
+    W: tl.constexpr = D // G
+    heads = tl.arange(0, H)
+    cols = slot * W + tl.arange(0, W)
+
+    q = tl.load(
+        q_nope + token * stride_qt + heads[:, None] * stride_qh + tl.arange(0, D)[None, :],
+        eviction_policy="evict_last",
+    )
+    qp = tl.load(
+        q_pe + token * stride_pt + heads[:, None] * stride_ph + tl.arange(0, D_PE)[None, :],
+        eviction_policy="evict_last",
+    )
+    row = indices + token * TOPK
+    out_ptr = out + token * stride_ot + heads[:, None] * stride_oh + cols[None, :]
+    lse_ptr = lse + token * stride_lt + heads * stride_lh
+    m0 = tl.full((H,), float("-inf"), tl.float32)
+    l0 = tl.zeros((H,), tl.float32)
+
+    pos = tl.arange(0, TOPK)
+    scan = tl.load(row + pos)
+    last = tl.max(tl.where((scan >= 0) & (scan < n_kv), pos, -1), axis=0)
+
+    if last >= THRESH:
+        # The counter rises by G per call. Read before this program's own
+        # increment, it is below the next multiple of G, which is the value
+        # it reaches once every program of the token has published.
+        target = (tl.load(counter + token, volatile=True) & (-G)) + G
+
+        # Keys slot, slot + G, ... up to the last valid position.
+        mine = tl.maximum(last - slot + G, 0) // G
+        m, l, acc = _span(
+            q, qp, ckv, kpe, row + slot, mine, n_kv, sm_log2e, stride_ck, stride_kp, 0, m0, l0,
+            H=H, D=D, D_PE=D_PE, W=D, STEP=G, B0=B0, B1=B1, B2=B2,
+        )
+
+        # Publish. The stores skip L1 so other SMs see them through L2.
+        part = (token * G + slot) * H + heads
+        tl.store(part_m + part, m, cache_modifier=".cg")
+        tl.store(part_l + part, l, cache_modifier=".cg")
+        tl.store(
+            part_acc + part[:, None] * D + tl.arange(0, D)[None, :], acc,
+            cache_modifier=".cg",
+        )
+        # Every thread has issued its stores before the arrival is counted.
+        tl.debug_barrier()
+        tl.atomic_add(counter + token, 1, sem="release")
+        count = tl.load(counter + token, volatile=True)
+        # The difference stays correct when the counter wraps around.
+        while (count - target) < 0:
+            count = tl.load(counter + token, volatile=True)
+        tl.debug_barrier()
+
+        # Merge columns `cols` of all G partials.
+        m_top = m0
+        for g in tl.static_range(G):
+            m_top = tl.maximum(m_top, tl.load(part_m + (token * G + g) * H + heads, cache_modifier=".cg"))
+        m_ref = tl.where(m_top == float("-inf"), 0.0, m_top)
+        l_sum = l0
+        mix = tl.zeros((H, W), tl.float32)
+        for g in tl.static_range(G):
+            src = (token * G + g) * H + heads
+            weight = tl.exp2(tl.load(part_m + src, cache_modifier=".cg") - m_ref)
+            l_sum += tl.load(part_l + src, cache_modifier=".cg") * weight
+            piece = tl.load(part_acc + src[:, None] * D + cols[None, :], cache_modifier=".cg")
+            mix += piece * weight[:, None]
+
+        inv = tl.where(l_sum > 0, 1.0 / l_sum, 0.0)
+        tl.store(out_ptr, (mix * inv[:, None]).to(tl.bfloat16))
+        if slot == 0:
+            tl.store(lse_ptr, tl.where(l_sum > 0, m_top + tl.log2(tl.where(l_sum > 0, l_sum, 1.0)), float("-inf")))
+    else:
+        # Names differ from the split branch: Triton merges same-named values
+        # across the arms of a branch and their shapes are not the same.
+        d_m, d_l, d_acc = _span(
+            q, qp, ckv, kpe, row, last + 1, n_kv, sm_log2e, stride_ck, stride_kp, slot * W, m0, l0,
+            H=H, D=D, D_PE=D_PE, W=W, STEP=1, B0=B0, B1=B1, B2=B2,
+        )
+        d_inv = tl.where(d_l > 0, 1.0 / d_l, 0.0)
+        tl.store(out_ptr, (d_acc * d_inv[:, None]).to(tl.bfloat16))
+        if slot == 0:
+            tl.store(lse_ptr, tl.where(d_l > 0, d_m + tl.log2(tl.where(d_l > 0, d_l, 1.0)), float("-inf")))
+
+
 def _check(q_nope, q_pe, ckv_cache, kpe_cache, sparse_indices, out, lse):
     if q_nope.shape[1] != _H or q_nope.shape[2] != _D:
         raise ValueError(f"q_nope must be [T, {_H}, {_D}], got {tuple(q_nope.shape)}")
@@ -539,3 +756,97 @@ def launch(
         if _replay_graph(key, emit):
             return
     emit()
+
+
+_fused_scratch: dict = {}
+_sm_count: dict = {}
+
+
+def fused_split(n_tokens: int, device: torch.device) -> int:
+    """Programs per token for ``_fused``: as many as fit one per SM, up to 16.
+
+    The barrier needs every program of the launch on the GPU at once, and
+    each SM holds at least one.
+    """
+    key = (device.type, device.index)
+    n_sm = _sm_count.get(key)
+    if n_sm is None:
+        n_sm = torch.cuda.get_device_properties(device).multi_processor_count
+        _sm_count[key] = n_sm
+    g = 16
+    while g > 1 and n_tokens * g > n_sm:
+        g //= 2
+    return g
+
+
+def _fused_workspace(n_tokens: int, g: int, device: torch.device):
+    """Partials of the split path, and the barrier counters (they start at 0)."""
+    key = (n_tokens, g, device.type, device.index)
+    buf = _fused_scratch.get(key)
+    if buf is None:
+        buf = (
+            torch.empty((n_tokens, g, _H, _D), dtype=torch.float32, device=device),
+            torch.empty((n_tokens, g, _H), dtype=torch.float32, device=device),
+            torch.empty((n_tokens, g, _H), dtype=torch.float32, device=device),
+            torch.zeros((n_tokens,), dtype=torch.int32, device=device),
+        )
+        _fused_scratch[key] = buf
+    return buf
+
+
+def launch_fused(
+    q_nope, q_pe, ckv_cache, kpe_cache, sparse_indices, sm_scale, out, lse,
+    g=None, num_warps=4, num_stages=2, block_small=32, block_mid=64, block=128, thresh=128,
+):
+    """One launch of ``_fused``. The keyword arguments are the tuning knobs.
+
+    ``thresh``: a token whose last valid index sits below this position
+    takes the direct path. ``block_small``, ``block_mid`` and ``block`` are
+    the three tile sizes of ``_span``.
+    """
+    _check(q_nope, q_pe, ckv_cache, kpe_cache, sparse_indices, out, lse)
+    if out.stride(2) != 1:
+        raise ValueError("launch_fused needs out to be dense in its last dimension")
+    ckv = _rows(ckv_cache)
+    kpe = _rows(kpe_cache)
+    indices = sparse_indices if sparse_indices.is_contiguous() else sparse_indices.contiguous()
+    if q_nope.stride(2) != 1:
+        q_nope = q_nope.contiguous()
+    if q_pe.stride(2) != 1:
+        q_pe = q_pe.contiguous()
+    n_tokens = q_nope.shape[0]
+    if g is None:
+        g = fused_split(n_tokens, q_nope.device)
+    if g < 2:
+        raise ValueError("launch_fused needs g >= 2")
+    # A program's share is TOPK / g slots; whole tiles must fit inside it.
+    block = min(block, _TOPK // g)
+    block_mid = min(block_mid, block)
+    block_small = min(block_small, block_mid)
+
+    part_acc, part_m, part_l, counter = _fused_workspace(n_tokens, g, q_nope.device)
+    _fused[(n_tokens, g)](
+        q_nope, q_pe, ckv, kpe, indices, out, lse,
+        part_acc, part_m, part_l, counter,
+        _as_float(sm_scale) * _LOG2E, ckv.shape[0],
+        q_nope.stride(0), q_nope.stride(1), q_pe.stride(0), q_pe.stride(1),
+        ckv.stride(0), kpe.stride(0),
+        out.stride(0), out.stride(1), lse.stride(0), lse.stride(1),
+        H=_H, D=_D, D_PE=_D_PE, TOPK=_TOPK,
+        G=g, B0=block_small, B1=block_mid, B2=block, THRESH=thresh,
+        num_warps=num_warps, num_stages=num_stages,
+    )
+
+
+def run_fused(q_nope, q_pe, ckv_cache, kpe_cache, sparse_indices, sm_scale, out, lse):
+    """Destination-passing entry for the single-launch kernel.
+
+    Falls back to ``run_tuned`` when the output is not dense in its last
+    dimension or when there are too many tokens to give each one eight
+    programs that are all on the GPU at once.
+    """
+    n_tokens = q_nope.shape[0]
+    if out.stride(2) != 1 or fused_split(n_tokens, q_nope.device) < 8:
+        run_tuned(q_nope, q_pe, ckv_cache, kpe_cache, sparse_indices, sm_scale, out, lse)
+        return
+    launch_fused(q_nope, q_pe, ckv_cache, kpe_cache, sparse_indices, sm_scale, out, lse)

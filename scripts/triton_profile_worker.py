@@ -9,9 +9,15 @@ For every contest workload it records:
   * which GPU kernels each call launched and how long each one ran
   * host time per call
 
-A configuration is "path,G,num_warps,BLOCK_K,num_stages", optionally
-followed by ",graph" to replay the launches from a CUDA graph, or "auto"
-for the dispatcher in kernel.py. Results go to a JSON file.
+A configuration is one of
+
+  auto                                   kernel.run, the CUDA dispatcher
+  path,G,num_warps,BLOCK_K,num_stages    kernel.launch, optionally ",graph"
+  fused,name=value,...                   kernel.launch_fused keyword arguments
+  fn=name                                kernel.<name>, an entry point
+  extra                                  the --extra file's entry point
+
+Results go to a JSON file.
 """
 
 from __future__ import annotations
@@ -63,9 +69,24 @@ def load_module(path: str, name: str):
     return module
 
 
-def make_triton_fn(kernel, config: str):
+def make_triton_fn(kernel, config: str, extra=None):
     if config == "auto":
         return kernel.run
+    if config == "extra":
+        return extra
+    if config.startswith("fn="):
+        return getattr(kernel, config[3:])
+    if config.startswith("fused"):
+        # "fused,g=8,block=64,thresh=64": keyword arguments of launch_fused.
+        kwargs = {}
+        for item in config.split(",")[1:]:
+            name, _, value = item.partition("=")
+            kwargs[name] = int(value)
+
+        def fused(*args):
+            kernel.launch_fused(*args, **kwargs)
+
+        return fused
     path, g, warps, block_k, stages, *flags = config.split(",")
 
     def fn(*args):
@@ -248,6 +269,55 @@ def index_stats(sparse_indices, n_kv: int) -> dict:
     }
 
 
+def stress(fn, calls: int, seed: int = 0, label: str = "") -> dict:
+    """Check ``fn`` against the reference on synthetic calls.
+
+    Every call has new contents, so a merge that read a partial left over
+    from the call before would show up; the benchmark repeats one input and
+    would hide it. Token counts go past the range of the workloads, and the
+    padding sits either at the tail or anywhere in the row.
+    """
+    gen = torch.Generator(device=DEVICE).manual_seed(seed)
+    pages, page_size, n_heads, dim, dim_pe, topk = 512, 64, 16, 512, 64, 2048
+    n_kv = pages * page_size
+    lengths = [0, 1, 2, 16, 31, 32, 33, 63, 64, 65, 127, 128, 129, 300, 511, 1024, 1500, 2047, 2048]
+    worst = {"out": 0.0, "lse": 0.0}
+    per_t: dict = {}
+    for call in range(calls):
+        n_tokens = (1, 2, 3, 6, 8, 9, 12, 18, 20)[call % 9]
+        scatter = (call // 9) % 2 == 1
+        ckv = (torch.randn((pages, page_size, dim), generator=gen, device=DEVICE) * 0.5).to(torch.bfloat16)
+        kpe = (torch.randn((pages, page_size, dim_pe), generator=gen, device=DEVICE) * 0.5).to(torch.bfloat16)
+        q_nope = torch.randn((n_tokens, n_heads, dim), generator=gen, device=DEVICE).to(torch.bfloat16)
+        q_pe = torch.randn((n_tokens, n_heads, dim_pe), generator=gen, device=DEVICE).to(torch.bfloat16)
+        indices = torch.full((n_tokens, topk), -1, dtype=torch.int32, device=DEVICE)
+        for t in range(n_tokens):
+            pick = int(torch.randint(len(lengths), (1,), generator=gen, device=DEVICE))
+            count = lengths[pick]
+            keys = torch.randint(n_kv, (count,), generator=gen, device=DEVICE, dtype=torch.int32)
+            if scatter:
+                where = torch.randperm(topk, generator=gen, device=DEVICE)[:count]
+                indices[t, where] = keys
+            else:
+                indices[t, :count] = keys
+        inputs = (q_nope, q_pe, ckv, kpe, indices, 0.1352337788608801)
+        outs = new_outputs(inputs)
+        outs[0].fill_(float("nan"))
+        outs[1].fill_(float("nan"))
+        # Printed before the call so a hang names the shape that caused it.
+        print(f"stress {label} call {call} T={n_tokens} scatter={scatter}", flush=True)
+        fn(*inputs, *outs)
+        torch.cuda.synchronize()
+        out_err, lse_err = max_errors(outs, reference(*inputs))
+        if not math.isfinite(out_err):
+            out_err = float("inf")
+        worst["out"] = max(worst["out"], out_err)
+        worst["lse"] = max(worst["lse"], lse_err)
+        seen = per_t.setdefault(n_tokens, [0.0, 0.0])
+        seen[0], seen[1] = max(seen[0], out_err), max(seen[1], lse_err)
+    return {"calls": calls, "max_out_err": worst["out"], "max_lse_err": worst["lse"], "per_tokens": per_t}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--kernel", required=True)
@@ -257,6 +327,8 @@ def main():
     parser.add_argument("--configs", default="")
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--iters", type=int, default=20)
+    parser.add_argument("--extra", default="", help="file.py::function, timed as config 'extra'")
+    parser.add_argument("--stress", type=int, default=0, help="synthetic calls per configuration, checked only")
     args = parser.parse_args()
 
     import triton
@@ -274,7 +346,11 @@ def main():
 
     kernel = load_module(args.kernel, "triton_kernel")
     configs = [c for c in args.configs.split(";") if c] or default_sweep()
-    triton_fns = {config: make_triton_fn(kernel, config) for config in configs}
+    extra = None
+    if args.extra:
+        extra_path, _, extra_name = args.extra.partition("::")
+        extra = getattr(load_module(extra_path, "extra_kernel"), extra_name)
+    triton_fns = {config: make_triton_fn(kernel, config, extra) for config in configs}
 
     cuda_fn = None
     if args.cuda_dir:
@@ -349,6 +425,19 @@ def main():
 
     with open(args.out, "w") as handle:
         json.dump(report, handle)
+
+    # Last, because a kernel with a barrier can hang on a shape it was not
+    # built for, and the timings above are already on disk by then.
+    if args.stress:
+        report["stress"] = {}
+        for config, fn in triton_fns.items():
+            try:
+                report["stress"][config] = stress(fn, args.stress, label=config)
+            except Exception:
+                report["stress"][config] = {"failed": traceback.format_exc()[-1200:]}
+            print(f"stress {config}: {report['stress'][config]}", flush=True)
+            with open(args.out, "w") as handle:
+                json.dump(report, handle)
 
 
 if __name__ == "__main__":

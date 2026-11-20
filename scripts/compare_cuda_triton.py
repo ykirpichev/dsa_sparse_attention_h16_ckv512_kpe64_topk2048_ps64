@@ -1,10 +1,11 @@
 """Compare the submitted CUDA kernel with its Triton translation on one B200.
 
-Packs three solutions and runs the contest workloads:
+Packs four solutions and runs the contest workloads:
 
   * wombat CUDA (solution/python, the submission kernel)
   * Triton (solution/triton, kernel.py::run), the same dispatcher and kernels
   * Triton tuned (kernel.py::run_tuned), the fastest setting from the sweep
+  * Triton fused (kernel.py::run_fused), split and merge in a single launch
 
 Short timing: 5 warmup iterations, 50 measured, 1 trial. Correctness uses
 atol 0.05 / rtol 1e-2, which is tighter than the contest CLI default and
@@ -200,6 +201,7 @@ def main(extra: str = "", out: str = "triton_compare.json"):
         _pack(PROJECT_ROOT / "solution" / "python", "python", "solution.py::run", "wombat-cuda"),
         _pack(PROJECT_ROOT / "solution" / "triton", "triton", "kernel.py::run", "triton"),
         _pack(PROJECT_ROOT / "solution" / "triton", "triton", "kernel.py::run_tuned", "triton-tuned"),
+        _pack(PROJECT_ROOT / "solution" / "triton", "triton", "kernel.py::run_fused", "triton-fused"),
     ]
     for item in filter(None, (part.strip() for part in extra.split(";"))):
         name, _, rest = item.partition("=")

@@ -1,0 +1,2838 @@
+{
+ "triton_version": "3.7.0",
+ "torch_version": "2.12.0.dev20260408+cu132",
+ "gpu": "NVIDIA B200",
+ "workloads": {
+  "0c23b10c7b7645719517828c12eaa1d2": {
+   "T": 1,
+   "valid_per_token": [
+    2
+   ],
+   "valid_avg": 2,
+   "last_valid_plus1": [
+    2
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 3.647,
+     "mean_us": 3.66925,
+     "min_us": 3.519,
+     "busy_us": 3.647,
+     "host_us": 5.37,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 3.6692500000000003
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 4.032,
+     "mean_us": 4.3056,
+     "min_us": 4.0,
+     "busy_us": 4.032,
+     "host_us": 20.8595,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.305599999999999
+      }
+     }
+    },
+    "fused": {
+     "median_us": 4.032,
+     "mean_us": 4.2992,
+     "min_us": 3.968,
+     "busy_us": 4.032,
+     "host_us": 19.765,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.2992
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 5.935499999999999,
+     "mean_us": 5.8651,
+     "min_us": 5.567,
+     "busy_us": 5.935499999999999,
+     "host_us": 19.6845,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 5.865100000000001
+      }
+     }
+    },
+    "extra": {
+     "median_us": 4.8,
+     "mean_us": 4.86395,
+     "min_us": 4.736,
+     "busy_us": 4.8,
+     "host_us": 14.835,
+     "kernels": {
+      "_small_t_kernel": {
+       "calls": 1.0,
+       "gpu_us": 4.86395
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007747173309326172,
+     5.960464477539062e-07
+    ],
+    "fn=run_fused": [
+     0.008325576782226562,
+     6.67572021484375e-06
+    ],
+    "fused": [
+     0.008325576782226562,
+     6.67572021484375e-06
+    ],
+    "fn=run_tuned": [
+     0.008325576782226562,
+     6.67572021484375e-06
+    ],
+    "extra": [
+     0.008325576782226562,
+     6.67572021484375e-06
+    ]
+   },
+   "plan": [
+    "head",
+    1
+   ]
+  },
+  "9d4a5f21268e484ea05a2f2af91d9fa7": {
+   "T": 2,
+   "valid_per_token": [
+    18,
+    11
+   ],
+   "valid_avg": 14,
+   "last_valid_plus1": [
+    18,
+    11
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 4.288,
+     "mean_us": 4.3389,
+     "min_us": 4.191,
+     "busy_us": 4.288,
+     "host_us": 5.71,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 4.338900000000001
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 4.256,
+     "mean_us": 4.49875,
+     "min_us": 4.063,
+     "busy_us": 4.256,
+     "host_us": 20.47,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.49875
+      }
+     }
+    },
+    "fused": {
+     "median_us": 4.128,
+     "mean_us": 4.4144000000000005,
+     "min_us": 4.064,
+     "busy_us": 4.128,
+     "host_us": 19.8495,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.4144000000000005
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 5.855499999999999,
+     "mean_us": 5.7806999999999995,
+     "min_us": 5.568,
+     "busy_us": 5.855499999999999,
+     "host_us": 19.694499999999998,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 5.7807
+      }
+     }
+    },
+    "extra": {
+     "median_us": 4.96,
+     "mean_us": 4.9887,
+     "min_us": 4.831,
+     "busy_us": 4.96,
+     "host_us": 14.555,
+     "kernels": {
+      "_small_t_kernel": {
+       "calls": 1.0,
+       "gpu_us": 4.9887
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007800102233886719,
+     9.5367431640625e-07
+    ],
+    "fn=run_fused": [
+     0.007800102233886719,
+     1.1444091796875e-05
+    ],
+    "fused": [
+     0.007800102233886719,
+     1.1444091796875e-05
+    ],
+    "fn=run_tuned": [
+     0.007800102233886719,
+     1.1444091796875e-05
+    ],
+    "extra": [
+     0.007800102233886719,
+     1.1444091796875e-05
+    ]
+   },
+   "plan": [
+    "head",
+    1
+   ]
+  },
+  "b7668cfd194c4b95ab600feb205ebac6": {
+   "T": 2,
+   "valid_per_token": [
+    33,
+    52
+   ],
+   "valid_avg": 42,
+   "last_valid_plus1": [
+    33,
+    52
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 6.3835,
+     "mean_us": 6.36465,
+     "min_us": 6.176,
+     "busy_us": 6.3835,
+     "host_us": 5.755,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 6.364650000000002
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 4.903,
+     "mean_us": 5.17825,
+     "min_us": 4.713,
+     "busy_us": 4.903,
+     "host_us": 20.3845,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 5.17825
+      }
+     }
+    },
+    "fused": {
+     "median_us": 4.8795,
+     "mean_us": 5.1918,
+     "min_us": 4.703,
+     "busy_us": 4.8795,
+     "host_us": 19.814500000000002,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 5.191799999999999
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 6.096,
+     "mean_us": 6.09595,
+     "min_us": 5.76,
+     "busy_us": 6.096,
+     "host_us": 18.85,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 6.09595
+      }
+     }
+    },
+    "extra": {
+     "median_us": 5.184,
+     "mean_us": 5.1983,
+     "min_us": 4.992,
+     "busy_us": 5.184,
+     "host_us": 14.3095,
+     "kernels": {
+      "_small_t_kernel": {
+       "calls": 1.0,
+       "gpu_us": 5.198299999999999
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007764101028442383,
+     2.86102294921875e-06
+    ],
+    "fn=run_fused": [
+     0.007764101028442383,
+     1.049041748046875e-05
+    ],
+    "fused": [
+     0.007764101028442383,
+     1.049041748046875e-05
+    ],
+    "fn=run_tuned": [
+     0.007764101028442383,
+     1.049041748046875e-05
+    ],
+    "extra": [
+     0.007764101028442383,
+     1.049041748046875e-05
+    ]
+   },
+   "plan": [
+    "head",
+    1
+   ]
+  },
+  "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+   "T": 2,
+   "valid_per_token": [
+    63,
+    9
+   ],
+   "valid_avg": 36,
+   "last_valid_plus1": [
+    63,
+    9
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 6.369,
+     "mean_us": 6.36525,
+     "min_us": 6.112,
+     "busy_us": 6.369,
+     "host_us": 5.6745,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 6.36525
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 5.04,
+     "mean_us": 5.2673,
+     "min_us": 4.896,
+     "busy_us": 5.04,
+     "host_us": 19.3,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 5.2673000000000005
+      }
+     }
+    },
+    "fused": {
+     "median_us": 5.04,
+     "mean_us": 5.2593,
+     "min_us": 4.832,
+     "busy_us": 5.04,
+     "host_us": 19.645,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 5.259299999999999
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 6.27,
+     "mean_us": 6.2125,
+     "min_us": 5.822,
+     "busy_us": 6.27,
+     "host_us": 18.5195,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 6.2125
+      }
+     }
+    },
+    "extra": {
+     "median_us": 5.1515,
+     "mean_us": 5.17895,
+     "min_us": 5.024,
+     "busy_us": 5.1515,
+     "host_us": 14.155000000000001,
+     "kernels": {
+      "_small_t_kernel": {
+       "calls": 1.0,
+       "gpu_us": 5.17895
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.008090019226074219,
+     1.9073486328125e-06
+    ],
+    "fn=run_fused": [
+     0.008090019226074219,
+     9.5367431640625e-06
+    ],
+    "fused": [
+     0.008090019226074219,
+     9.5367431640625e-06
+    ],
+    "fn=run_tuned": [
+     0.008090019226074219,
+     9.5367431640625e-06
+    ],
+    "extra": [
+     0.008090019226074219,
+     9.5367431640625e-06
+    ]
+   },
+   "plan": [
+    "head",
+    1
+   ]
+  },
+  "05f6de657db543ae9e4c46796522843a": {
+   "T": 2,
+   "valid_per_token": [
+    6,
+    337
+   ],
+   "valid_avg": 171,
+   "last_valid_plus1": [
+    6,
+    337
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 22.4135,
+     "mean_us": 22.4147,
+     "min_us": 22.194,
+     "busy_us": 22.4135,
+     "host_us": 5.3345,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 22.414700000000003
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 8.350999999999999,
+     "mean_us": 8.4101,
+     "min_us": 8.063,
+     "busy_us": 8.350999999999999,
+     "host_us": 19.775,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 8.410099999999998
+      }
+     }
+    },
+    "fused": {
+     "median_us": 8.2905,
+     "mean_us": 8.40395,
+     "min_us": 8.131,
+     "busy_us": 8.2905,
+     "host_us": 19.310000000000002,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 8.40395
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 20.475,
+     "mean_us": 20.45705,
+     "min_us": 20.012,
+     "busy_us": 20.475,
+     "host_us": 19.5395,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 20.457050000000002
+      }
+     }
+    },
+    "extra": {
+     "median_us": 17.0405,
+     "mean_us": 16.991600000000002,
+     "min_us": 16.373,
+     "busy_us": 17.0405,
+     "host_us": 14.6045,
+     "kernels": {
+      "_small_t_kernel": {
+       "calls": 1.0,
+       "gpu_us": 16.991600000000002
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007754802703857422,
+     1.9073486328125e-06
+    ],
+    "fn=run_fused": [
+     0.007754802703857422,
+     7.62939453125e-06
+    ],
+    "fused": [
+     0.007754802703857422,
+     7.62939453125e-06
+    ],
+    "fn=run_tuned": [
+     0.007754802703857422,
+     8.58306884765625e-06
+    ],
+    "extra": [
+     0.007754802703857422,
+     8.58306884765625e-06
+    ]
+   },
+   "plan": [
+    "head",
+    1
+   ]
+  },
+  "fc85411e250c41879b6d6a1edb80f0a7": {
+   "T": 2,
+   "valid_per_token": [
+    17,
+    13
+   ],
+   "valid_avg": 15,
+   "last_valid_plus1": [
+    17,
+    13
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 4.384,
+     "mean_us": 4.4639,
+     "min_us": 4.32,
+     "busy_us": 4.384,
+     "host_us": 5.58,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 4.4639
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 4.352,
+     "mean_us": 4.60165,
+     "min_us": 4.224,
+     "busy_us": 4.352,
+     "host_us": 20.5895,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.601650000000001
+      }
+     }
+    },
+    "fused": {
+     "median_us": 4.32,
+     "mean_us": 4.53895,
+     "min_us": 4.16,
+     "busy_us": 4.32,
+     "host_us": 20.2945,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.53895
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 6.048,
+     "mean_us": 6.0336,
+     "min_us": 5.792,
+     "busy_us": 6.048,
+     "host_us": 19.2895,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 6.0336
+      }
+     }
+    },
+    "extra": {
+     "median_us": 4.9925,
+     "mean_us": 5.0481,
+     "min_us": 4.896,
+     "busy_us": 4.9925,
+     "host_us": 14.5095,
+     "kernels": {
+      "_small_t_kernel": {
+       "calls": 1.0,
+       "gpu_us": 5.0481
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007807731628417969,
+     2.86102294921875e-06
+    ],
+    "fn=run_fused": [
+     0.008276224136352539,
+     8.58306884765625e-06
+    ],
+    "fused": [
+     0.008276224136352539,
+     8.58306884765625e-06
+    ],
+    "fn=run_tuned": [
+     0.008276224136352539,
+     8.58306884765625e-06
+    ],
+    "extra": [
+     0.008276224136352539,
+     8.58306884765625e-06
+    ]
+   },
+   "plan": [
+    "head",
+    1
+   ]
+  },
+  "e6b849f2900446148c01d81152efae23": {
+   "T": 2,
+   "valid_per_token": [
+    92,
+    48
+   ],
+   "valid_avg": 70,
+   "last_valid_plus1": [
+    92,
+    48
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 8.064,
+     "mean_us": 8.0596,
+     "min_us": 7.873,
+     "busy_us": 8.064,
+     "host_us": 5.7,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 8.0596
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 6.5275,
+     "mean_us": 6.8442,
+     "min_us": 6.336,
+     "busy_us": 6.5275,
+     "host_us": 20.799500000000002,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 6.844200000000001
+      }
+     }
+    },
+    "fused": {
+     "median_us": 6.4955,
+     "mean_us": 6.81895,
+     "min_us": 6.303,
+     "busy_us": 6.4955,
+     "host_us": 20.0445,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 6.818950000000001
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 8.672,
+     "mean_us": 8.67055,
+     "min_us": 8.48,
+     "busy_us": 8.672,
+     "host_us": 20.075,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 8.67055
+      }
+     }
+    },
+    "extra": {
+     "median_us": 7.184,
+     "mean_us": 7.2209,
+     "min_us": 7.04,
+     "busy_us": 7.184,
+     "host_us": 14.534500000000001,
+     "kernels": {
+      "_small_t_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.220900000000002
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007689237594604492,
+     1.9073486328125e-06
+    ],
+    "fn=run_fused": [
+     0.008067607879638672,
+     7.62939453125e-06
+    ],
+    "fused": [
+     0.008067607879638672,
+     7.62939453125e-06
+    ],
+    "fn=run_tuned": [
+     0.008067607879638672,
+     7.62939453125e-06
+    ],
+    "extra": [
+     0.008067607879638672,
+     7.62939453125e-06
+    ]
+   },
+   "plan": [
+    "head",
+    1
+   ]
+  },
+  "9f3f891bfbe24776adfcd5a579d093dd": {
+   "T": 2,
+   "valid_per_token": [
+    288,
+    4
+   ],
+   "valid_avg": 146,
+   "last_valid_plus1": [
+    288,
+    4
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 19.360500000000002,
+     "mean_us": 19.3269,
+     "min_us": 19.072,
+     "busy_us": 19.360500000000002,
+     "host_us": 5.4295,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 19.326900000000002
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 8.273499999999999,
+     "mean_us": 8.3569,
+     "min_us": 8.033,
+     "busy_us": 8.273499999999999,
+     "host_us": 19.6145,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 8.3569
+      }
+     }
+    },
+    "fused": {
+     "median_us": 8.3265,
+     "mean_us": 8.37745,
+     "min_us": 8.135,
+     "busy_us": 8.3265,
+     "host_us": 18.04,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 8.37745
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 17.465,
+     "mean_us": 17.52145,
+     "min_us": 17.214,
+     "busy_us": 17.465,
+     "host_us": 18.4945,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 17.52145
+      }
+     }
+    },
+    "extra": {
+     "median_us": 14.271,
+     "mean_us": 14.25675,
+     "min_us": 13.919,
+     "busy_us": 14.271,
+     "host_us": 13.5295,
+     "kernels": {
+      "_small_t_kernel": {
+       "calls": 1.0,
+       "gpu_us": 14.256750000000002
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.00776362419128418,
+     1.9073486328125e-06
+    ],
+    "fn=run_fused": [
+     0.007883071899414062,
+     7.62939453125e-06
+    ],
+    "fused": [
+     0.007883071899414062,
+     7.62939453125e-06
+    ],
+    "fn=run_tuned": [
+     0.007883071899414062,
+     7.62939453125e-06
+    ],
+    "extra": [
+     0.007883071899414062,
+     7.62939453125e-06
+    ]
+   },
+   "plan": [
+    "head",
+    1
+   ]
+  },
+  "f77df5ce21634f7ca0586af7e3c13434": {
+   "T": 2,
+   "valid_per_token": [
+    18,
+    19
+   ],
+   "valid_avg": 18,
+   "last_valid_plus1": [
+    18,
+    19
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 4.448,
+     "mean_us": 4.47345,
+     "min_us": 4.32,
+     "busy_us": 4.448,
+     "host_us": 5.1850000000000005,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 4.473450000000001
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 4.304,
+     "mean_us": 4.5649500000000005,
+     "min_us": 4.16,
+     "busy_us": 4.304,
+     "host_us": 19.7545,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.564950000000001
+      }
+     }
+    },
+    "fused": {
+     "median_us": 4.385,
+     "mean_us": 4.6259,
+     "min_us": 4.192,
+     "busy_us": 4.385,
+     "host_us": 19.3295,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.6259
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 6.048,
+     "mean_us": 6.0513,
+     "min_us": 5.728,
+     "busy_us": 6.048,
+     "host_us": 18.7395,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 6.0512999999999995
+      }
+     }
+    },
+    "extra": {
+     "median_us": 5.04,
+     "mean_us": 5.04485,
+     "min_us": 4.896,
+     "busy_us": 5.04,
+     "host_us": 13.655000000000001,
+     "kernels": {
+      "_small_t_kernel": {
+       "calls": 1.0,
+       "gpu_us": 5.044849999999999
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007809638977050781,
+     1.9073486328125e-06
+    ],
+    "fn=run_fused": [
+     0.00802922248840332,
+     7.62939453125e-06
+    ],
+    "fused": [
+     0.00802922248840332,
+     7.62939453125e-06
+    ],
+    "fn=run_tuned": [
+     0.00802922248840332,
+     7.62939453125e-06
+    ],
+    "extra": [
+     0.00802922248840332,
+     7.62939453125e-06
+    ]
+   },
+   "plan": [
+    "head",
+    1
+   ]
+  },
+  "385742b2717e4f02b918c7349dde23d8": {
+   "T": 8,
+   "valid_per_token": [
+    92,
+    48,
+    1044,
+    14,
+    411,
+    30,
+    16,
+    8
+   ],
+   "valid_avg": 207,
+   "last_valid_plus1": [
+    92,
+    48,
+    1044,
+    14,
+    411,
+    30,
+    16,
+    8
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 38.208,
+     "mean_us": 38.23185,
+     "min_us": 38.047,
+     "busy_us": 38.048,
+     "host_us": 6.825,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f24mla_split_partial_kernelILi4EEEvPK13__nv_bfloat16S3_S3_S3_PKif": {
+       "calls": 1.0,
+       "gpu_us": 35.53905
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi4EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 2.5183999999999997
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 11.0405,
+     "mean_us": 11.1682,
+     "min_us": 10.721,
+     "busy_us": 11.0405,
+     "host_us": 19.014499999999998,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.1682
+      }
+     }
+    },
+    "fused": {
+     "median_us": 11.2,
+     "mean_us": 11.296,
+     "min_us": 10.848,
+     "busy_us": 11.2,
+     "host_us": 19.1,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.296000000000003
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 14.864,
+     "mean_us": 14.8927,
+     "min_us": 14.656,
+     "busy_us": 14.688,
+     "host_us": 11.15,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.8607
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.8527999999999984
+      }
+     }
+    },
+    "extra": {
+     "median_us": 11.849499999999999,
+     "mean_us": 11.8369,
+     "min_us": 11.55,
+     "busy_us": 11.849499999999999,
+     "host_us": 20.3945,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.836900000000004
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007809638977050781,
+     1.9073486328125e-06
+    ],
+    "fn=run_fused": [
+     0.008193254470825195,
+     1.33514404296875e-05
+    ],
+    "fused": [
+     0.008193254470825195,
+     1.33514404296875e-05
+    ],
+    "fn=run_tuned": [
+     0.008193254470825195,
+     1.33514404296875e-05
+    ],
+    "extra": [
+     0.014221429824829102,
+     1.33514404296875e-05
+    ]
+   },
+   "plan": [
+    "head",
+    4
+   ]
+  },
+  "4c46a94ba2364dc7ab476286dee8dce3": {
+   "T": 8,
+   "valid_per_token": [
+    18,
+    19,
+    1002,
+    31,
+    11,
+    316,
+    24,
+    2
+   ],
+   "valid_avg": 177,
+   "last_valid_plus1": [
+    18,
+    19,
+    1002,
+    31,
+    11,
+    316,
+    24,
+    2
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 36.033,
+     "mean_us": 36.04105,
+     "min_us": 35.937,
+     "busy_us": 35.873,
+     "host_us": 7.045,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f24mla_split_partial_kernelILi4EEEvPK13__nv_bfloat16S3_S3_S3_PKif": {
+       "calls": 1.0,
+       "gpu_us": 33.34660000000001
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi4EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 2.52165
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 9.296,
+     "mean_us": 9.316799999999999,
+     "min_us": 9.056,
+     "busy_us": 9.296,
+     "host_us": 20.6795,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 9.316799999999997
+      }
+     }
+    },
+    "fused": {
+     "median_us": 9.232,
+     "mean_us": 9.276499999999999,
+     "min_us": 9.055,
+     "busy_us": 9.232,
+     "host_us": 19.5,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 9.276500000000002
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 14.7045,
+     "mean_us": 14.723650000000001,
+     "min_us": 14.496,
+     "busy_us": 14.5125,
+     "host_us": 10.619499999999999,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.7075
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.832149999999999
+      }
+     }
+    },
+    "extra": {
+     "median_us": 11.968499999999999,
+     "mean_us": 11.9794,
+     "min_us": 11.776,
+     "busy_us": 11.968499999999999,
+     "host_us": 19.869999999999997,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.979399999999998
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.0078051090240478516,
+     3.814697265625e-06
+    ],
+    "fn=run_fused": [
+     0.0078051090240478516,
+     1.1444091796875e-05
+    ],
+    "fused": [
+     0.0078051090240478516,
+     1.1444091796875e-05
+    ],
+    "fn=run_tuned": [
+     0.0078051090240478516,
+     1.1444091796875e-05
+    ],
+    "extra": [
+     0.011751651763916016,
+     1.1444091796875e-05
+    ]
+   },
+   "plan": [
+    "head",
+    4
+   ]
+  },
+  "3838996164a94d728710f913477feba8": {
+   "T": 7,
+   "valid_per_token": [
+    33,
+    52,
+    72,
+    17,
+    18,
+    401,
+    1089
+   ],
+   "valid_avg": 240,
+   "last_valid_plus1": [
+    33,
+    52,
+    72,
+    17,
+    18,
+    401,
+    1089
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 50.415,
+     "mean_us": 50.50625,
+     "min_us": 49.919,
+     "busy_us": 50.254999999999995,
+     "host_us": 6.909,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 46.6087
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.727950000000001
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 10.896,
+     "mean_us": 11.056000000000001,
+     "min_us": 10.656,
+     "busy_us": 10.896,
+     "host_us": 19.9795,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.056
+      }
+     }
+    },
+    "fused": {
+     "median_us": 10.896,
+     "mean_us": 11.08155,
+     "min_us": 10.687,
+     "busy_us": 10.896,
+     "host_us": 19.229999999999997,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.081549999999998
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 15.009,
+     "mean_us": 15.01535,
+     "min_us": 14.721,
+     "busy_us": 14.833,
+     "host_us": 10.9795,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.731700000000002
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 5.1012499999999985
+      }
+     }
+    },
+    "extra": {
+     "median_us": 12.159500000000001,
+     "mean_us": 12.140550000000001,
+     "min_us": 11.744,
+     "busy_us": 12.159500000000001,
+     "host_us": 18.765,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 12.14055
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.008118629455566406,
+     2.86102294921875e-06
+    ],
+    "fn=run_fused": [
+     0.008388757705688477,
+     1.1444091796875e-05
+    ],
+    "fused": [
+     0.008388757705688477,
+     1.1444091796875e-05
+    ],
+    "fn=run_tuned": [
+     0.008388757705688477,
+     1.1444091796875e-05
+    ],
+    "extra": [
+     0.013787984848022461,
+     1.1444091796875e-05
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  },
+  "02d6ae9c64ab42ff93f05c23c53bcb7d": {
+   "T": 8,
+   "valid_per_token": [
+    63,
+    9,
+    2048,
+    212,
+    11,
+    25,
+    6,
+    50
+   ],
+   "valid_avg": 303,
+   "last_valid_plus1": [
+    63,
+    9,
+    2048,
+    212,
+    11,
+    25,
+    6,
+    50
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 51.456,
+     "mean_us": 51.4576,
+     "min_us": 51.072,
+     "busy_us": 51.29600000000001,
+     "host_us": 6.8445,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 47.3968
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8832
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 11.1355,
+     "mean_us": 11.1276,
+     "min_us": 10.912,
+     "busy_us": 11.1355,
+     "host_us": 19.96,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.1276
+      }
+     }
+    },
+    "fused": {
+     "median_us": 11.2635,
+     "mean_us": 11.19,
+     "min_us": 10.911,
+     "busy_us": 11.2635,
+     "host_us": 19.359499999999997,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.190000000000001
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 14.7995,
+     "mean_us": 14.8092,
+     "min_us": 14.496,
+     "busy_us": 14.608,
+     "host_us": 10.879999999999999,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.96775
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.66545
+      }
+     }
+    },
+    "extra": {
+     "median_us": 12.223,
+     "mean_us": 12.210600000000001,
+     "min_us": 12.0,
+     "busy_us": 12.223,
+     "host_us": 18.9495,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 12.210600000000001
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007843255996704102,
+     1.9073486328125e-06
+    ],
+    "fn=run_fused": [
+     0.007843255996704102,
+     9.5367431640625e-06
+    ],
+    "fused": [
+     0.007843255996704102,
+     9.5367431640625e-06
+    ],
+    "fn=run_tuned": [
+     0.007843255996704102,
+     9.5367431640625e-06
+    ],
+    "extra": [
+     0.012371301651000977,
+     9.5367431640625e-06
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  },
+  "ddfa9e340b264f76abe7418692faa876": {
+   "T": 6,
+   "valid_per_token": [
+    6,
+    9,
+    9,
+    14,
+    1639,
+    71
+   ],
+   "valid_avg": 291,
+   "last_valid_plus1": [
+    6,
+    9,
+    9,
+    14,
+    1639,
+    71
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 50.7385,
+     "mean_us": 50.72565,
+     "min_us": 50.242,
+     "busy_us": 50.5625,
+     "host_us": 6.8845,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 46.69185000000001
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8593999999999995
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 10.944,
+     "mean_us": 11.0771,
+     "min_us": 10.753,
+     "busy_us": 10.944,
+     "host_us": 19.948999999999998,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.077099999999998
+      }
+     }
+    },
+    "fused": {
+     "median_us": 10.992,
+     "mean_us": 11.14735,
+     "min_us": 10.689,
+     "busy_us": 10.992,
+     "host_us": 19.695,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.14735
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 14.479,
+     "mean_us": 14.4376,
+     "min_us": 14.111,
+     "busy_us": 14.319,
+     "host_us": 10.485,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.445799999999998
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.820599999999999
+      }
+     }
+    },
+    "extra": {
+     "median_us": 11.632,
+     "mean_us": 11.6272,
+     "min_us": 11.456,
+     "busy_us": 11.632,
+     "host_us": 18.509,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.627199999999998
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.00851297378540039,
+     2.86102294921875e-06
+    ],
+    "fn=run_fused": [
+     0.00851297378540039,
+     1.71661376953125e-05
+    ],
+    "fused": [
+     0.00851297378540039,
+     1.71661376953125e-05
+    ],
+    "fn=run_tuned": [
+     0.00851297378540039,
+     1.52587890625e-05
+    ],
+    "extra": [
+     0.013887882232666016,
+     1.71661376953125e-05
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  },
+  "78b2e11c30004cceb84355722a7c6b0a": {
+   "T": 8,
+   "valid_per_token": [
+    18,
+    11,
+    2048,
+    20,
+    25,
+    45,
+    135,
+    326
+   ],
+   "valid_avg": 328,
+   "last_valid_plus1": [
+    18,
+    11,
+    2048,
+    20,
+    25,
+    45,
+    135,
+    326
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 51.2795,
+     "mean_us": 51.2874,
+     "min_us": 50.719,
+     "busy_us": 51.0875,
+     "host_us": 7.15,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 47.213849999999994
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.89435
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 10.944,
+     "mean_us": 10.96975,
+     "min_us": 10.785,
+     "busy_us": 10.944,
+     "host_us": 19.939999999999998,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 10.969750000000001
+      }
+     }
+    },
+    "fused": {
+     "median_us": 10.944,
+     "mean_us": 10.9505,
+     "min_us": 10.817,
+     "busy_us": 10.944,
+     "host_us": 19.229999999999997,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 10.950499999999998
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 14.8475,
+     "mean_us": 14.8588,
+     "min_us": 14.591,
+     "busy_us": 14.6715,
+     "host_us": 11.1145,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.858949999999997
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.817449999999999
+      }
+     }
+    },
+    "extra": {
+     "median_us": 12.096499999999999,
+     "mean_us": 12.11385,
+     "min_us": 11.84,
+     "busy_us": 12.096499999999999,
+     "host_us": 18.700000000000003,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 12.113850000000001
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.009032249450683594,
+     2.86102294921875e-06
+    ],
+    "fn=run_fused": [
+     0.009032249450683594,
+     9.5367431640625e-06
+    ],
+    "fused": [
+     0.009032249450683594,
+     9.5367431640625e-06
+    ],
+    "fn=run_tuned": [
+     0.009032249450683594,
+     9.5367431640625e-06
+    ],
+    "extra": [
+     0.011250495910644531,
+     9.5367431640625e-06
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  },
+  "68d6817dcfd1433aa8d2ddeefd54b6ea": {
+   "T": 6,
+   "valid_per_token": [
+    19,
+    20,
+    32,
+    12,
+    25,
+    3
+   ],
+   "valid_avg": 18,
+   "last_valid_plus1": [
+    19,
+    20,
+    32,
+    12,
+    25,
+    3
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 9.76,
+     "mean_us": 9.7887,
+     "min_us": 9.664,
+     "busy_us": 9.6,
+     "host_us": 7.039999999999999,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f24mla_split_partial_kernelILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKi": {
+       "calls": 1.0,
+       "gpu_us": 5.8512
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.772699999999999
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 4.352,
+     "mean_us": 4.5808,
+     "min_us": 4.224,
+     "busy_us": 4.352,
+     "host_us": 19.789499999999997,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.580800000000001
+      }
+     }
+    },
+    "fused": {
+     "median_us": 4.336,
+     "mean_us": 4.57735,
+     "min_us": 4.223,
+     "busy_us": 4.336,
+     "host_us": 18.855,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.577349999999999
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 10.976,
+     "mean_us": 10.987300000000001,
+     "min_us": 10.72,
+     "busy_us": 10.784,
+     "host_us": 11.0195,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 5.928099999999999
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.88
+      }
+     }
+    },
+    "extra": {
+     "median_us": 11.612,
+     "mean_us": 11.61795,
+     "min_us": 11.449,
+     "busy_us": 11.612,
+     "host_us": 18.484499999999997,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.617949999999997
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.013529777526855469,
+     2.86102294921875e-06
+    ],
+    "fn=run_fused": [
+     0.013529777526855469,
+     1.049041748046875e-05
+    ],
+    "fused": [
+     0.013529777526855469,
+     1.049041748046875e-05
+    ],
+    "fn=run_tuned": [
+     0.013529777526855469,
+     1.049041748046875e-05
+    ],
+    "extra": [
+     0.013529777526855469,
+     1.049041748046875e-05
+    ]
+   },
+   "plan": [
+    "head",
+    16
+   ]
+  },
+  "564007ac354e4662a62cc4d6352dc494": {
+   "T": 8,
+   "valid_per_token": [
+    288,
+    4,
+    1884,
+    21,
+    136,
+    2048,
+    42,
+    335
+   ],
+   "valid_avg": 594,
+   "last_valid_plus1": [
+    288,
+    4,
+    1884,
+    21,
+    136,
+    2048,
+    42,
+    335
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 52.319,
+     "mean_us": 52.352,
+     "min_us": 51.775,
+     "busy_us": 52.1425,
+     "host_us": 6.92,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 48.26725
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.9023499999999998
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 11.808499999999999,
+     "mean_us": 11.79875,
+     "min_us": 11.648,
+     "busy_us": 11.808499999999999,
+     "host_us": 19.9545,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.79875
+      }
+     }
+    },
+    "fused": {
+     "median_us": 11.777,
+     "mean_us": 11.773,
+     "min_us": 11.488,
+     "busy_us": 11.777,
+     "host_us": 19.3295,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.773
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 15.52,
+     "mean_us": 15.53605,
+     "min_us": 15.36,
+     "busy_us": 15.344,
+     "host_us": 11.1895,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 10.523200000000001
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.828849999999998
+      }
+     }
+    },
+    "extra": {
+     "median_us": 12.6085,
+     "mean_us": 12.6355,
+     "min_us": 12.48,
+     "busy_us": 12.6085,
+     "host_us": 18.699,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 12.635500000000004
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.009250640869140625,
+     2.86102294921875e-06
+    ],
+    "fn=run_fused": [
+     0.009250640869140625,
+     1.049041748046875e-05
+    ],
+    "fused": [
+     0.009250640869140625,
+     1.049041748046875e-05
+    ],
+    "fn=run_tuned": [
+     0.009250640869140625,
+     1.049041748046875e-05
+    ],
+    "extra": [
+     0.013173341751098633,
+     1.049041748046875e-05
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  },
+  "ae4219a95f044f45bd10e17ab63c6e8f": {
+   "T": 7,
+   "valid_per_token": [
+    19,
+    12,
+    2048,
+    21,
+    26,
+    46,
+    136
+   ],
+   "valid_avg": 329,
+   "last_valid_plus1": [
+    19,
+    12,
+    2048,
+    21,
+    26,
+    46,
+    136
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 51.4865,
+     "mean_us": 51.4788,
+     "min_us": 50.975,
+     "busy_us": 51.310500000000005,
+     "host_us": 6.8945,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 47.562050000000006
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.739150000000001
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 11.2,
+     "mean_us": 11.216149999999999,
+     "min_us": 11.04,
+     "busy_us": 11.2,
+     "host_us": 19.9,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.216149999999999
+      }
+     }
+    },
+    "fused": {
+     "median_us": 11.264,
+     "mean_us": 11.2622,
+     "min_us": 11.04,
+     "busy_us": 11.264,
+     "host_us": 19.405,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.262200000000002
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 15.041,
+     "mean_us": 15.06905,
+     "min_us": 14.849,
+     "busy_us": 14.849,
+     "host_us": 11.2895,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.7953
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 5.08815
+      }
+     }
+    },
+    "extra": {
+     "median_us": 12.128,
+     "mean_us": 12.1695,
+     "min_us": 11.936,
+     "busy_us": 12.128,
+     "host_us": 18.6845,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 12.1695
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007835149765014648,
+     3.814697265625e-06
+    ],
+    "fn=run_fused": [
+     0.007835149765014648,
+     1.1444091796875e-05
+    ],
+    "fused": [
+     0.007835149765014648,
+     1.1444091796875e-05
+    ],
+    "fn=run_tuned": [
+     0.007835149765014648,
+     1.1444091796875e-05
+    ],
+    "extra": [
+     0.012307405471801758,
+     1.1444091796875e-05
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  },
+  "232ed014bafc4835b9881bb308c659b0": {
+   "T": 8,
+   "valid_per_token": [
+    35,
+    54,
+    74,
+    19,
+    20,
+    403,
+    1091,
+    1
+   ],
+   "valid_avg": 212,
+   "last_valid_plus1": [
+    35,
+    54,
+    74,
+    19,
+    20,
+    403,
+    1091,
+    1
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 50.448,
+     "mean_us": 50.51015,
+     "min_us": 49.856,
+     "busy_us": 50.288,
+     "host_us": 7.0649999999999995,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 46.46379999999999
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.87675
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 10.8,
+     "mean_us": 10.8977,
+     "min_us": 10.414,
+     "busy_us": 10.8,
+     "host_us": 20.573999999999998,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 10.897699999999999
+      }
+     }
+    },
+    "fused": {
+     "median_us": 11.232,
+     "mean_us": 11.342,
+     "min_us": 10.848,
+     "busy_us": 11.232,
+     "host_us": 19.2695,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.342
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 14.7935,
+     "mean_us": 14.793149999999999,
+     "min_us": 14.537,
+     "busy_us": 14.601,
+     "host_us": 10.925,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.7501
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.865399999999998
+      }
+     }
+    },
+    "extra": {
+     "median_us": 11.971499999999999,
+     "mean_us": 11.9874,
+     "min_us": 11.7,
+     "busy_us": 11.971499999999999,
+     "host_us": 18.769,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.987399999999997
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.009888887405395508,
+     2.86102294921875e-06
+    ],
+    "fn=run_fused": [
+     0.009888887405395508,
+     1.049041748046875e-05
+    ],
+    "fused": [
+     0.009888887405395508,
+     1.049041748046875e-05
+    ],
+    "fn=run_tuned": [
+     0.009888887405395508,
+     1.1444091796875e-05
+    ],
+    "extra": [
+     0.009528160095214844,
+     1.049041748046875e-05
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  },
+  "7a389715dcc3479e9b0512309f9d1d56": {
+   "T": 8,
+   "valid_per_token": [
+    8,
+    11,
+    11,
+    16,
+    1641,
+    73,
+    1,
+    1
+   ],
+   "valid_avg": 220,
+   "last_valid_plus1": [
+    8,
+    11,
+    11,
+    16,
+    1641,
+    73,
+    1,
+    1
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 49.9785,
+     "mean_us": 49.97995,
+     "min_us": 49.383,
+     "busy_us": 49.806,
+     "host_us": 6.8,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 46.008849999999995
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8002499999999992
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 11.296,
+     "mean_us": 11.396899999999999,
+     "min_us": 11.04,
+     "busy_us": 11.296,
+     "host_us": 20.53,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.396899999999999
+      }
+     }
+    },
+    "fused": {
+     "median_us": 11.328,
+     "mean_us": 11.479849999999999,
+     "min_us": 11.072,
+     "busy_us": 11.328,
+     "host_us": 18.95,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.479849999999999
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 14.558499999999999,
+     "mean_us": 14.578149999999999,
+     "min_us": 14.239,
+     "busy_us": 14.3825,
+     "host_us": 10.944500000000001,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.724
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.67175
+      }
+     }
+    },
+    "extra": {
+     "median_us": 11.936,
+     "mean_us": 11.98555,
+     "min_us": 11.808,
+     "busy_us": 11.936,
+     "host_us": 18.189999999999998,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.98555
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007899284362792969,
+     2.86102294921875e-06
+    ],
+    "fn=run_fused": [
+     0.007899284362792969,
+     1.1444091796875e-05
+    ],
+    "fused": [
+     0.007899284362792969,
+     1.1444091796875e-05
+    ],
+    "fn=run_tuned": [
+     0.007899284362792969,
+     1.1444091796875e-05
+    ],
+    "extra": [
+     0.013991594314575195,
+     1.1444091796875e-05
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  },
+  "5096e459ce3f4cdf82773ce1a0c73c8a": {
+   "T": 8,
+   "valid_per_token": [
+    17,
+    13,
+    1887,
+    16,
+    180,
+    1986,
+    413,
+    1
+   ],
+   "valid_avg": 564,
+   "last_valid_plus1": [
+    17,
+    13,
+    1887,
+    16,
+    180,
+    1986,
+    413,
+    1
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 51.565,
+     "mean_us": 51.80525,
+     "min_us": 51.038,
+     "busy_us": 51.388999999999996,
+     "host_us": 6.7595,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 47.733549999999994
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8956999999999993
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 11.712499999999999,
+     "mean_us": 11.74905,
+     "min_us": 11.488,
+     "busy_us": 11.712499999999999,
+     "host_us": 20.369500000000002,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.749050000000002
+      }
+     }
+    },
+    "fused": {
+     "median_us": 11.6795,
+     "mean_us": 11.72895,
+     "min_us": 11.583,
+     "busy_us": 11.6795,
+     "host_us": 20.2145,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.728950000000001
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 15.36,
+     "mean_us": 15.386849999999999,
+     "min_us": 15.199,
+     "busy_us": 15.183499999999999,
+     "host_us": 11.43,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 10.375699999999998
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.828749999999999
+      }
+     }
+    },
+    "extra": {
+     "median_us": 12.608,
+     "mean_us": 12.6051,
+     "min_us": 12.352,
+     "busy_us": 12.608,
+     "host_us": 19.174500000000002,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 12.6051
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.008702278137207031,
+     3.814697265625e-06
+    ],
+    "fn=run_fused": [
+     0.008702278137207031,
+     1.1444091796875e-05
+    ],
+    "fused": [
+     0.008702278137207031,
+     1.1444091796875e-05
+    ],
+    "fn=run_tuned": [
+     0.008702278137207031,
+     1.1444091796875e-05
+    ],
+    "extra": [
+     0.013493537902832031,
+     1.1444091796875e-05
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  },
+  "d57eb9e19f0642e8af9bd76ad0823303": {
+   "T": 6,
+   "valid_per_token": [
+    143,
+    139,
+    2013,
+    142,
+    306,
+    539
+   ],
+   "valid_avg": 547,
+   "last_valid_plus1": [
+    143,
+    139,
+    2013,
+    142,
+    306,
+    539
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 50.93,
+     "mean_us": 50.8938,
+     "min_us": 50.307,
+     "busy_us": 50.754,
+     "host_us": 7.07,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 46.82965
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8865000000000003
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 10.991499999999998,
+     "mean_us": 11.049,
+     "min_us": 10.816,
+     "busy_us": 10.991499999999998,
+     "host_us": 19.795,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.049
+      }
+     }
+    },
+    "fused": {
+     "median_us": 10.939499999999999,
+     "mean_us": 10.9543,
+     "min_us": 10.812,
+     "busy_us": 10.939499999999999,
+     "host_us": 19.6,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 10.9543
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 14.848500000000001,
+     "mean_us": 14.90285,
+     "min_us": 14.72,
+     "busy_us": 14.688,
+     "host_us": 11.0,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.87705
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.843399999999999
+      }
+     }
+    },
+    "extra": {
+     "median_us": 12.08,
+     "mean_us": 12.08635,
+     "min_us": 11.84,
+     "busy_us": 12.08,
+     "host_us": 19.1795,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 12.086350000000001
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007760047912597656,
+     2.86102294921875e-06
+    ],
+    "fn=run_fused": [
+     0.007760047912597656,
+     1.1444091796875e-05
+    ],
+    "fused": [
+     0.007760047912597656,
+     1.1444091796875e-05
+    ],
+    "fn=run_tuned": [
+     0.007760047912597656,
+     1.1444091796875e-05
+    ],
+    "extra": [
+     0.012274503707885742,
+     1.1444091796875e-05
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  },
+  "2207f0fdc96347c59d106e4976cfad57": {
+   "T": 7,
+   "valid_per_token": [
+    415,
+    131,
+    2011,
+    148,
+    263,
+    169,
+    462
+   ],
+   "valid_avg": 514,
+   "last_valid_plus1": [
+    415,
+    131,
+    2011,
+    148,
+    263,
+    169,
+    462
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 50.959500000000006,
+     "mean_us": 50.9166,
+     "min_us": 50.56,
+     "busy_us": 50.783500000000004,
+     "host_us": 7.1845,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 46.983799999999995
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.7520000000000002
+      }
+     }
+    },
+    "fn=run_fused": {
+     "median_us": 11.04,
+     "mean_us": 11.0592,
+     "min_us": 10.848,
+     "busy_us": 11.04,
+     "host_us": 19.8245,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.059199999999999
+      }
+     }
+    },
+    "fused": {
+     "median_us": 11.057,
+     "mean_us": 11.07245,
+     "min_us": 10.881,
+     "busy_us": 11.057,
+     "host_us": 20.255,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.072450000000002
+      }
+     }
+    },
+    "fn=run_tuned": {
+     "median_us": 15.073,
+     "mean_us": 15.0981,
+     "min_us": 14.88,
+     "busy_us": 14.912,
+     "host_us": 11.195,
+     "kernels": {
+      "_per_token": {
+       "calls": 1.0,
+       "gpu_us": 9.960249999999998
+      },
+      "_reduce": {
+       "calls": 1.0,
+       "gpu_us": 4.963449999999999
+      }
+     }
+    },
+    "extra": {
+     "median_us": 12.48,
+     "mean_us": 12.4816,
+     "min_us": 12.224,
+     "busy_us": 12.48,
+     "host_us": 18.4995,
+     "kernels": {
+      "_fused_split_combine_kernel": {
+       "calls": 1.0,
+       "gpu_us": 12.481599999999998
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007852792739868164,
+     3.814697265625e-06
+    ],
+    "fn=run_fused": [
+     0.007772207260131836,
+     1.33514404296875e-05
+    ],
+    "fused": [
+     0.007772207260131836,
+     1.33514404296875e-05
+    ],
+    "fn=run_tuned": [
+     0.007852792739868164,
+     1.33514404296875e-05
+    ],
+    "extra": [
+     0.012143611907958984,
+     1.33514404296875e-05
+    ]
+   },
+   "plan": [
+    "token",
+    16
+   ]
+  }
+ },
+ "errors": {},
+ "stress": {
+  "fn=run_fused": {
+   "calls": 180,
+   "max_out_err": 0.006657123565673828,
+   "max_lse_err": 7.62939453125e-06,
+   "per_tokens": {
+    "1": [
+     0.003717660903930664,
+     4.76837158203125e-06
+    ],
+    "2": [
+     0.0050269365310668945,
+     5.7220458984375e-06
+    ],
+    "3": [
+     0.005188465118408203,
+     5.7220458984375e-06
+    ],
+    "6": [
+     0.004973888397216797,
+     7.62939453125e-06
+    ],
+    "8": [
+     0.004085659980773926,
+     5.245208740234375e-06
+    ],
+    "9": [
+     0.004555940628051758,
+     5.7220458984375e-06
+    ],
+    "12": [
+     0.004881381988525391,
+     6.67572021484375e-06
+    ],
+    "18": [
+     0.005079507827758789,
+     6.67572021484375e-06
+    ],
+    "20": [
+     0.006657123565673828,
+     6.67572021484375e-06
+    ]
+   }
+  },
+  "fused": {
+   "calls": 180,
+   "max_out_err": 0.006657123565673828,
+   "max_lse_err": 7.62939453125e-06,
+   "per_tokens": {
+    "1": [
+     0.003717660903930664,
+     4.76837158203125e-06
+    ],
+    "2": [
+     0.0050269365310668945,
+     5.7220458984375e-06
+    ],
+    "3": [
+     0.005188465118408203,
+     5.7220458984375e-06
+    ],
+    "6": [
+     0.004973888397216797,
+     7.62939453125e-06
+    ],
+    "8": [
+     0.004085659980773926,
+     5.245208740234375e-06
+    ],
+    "9": [
+     0.004555940628051758,
+     5.7220458984375e-06
+    ],
+    "12": [
+     0.004881381988525391,
+     6.67572021484375e-06
+    ],
+    "18": [
+     0.005079507827758789,
+     6.67572021484375e-06
+    ],
+    "20": [
+     0.006657123565673828,
+     6.67572021484375e-06
+    ]
+   }
+  },
+  "fn=run_tuned": {
+   "calls": 180,
+   "max_out_err": 0.006657123565673828,
+   "max_lse_err": 7.62939453125e-06,
+   "per_tokens": {
+    "1": [
+     0.003717660903930664,
+     4.76837158203125e-06
+    ],
+    "2": [
+     0.0050269365310668945,
+     4.76837158203125e-06
+    ],
+    "3": [
+     0.005188465118408203,
+     5.7220458984375e-06
+    ],
+    "6": [
+     0.004973888397216797,
+     7.62939453125e-06
+    ],
+    "8": [
+     0.004085659980773926,
+     5.7220458984375e-06
+    ],
+    "9": [
+     0.004555940628051758,
+     5.7220458984375e-06
+    ],
+    "12": [
+     0.004881381988525391,
+     6.67572021484375e-06
+    ],
+    "18": [
+     0.005079507827758789,
+     6.67572021484375e-06
+    ],
+    "20": [
+     0.006657123565673828,
+     6.67572021484375e-06
+    ]
+   }
+  }
+ },
+ "fatal": "worker timed out after 600 s\nb'[mla_sparse_attn] regs/thread=69  localSz=0  static_smem=0  max_dyn_smem=48128  max_threads=256  occ@cap=3  occ@actual(46K)=3 blocks/SM\\n[mla_split_partial<4>] regs/thread=68  static_smem=0  max_dyn_smem=48128  occ(40160 B)=3 blocks/SM\\n[mla_cpt_mma_v G=16 mb=2] regs/thread=64  local=48  static_smem=0  max_dyn_smem=102400  occ=2 blocks/SM\\n'"
+}

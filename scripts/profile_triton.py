@@ -12,6 +12,10 @@ Two modes, both on one B200 per run:
       Run the listed configurations under each Triton release, one container
       per release. Writes artifacts/triton_versions.json.
 
+``--stress N`` also checks every configuration on N synthetic calls (new
+contents each call, 1 to 20 tokens). ``--timeout`` caps the run in seconds,
+since a kernel that waits on other programs can hang.
+
 The measurement code is scripts/triton_profile_worker.py.
 """
 
@@ -19,6 +23,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from pathlib import Path
 
 import modal
@@ -49,9 +54,15 @@ image = (
     .add_local_file(str(PROJECT_ROOT / "scripts" / "triton_profile_worker.py"), "/root/worker.py")
 )
 
+# DSA_EXTRA_KERNEL=/path/file.py::function times an outside Triton entry
+# point in the same run, as the configuration named "extra".
+EXTRA_KERNEL = os.environ.get("DSA_EXTRA_KERNEL", "")
+if EXTRA_KERNEL and os.path.exists(EXTRA_KERNEL.partition("::")[0]):
+    image = image.add_local_file(EXTRA_KERNEL.partition("::")[0], "/root/extra_kernel.py")
+
 
 @app.function(image=image, gpu="B200:1", timeout=3600, volumes={TRACE_SET_PATH: trace_volume})
-def run_worker(worker_args: list, triton_version: str = "") -> dict:
+def run_worker(worker_args: list, triton_version: str = "", timeout_s: int = 1800) -> dict:
     import os
     import subprocess
     import sys
@@ -71,19 +82,24 @@ def run_worker(worker_args: list, triton_version: str = "") -> dict:
         env["TRITON_CACHE_DIR"] = f"/tmp/triton-cache-{triton_version}"
 
     out_path = "/tmp/profile.json"
-    proc = subprocess.run(
-        [sys.executable, "/root/worker.py",
-         "--kernel", "/root/solution/triton/kernel.py",
-         "--out", out_path, *worker_args],
-        env=env, stderr=subprocess.PIPE, text=True,
-    )
+    command = [
+        sys.executable, "/root/worker.py",
+        "--kernel", "/root/solution/triton/kernel.py",
+        "--out", out_path, *worker_args,
+    ]
+    # A kernel that waits on other programs can hang; do not wait an hour.
+    try:
+        proc = subprocess.run(command, env=env, stderr=subprocess.PIPE, text=True, timeout=timeout_s)
+        code, stderr = proc.returncode, proc.stderr
+    except subprocess.TimeoutExpired as expired:
+        code, stderr = -1, f"worker timed out after {timeout_s} s\n" + str(expired.stderr or "")[-2000:]
     if os.path.exists(out_path):
         with open(out_path) as handle:
             report = json.load(handle)
     else:
         report = {"triton_version": triton_version}
-    if proc.returncode != 0:
-        report["fatal"] = proc.stderr[-3000:]
+    if code != 0:
+        report["fatal"] = stderr[-3000:]
         print(report["fatal"], flush=True)
     return report
 
@@ -117,7 +133,7 @@ def _short(name: str) -> str:
 
 def _print_profile(report: dict) -> None:
     print(f"\nTriton {report.get('triton_version')}  torch {report.get('torch_version')}  {report.get('gpu')}")
-    rows = report["workloads"]
+    rows = report.get("workloads", {})
     order = sorted(rows, key=lambda u: (rows[u]["T"], rows[u]["valid_avg"], u))
 
     print("\nPer workload (us, median over timed calls):")
@@ -153,6 +169,15 @@ def _print_profile(report: dict) -> None:
             )
 
     configs = sorted({c for row in rows.values() for c in row["latency"] if c != "cuda"})
+    if len(configs) <= 14:
+        print("\nEvery configuration on every workload (us):")
+        for i, config in enumerate(configs):
+            print(f"  [{i}] {config}")
+        print(f"{'uuid':8} {'T':>2} {'max':>5} {'cuda':>6} " + " ".join(f"[{i}]".rjust(6) for i in range(len(configs))))
+        for uuid in order:
+            row = rows[uuid]
+            cells = " ".join(f"{_mean(row, c) or 0:6.1f}" for c in configs)
+            print(f"{uuid[:8]} {row['T']:>2} {max(row['valid_per_token']):>5} {_mean(row, 'cuda') or 0:6.1f} {cells}")
     scored = []
     for config in configs:
         ratios = [
@@ -183,6 +208,8 @@ def _print_profile(report: dict) -> None:
     }
     if bad:
         print("\nConfigurations over 0.05 max abs error:", bad)
+    for config, result in report.get("stress", {}).items():
+        print(f"\nSynthetic calls, {config}: {result}")
     if report.get("errors"):
         print("\nFailures:")
         for name, text in report["errors"].items():
@@ -211,18 +238,20 @@ def _print_versions(reports: list) -> None:
 
 
 @app.local_entrypoint()
-def main(versions: str = "", configs: str = "", iters: int = 20):
+def main(versions: str = "", configs: str = "", iters: int = 20, out: str = "", stress: int = 0, timeout: int = 1800):
     artifacts = PROJECT_ROOT / "artifacts"
     artifacts.mkdir(parents=True, exist_ok=True)
-    base_args = ["--iters", str(iters)]
+    base_args = ["--iters", str(iters), "--stress", str(stress)]
     if configs:
         base_args += ["--configs", configs]
+    if EXTRA_KERNEL:
+        base_args += ["--extra", "/root/extra_kernel.py::" + (EXTRA_KERNEL.partition("::")[2] or "kernel")]
 
     if not versions:
         report = run_worker.remote(
-            base_args + ["--cuda-dir", "/root/solution/python"]
+            base_args + ["--cuda-dir", "/root/solution/python"], "", timeout
         )
-        path = artifacts / "triton_profile.json"
+        path = artifacts / (out or "triton_profile.json")
         path.write_text(json.dumps(report, indent=1))
         print(f"\nWrote {path}")
         _print_profile(report)
@@ -233,7 +262,7 @@ def main(versions: str = "", configs: str = "", iters: int = 20):
     for version, report in zip(wanted, reports):
         report.setdefault("triton_version", version)
         report["requested_version"] = version
-    path = artifacts / "triton_versions.json"
+    path = artifacts / (out or "triton_versions.json")
     path.write_text(json.dumps(reports, indent=1))
     print(f"\nWrote {path}")
     _print_versions(reports)
