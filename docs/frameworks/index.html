@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four ways to write the DSA sparse attention kernel</title>
+<meta name="description" content="The same Blackwell sparse MLA in CUDA, Triton, TileLang, and ThunderKittens, with the plan, the source, and the B200 numbers.">
+<style>
+:root {
+  --bg: #fff; --fg: #1b1f24; --muted: #5d6673; --line: #e6e8eb; --code-bg: #f4f6f8;
+  --cuda: #4d8a00; --t39: #2563eb; --tk: #6d28d9; --tl: #c2410c;
+  --card: #f7f8f9;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111418; --fg: #e6e8eb; --muted: #9aa3ad; --line: #2a3038; --code-bg: #1b2128;
+    --cuda: #8fd14f; --t39: #60a5fa; --tk: #c4b5fd; --tl: #fdba74;
+    --card: #1b2128;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: var(--fg); background: var(--bg); }
+main { max-width: 1040px; margin: 0 auto; padding: 48px 24px 96px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 12px; }
+h2 { font-size: 1.35rem; margin: 48px 0 12px; }
+p, li { color: var(--fg); }
+.lede { font-size: 1.15rem; color: var(--muted); }
+.meta { color: var(--muted); font-size: 0.9rem; }
+a { color: var(--t39); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.88em; background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+pre { background: var(--code-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 0.82rem; line-height: 1.45; }
+pre code { background: none; padding: 0; }
+.cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 24px 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; border-top: 3px solid var(--line); }
+.card .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.card .value { font-size: 1.7rem; font-weight: 650; margin: 4px 0; }
+.card small { font-size: 0.9rem; font-weight: 500; color: var(--muted); }
+.card .note { color: var(--muted); font-size: 0.82rem; }
+.card.cuda { border-top-color: var(--cuda); }
+.card.t39 { border-top-color: var(--t39); }
+.card.tk { border-top-color: var(--tk); }
+.card.tl { border-top-color: var(--tl); }
+table { width: 100%; border-collapse: collapse; margin: 16px 0 8px; font-variant-numeric: tabular-nums; font-size: 0.92rem; }
+th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 600; font-size: 0.78rem; }
+td.num, th.num { text-align: right; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86em; }
+caption { caption-side: bottom; text-align: left; color: var(--muted); font-size: 0.85rem; padding-top: 8px; }
+.scroll { overflow-x: auto; }
+@media (max-width: 800px) { .cards { grid-template-columns: 1fr 1fr; } h1 { font-size: 1.55rem; } }
+</style>
+</head>
+<body>
+<main>
+
+<p class="meta"><a href="../">DSA sparse attention, CUDA vs Triton</a></p>
+<h1>Four ways to write the same sparse attention kernel</h1>
+<p class="lede">One operation, four implementations, one B200. CUDA is the contest submission. Triton is the fused kernel from the <a href="../">comparison page</a>. TileLang and ThunderKittens follow the same plan and were tuned on these 23 workloads.</p>
+<p class="meta">November 20, 2026 · NVIDIA B200 on Modal · definition <code>dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64</code> ·
+<a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/tree/readable">repository</a></p>
+
+<div class="cards">
+  <div class="card t39"><div class="label">Triton 3.7.0, fused</div><div class="value">7.88 <small>µs</small></div><div class="note">geomean · 0.37× CUDA · faster on 22 of 23</div></div>
+  <div class="card cuda"><div class="label">CUDA, the submission</div><div class="value">21.1 <small>µs</small></div><div class="note">geomean · mean 31.4 µs</div></div>
+  <div class="card tk"><div class="label">ThunderKittens</div><div class="value">76.3 <small>µs</small></div><div class="note">geomean · 3.6× CUDA · one kernel</div></div>
+  <div class="card tl"><div class="label">TileLang 0.1.15</div><div class="value">95.9 <small>µs</small></div><div class="note">geomean · 4.5× CUDA · kernel time 39.6 µs</div></div>
+</div>
+
+<p>All four numbers are the same timer: the CUPTI span from the first kernel's start to the last kernel's end, L2 flushed, median of 10 calls after 3 warm-ups. Host time before the first launch is excluded. Time between launches is included, which is why the TileLang card is higher than the time its kernels actually spend running. Every version passes all 23 contest workloads. The largest absolute error against an fp32 reference is 0.010, which is bf16 rounding. A separate stress run of 18 synthetic calls, with the padding either at the tail or scattered and with up to 20 tokens, stays within 0.005.</p>
+
+<h2>The operation</h2>
+<p>For each of T tokens, 16 query heads, and up to 2,048 sparse key positions:</p>
+<pre><code>score = (q_nope · ckv + q_pe · kpe) · sm_scale
+p     = softmax(score)          # computed in base 2
+out   = p · ckv                 # the 512-d latent, not a separate value tensor
+lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is empty</code></pre>
+<p><code>q_nope</code> is <code>[T, 16, 512]</code> bf16, <code>q_pe</code> is <code>[T, 16, 64]</code>, the caches are paged <code>[pages, 64, dim]</code>, and <code>sparse_indices</code> is <code>[T, 2048]</code> int32 with <code>−1</code> for padding. Padding may sit anywhere in the row. <code>sm_scale</code> is 0.1352337788608801. The kernels multiply by <code>sm_scale · log2(e)</code> once and stay in base 2 from there.</p>
+
+<h2>One plan, used by all four</h2>
+<p>A short token is scored by one program that walks the valid keys. A long token is split into G key-groups. Each group keeps a full 512-wide partial, because the program that merges column <em>c</em> has to read column <em>c</em> from every group. A group that only stored its own columns would have nothing to merge. G is 16 while <code>T · 16</code> fits on the B200's 148 SMs, and smaller after that, so the programs that meet at the barrier are all resident.</p>
+<table>
+<thead><tr><th>Step</th><th>CUDA</th><th>Triton</th><th>ThunderKittens</th><th>TileLang</th></tr></thead>
+<tbody>
+<tr><td>Score</td><td class="mono">wmma</td><td class="mono">tl.dot</td><td class="mono">mm_ABt</td><td class="mono">T.gemm</td></tr>
+<tr><td>Gather</td><td>cp.async, 16 bytes</td><td>masked loads in the pipelined tile</td><td>uint4 into the swizzled tile</td><td>element gather into shared</td></tr>
+<tr><td>Softmax</td><td>per warp, base 2</td><td>online, inside the tile loop</td><td>online, across key tiles</td><td>online, across key tiles</td></tr>
+<tr><td>Output</td><td>wmma of p · V</td><td>tl.dot, reusing the loaded K</td><td>mm_AB of padded probs · V</td><td>one T.gemm over all 512 columns</td></tr>
+<tr><td>Merge</td><td>a second kernel</td><td>same launch, a counter barrier</td><td>same launch, atomicAdd plus a spin</td><td>a second kernel, both replayed from one CUDA graph</td></tr>
+</tbody>
+</table>
+
+<h2>Where the code is</h2>
+<ul>
+<li>CUDA: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/python/kernel.cu"><code>solution/python/kernel.cu</code></a> and <code>mla_cta.cuh</code>. The score reduction writes <code>s_logits_tile[tid] = (g_idx &gt;= 0) ? sum * sm_scale_log2e : −∞</code>.</li>
+<li>Triton: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/triton/kernel.py"><code>solution/triton/kernel.py</code></a>, <code>run_fused</code>. One program per key-group. Below the threshold it writes its own columns and skips the barrier. Above it, every key-group stores the whole value.</li>
+<li>TileLang: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tilelang/solution.py"><code>solution/tilelang/solution.py</code></a>. <code>T.gemm(q_s, k_s, score, transpose_B=True)</code> is the score, and one <code>T.gemm(p_s, k_s, mix)</code> is the whole output. A second kernel merges. Both are captured in one CUDA graph.</li>
+<li>ThunderKittens: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu"><code>solution/tk/attention.cu</code></a>. <code>mm_ABt</code> scores 128 gathered keys by a 128-wide chunk of the latent. <code>mm_AB</code> mixes the softmax weights with the same latent. The loader is <code>solution/tk/solution.py</code>.</li>
+</ul>
+
+<h2>Run them</h2>
+<pre><code>modal run scripts/profile_frameworks.py
+modal run scripts/profile_frameworks.py --which tk,tilelang --tilelang 16x128,16x64</code></pre>
+<p>The image is the contest image plus TileLang 0.1.15 and a checkout of ThunderKittens. The first <code>run_commands</code> block matches <code>scripts/profile_triton.py</code> so that layer stays cached. The timer and the reference live in <code>scripts/triton_profile_worker.py</code>. The result of the run below is <code>artifacts/frameworks_final.json</code>.</p>
+
+<h2>The 23 contest workloads</h2>
+<p>Latency is microseconds, the CUPTI span. The last column is TileLang's GPU-busy time, the sum of its kernels, without the idle gaps between them. Block 64 was also measured and is slower on every workload that matters (geomean 97.6 µs against 95.9), so the table is the 128-wide tile.</p>
+<div class="scroll">
+<table>
+<thead>
+<tr><th>Workload</th><th class="num">T</th><th class="num">Keys</th><th class="num">CUDA</th><th class="num">Triton</th><th class="num">ThunderKittens</th><th class="num">TileLang</th><th class="num">TileLang busy</th></tr>
+</thead>
+<tbody>
+<tr><td class="mono">0c23b10c</td><td class="num">1</td><td class="num">2</td><td class="num">3.4</td><td class="num">4.0</td><td class="num">47.0</td><td class="num">81.8</td><td class="num">26.3</td></tr>
+<tr><td class="mono">9d4a5f21</td><td class="num">2</td><td class="num">14</td><td class="num">4.2</td><td class="num">4.0</td><td class="num">48.4</td><td class="num">79.5</td><td class="num">25.3</td></tr>
+<tr><td class="mono">fc85411e</td><td class="num">2</td><td class="num">15</td><td class="num">4.3</td><td class="num">4.1</td><td class="num">49.4</td><td class="num">78.1</td><td class="num">25.6</td></tr>
+<tr><td class="mono">f77df5ce</td><td class="num">2</td><td class="num">18</td><td class="num">4.4</td><td class="num">4.2</td><td class="num">50.0</td><td class="num">78.1</td><td class="num">25.5</td></tr>
+<tr><td class="mono">0a63b87b</td><td class="num">2</td><td class="num">36</td><td class="num">6.2</td><td class="num">4.8</td><td class="num">63.7</td><td class="num">80.9</td><td class="num">26.2</td></tr>
+<tr><td class="mono">b7668cfd</td><td class="num">2</td><td class="num">42</td><td class="num">6.2</td><td class="num">4.8</td><td class="num">63.9</td><td class="num">84.1</td><td class="num">26.1</td></tr>
+<tr><td class="mono">e6b849f2</td><td class="num">2</td><td class="num">70</td><td class="num">8.0</td><td class="num">6.5</td><td class="num">76.0</td><td class="num">82.7</td><td class="num">27.0</td></tr>
+<tr><td class="mono">9f3f891b</td><td class="num">2</td><td class="num">146</td><td class="num">19.1</td><td class="num">8.1</td><td class="num">63.5</td><td class="num">85.5</td><td class="num">30.2</td></tr>
+<tr><td class="mono">05f6de65</td><td class="num">2</td><td class="num">171</td><td class="num">22.8</td><td class="num">8.2</td><td class="num">64.2</td><td class="num">88.3</td><td class="num">31.4</td></tr>
+<tr><td class="mono">68d6817d</td><td class="num">6</td><td class="num">18</td><td class="num">9.6</td><td class="num">4.3</td><td class="num">51.3</td><td class="num">79.8</td><td class="num">25.4</td></tr>
+<tr><td class="mono">ddfa9e34</td><td class="num">6</td><td class="num">291</td><td class="num">50.3</td><td class="num">10.9</td><td class="num">94.8</td><td class="num">111.2</td><td class="num">53.2</td></tr>
+<tr><td class="mono">d57eb9e1</td><td class="num">6</td><td class="num">547</td><td class="num">51.4</td><td class="num">11.0</td><td class="num">104.7</td><td class="num">113.8</td><td class="num">59.4</td></tr>
+<tr><td class="mono">38389961</td><td class="num">7</td><td class="num">240</td><td class="num">50.6</td><td class="num">10.9</td><td class="num">83.8</td><td class="num">99.2</td><td class="num">44.8</td></tr>
+<tr><td class="mono">ae4219a9</td><td class="num">7</td><td class="num">329</td><td class="num">52.0</td><td class="num">11.1</td><td class="num">103.2</td><td class="num">112.1</td><td class="num">59.8</td></tr>
+<tr><td class="mono">2207f0fd</td><td class="num">7</td><td class="num">514</td><td class="num">51.3</td><td class="num">11.1</td><td class="num">102.2</td><td class="num">113.9</td><td class="num">59.6</td></tr>
+<tr><td class="mono">4c46a94b</td><td class="num">8</td><td class="num">177</td><td class="num">35.6</td><td class="num">9.3</td><td class="num">77.4</td><td class="num">95.1</td><td class="num">42.6</td></tr>
+<tr><td class="mono">385742b2</td><td class="num">8</td><td class="num">207</td><td class="num">38.2</td><td class="num">11.1</td><td class="num">83.3</td><td class="num">99.9</td><td class="num">43.8</td></tr>
+<tr><td class="mono">232ed014</td><td class="num">8</td><td class="num">212</td><td class="num">50.8</td><td class="num">11.0</td><td class="num">84.1</td><td class="num">98.7</td><td class="num">44.0</td></tr>
+<tr><td class="mono">7a389715</td><td class="num">8</td><td class="num">220</td><td class="num">50.5</td><td class="num">11.3</td><td class="num">96.9</td><td class="num">107.8</td><td class="num">53.6</td></tr>
+<tr><td class="mono">02d6ae9c</td><td class="num">8</td><td class="num">303</td><td class="num">51.8</td><td class="num">11.0</td><td class="num">104.0</td><td class="num">113.4</td><td class="num">60.8</td></tr>
+<tr><td class="mono">78b2e11c</td><td class="num">8</td><td class="num">328</td><td class="num">51.9</td><td class="num">11.0</td><td class="num">102.6</td><td class="num">117.7</td><td class="num">60.5</td></tr>
+<tr><td class="mono">5096e459</td><td class="num">8</td><td class="num">564</td><td class="num">47.3</td><td class="num">11.6</td><td class="num">105.1</td><td class="num">113.4</td><td class="num">58.8</td></tr>
+<tr><td class="mono">564007ac</td><td class="num">8</td><td class="num">594</td><td class="num">51.2</td><td class="num">11.6</td><td class="num">104.6</td><td class="num">116.6</td><td class="num">60.9</td></tr>
+</tbody>
+<tfoot>
+<tr><td colspan="3">Geomean</td><td class="num">21.1</td><td class="num">7.88</td><td class="num">76.3</td><td class="num">95.9</td><td class="num">39.6</td></tr>
+<tr><td colspan="3">Mean</td><td class="num">31.4</td><td class="num">8.52</td><td class="num">79.3</td><td class="num">97.0</td><td class="num">42.2</td></tr>
+</tfoot>
+</table>
+</div>
+<p class="meta">Keys is the average number of valid indices per token. The CUDA and Triton means here (31.4 µs and 8.52 µs) are this 10-iteration run. The <a href="../">comparison page</a> reports the official 50-iteration evaluator: 31.6 µs and 8.6 µs.</p>
+
+<h2>What the gap is made of</h2>
+<p>On a dense 8-token call (<code>02d6ae9c</code>, 303 valid keys) Triton is one kernel and takes 11.0 µs. CUDA takes 51.8 µs across two kernels. ThunderKittens takes 104 µs in one kernel. TileLang's two kernels take 46.2 µs and 6.6 µs, and three small copies take another 8 µs, so the GPU is busy for 60.8 µs. The CUPTI span is 113 µs because the GPU sits idle between those launches while the host issues the next one.</p>
+<p>ThunderKittens is paying for the shape of the tensor core. <code>mm_ABt</code> wants a 128-row tile and a K that is a multiple of 64, and this problem has 16 heads and a 512-d latent. Scoring 128 keys is four K=128 steps plus the 64-d positional key, and the output mix is eight more <code>mm_AB</code>s of 64 columns. Each of those is a gather into a swizzled shared tile, one thread issuing the MMA, and a parity wait. A single key tile is already ~50 µs on a nearly empty token, where Triton scores two keys in 4 µs. The same 16-byte vector gather the FP8 indexer uses is in this kernel. It removes the scalar shared-memory tax. It does not remove the number of MMA steps.</p>
+<p>TileLang's partial kernel is the gather. One program loads a 128 by 512 bf16 tile one element at a time, because a 16-byte load comes back as a vector this frontend cannot index. That is the same constraint as the FP8 indexer port. The gemm itself is one call for the score and one call for all 512 output columns. Folding the merge into the same kernel with a grid sync was slower, not faster: the cooperative launch added host time and the span went from 82 µs to 134 µs on the shortest call. A cython launcher was slower still. The graph of the two kernels is the best launch this version of TileLang produced here.</p>
+<p>Triton wins because the whole token is one pipelined launch. The score, the online softmax, and the output dot share the K that was just loaded, and the merge is a counter in that same kernel rather than a second launch. On this shape that is worth more than the tensor-core instruction either of the other two frameworks is built around.</p>
+
+<h2>What to ship</h2>
+<p>Ship <code>run_fused</code>. It is faster than the CUDA submission on 22 of the 23 workloads and faster than the contest winner on this suite. TileLang and ThunderKittens are correct, including scattered padding and token counts past the contest range, and they are the right way to read the algorithm in those languages. They are not the fast path for 16 heads and a 512-d latent.</p>
+
+</main>
+</body>
+</html>

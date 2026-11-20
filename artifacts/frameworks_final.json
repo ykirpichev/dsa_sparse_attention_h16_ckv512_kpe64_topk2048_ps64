@@ -1,0 +1,3021 @@
+{
+ "gpu": "NVIDIA B200",
+ "which": [
+  "cuda",
+  "thunderkittens",
+  "tilelang-g16-b128",
+  "tilelang-g16-b64",
+  "triton-fused"
+ ],
+ "workloads": {
+  "0c23b10c7b7645719517828c12eaa1d2": {
+   "T": 1,
+   "valid_per_token": [
+    2
+   ],
+   "valid_avg": 2,
+   "last_valid_plus1": [
+    2
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 3.44,
+     "mean_us": 3.5232,
+     "min_us": 3.424,
+     "busy_us": 3.44,
+     "host_us": 5.0649999999999995,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 3.5232
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 4.016,
+     "mean_us": 4.4674,
+     "min_us": 3.841,
+     "busy_us": 4.016,
+     "host_us": 21.8795,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.4674
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 81.834,
+     "mean_us": 99.9738,
+     "min_us": 79.259,
+     "busy_us": 26.2865,
+     "host_us": 79.884,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.671933333333333
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 10.1434
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.7371
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 81.954,
+     "mean_us": 105.3108,
+     "min_us": 79.777,
+     "busy_us": 27.183999999999997,
+     "host_us": 79.48400000000001,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.736066666666667
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.0626
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.7376000000000005
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 46.962,
+     "mean_us": 48.1236,
+     "min_us": 46.594,
+     "busy_us": 46.962,
+     "host_us": 4.51,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 48.123599999999996
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007808208465576172,
+     9.5367431640625e-07
+    ],
+    "triton-fused": [
+     0.008844375610351562,
+     7.152557373046875e-06
+    ],
+    "tilelang-g16-b128": [
+     0.007808208465576172,
+     4.76837158203125e-06
+    ],
+    "tilelang-g16-b64": [
+     0.007808208465576172,
+     4.76837158203125e-06
+    ],
+    "thunderkittens": [
+     0.008844375610351562,
+     7.152557373046875e-06
+    ]
+   }
+  },
+  "9d4a5f21268e484ea05a2f2af91d9fa7": {
+   "T": 2,
+   "valid_per_token": [
+    18,
+    11
+   ],
+   "valid_avg": 14,
+   "last_valid_plus1": [
+    18,
+    11
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 4.1935,
+     "mean_us": 4.218999999999999,
+     "min_us": 4.161,
+     "busy_us": 4.1935,
+     "host_us": 6.115,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 4.218999999999999
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 4.047,
+     "mean_us": 4.5119,
+     "min_us": 3.919,
+     "busy_us": 4.047,
+     "host_us": 21.35,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.511899999999999
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 79.486,
+     "mean_us": 94.0361,
+     "min_us": 73.883,
+     "busy_us": 25.320500000000003,
+     "host_us": 77.23349999999999,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.689333333333333
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 10.2109
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.8614999999999995
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 80.435,
+     "mean_us": 100.7553,
+     "min_us": 76.194,
+     "busy_us": 26.337,
+     "host_us": 77.294,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.721166666666667
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 10.8962
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.0242
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 48.388000000000005,
+     "mean_us": 49.3001,
+     "min_us": 48.036,
+     "busy_us": 48.388000000000005,
+     "host_us": 4.390000000000001,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 49.3001
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007788419723510742,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.007788419723510742,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007788419723510742,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b64": [
+     0.007788419723510742,
+     1.1444091796875e-05
+    ],
+    "thunderkittens": [
+     0.007788419723510742,
+     1.1444091796875e-05
+    ]
+   }
+  },
+  "b7668cfd194c4b95ab600feb205ebac6": {
+   "T": 2,
+   "valid_per_token": [
+    33,
+    52
+   ],
+   "valid_avg": 42,
+   "last_valid_plus1": [
+    33,
+    52
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 6.24,
+     "mean_us": 6.2498000000000005,
+     "min_us": 6.144,
+     "busy_us": 6.24,
+     "host_us": 5.05,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 6.2498000000000005
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 4.817,
+     "mean_us": 5.3643,
+     "min_us": 4.705,
+     "busy_us": 4.817,
+     "host_us": 20.265,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 5.3643
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 84.1335,
+     "mean_us": 100.0641,
+     "min_us": 80.581,
+     "busy_us": 26.0655,
+     "host_us": 82.244,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7596333333333334
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 10.7974
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.9029
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 83.53049999999999,
+     "mean_us": 92.7938,
+     "min_us": 76.027,
+     "busy_us": 26.942,
+     "host_us": 79.90899999999999,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7240666666666673
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.7495
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.886
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 63.897999999999996,
+     "mean_us": 64.4166,
+     "min_us": 63.242,
+     "busy_us": 63.897999999999996,
+     "host_us": 4.15,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 64.4166
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.010446548461914062,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.010446548461914062,
+     7.62939453125e-06
+    ],
+    "tilelang-g16-b128": [
+     0.010446548461914062,
+     6.67572021484375e-06
+    ],
+    "tilelang-g16-b64": [
+     0.010446548461914062,
+     6.67572021484375e-06
+    ],
+    "thunderkittens": [
+     0.010446548461914062,
+     7.62939453125e-06
+    ]
+   }
+  },
+  "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+   "T": 2,
+   "valid_per_token": [
+    63,
+    9
+   ],
+   "valid_avg": 36,
+   "last_valid_plus1": [
+    63,
+    9
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 6.1925,
+     "mean_us": 6.221,
+     "min_us": 6.08,
+     "busy_us": 6.1925,
+     "host_us": 6.34,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 6.221
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 4.8,
+     "mean_us": 5.327999999999999,
+     "min_us": 4.768,
+     "busy_us": 4.8,
+     "host_us": 20.189,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 5.328
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 80.85900000000001,
+     "mean_us": 98.4486,
+     "min_us": 78.794,
+     "busy_us": 26.179,
+     "host_us": 78.139,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7385333333333333
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 10.7534
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.897
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 83.714,
+     "mean_us": 96.2548,
+     "min_us": 79.265,
+     "busy_us": 27.072,
+     "host_us": 80.25399999999999,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7360666666666664
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.8594
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.027200000000001
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 63.663,
+     "mean_us": 63.7329,
+     "min_us": 63.055,
+     "busy_us": 63.663,
+     "host_us": 4.6,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 63.73290000000001
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.0076904296875,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.0076904296875,
+     7.62939453125e-06
+    ],
+    "tilelang-g16-b128": [
+     0.0076904296875,
+     6.67572021484375e-06
+    ],
+    "tilelang-g16-b64": [
+     0.0076904296875,
+     6.67572021484375e-06
+    ],
+    "thunderkittens": [
+     0.0076904296875,
+     7.62939453125e-06
+    ]
+   }
+  },
+  "05f6de657db543ae9e4c46796522843a": {
+   "T": 2,
+   "valid_per_token": [
+    6,
+    337
+   ],
+   "valid_avg": 171,
+   "last_valid_plus1": [
+    6,
+    337
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 22.848,
+     "mean_us": 22.831200000000003,
+     "min_us": 22.719,
+     "busy_us": 22.848,
+     "host_us": 5.7745,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 22.831200000000003
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 8.191,
+     "mean_us": 8.3033,
+     "min_us": 8.032,
+     "busy_us": 8.191,
+     "host_us": 21.319499999999998,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 8.303300000000002
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 88.321,
+     "mean_us": 98.027,
+     "min_us": 83.361,
+     "busy_us": 31.4085,
+     "host_us": 81.13399999999999,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7361000000000004
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 16.0226
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.0306000000000015
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 90.12100000000001,
+     "mean_us": 98.5682,
+     "min_us": 84.537,
+     "busy_us": 32.045,
+     "host_us": 82.2985,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.6568333333333336
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 16.9682
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.905099999999999
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 64.232,
+     "mean_us": 64.2192,
+     "min_us": 63.816,
+     "busy_us": 64.232,
+     "host_us": 4.3100000000000005,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 64.21919999999999
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007809877395629883,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.00829625129699707,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007809877395629883,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.007809877395629883,
+     9.5367431640625e-06
+    ],
+    "thunderkittens": [
+     0.00829625129699707,
+     1.1444091796875e-05
+    ]
+   }
+  },
+  "fc85411e250c41879b6d6a1edb80f0a7": {
+   "T": 2,
+   "valid_per_token": [
+    17,
+    13
+   ],
+   "valid_avg": 15,
+   "last_valid_plus1": [
+    17,
+    13
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 4.321,
+     "mean_us": 4.3274,
+     "min_us": 4.225,
+     "busy_us": 4.321,
+     "host_us": 5.555,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 4.3274
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 4.146,
+     "mean_us": 4.6003,
+     "min_us": 4.065,
+     "busy_us": 4.146,
+     "host_us": 19.395000000000003,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.6003
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 78.064,
+     "mean_us": 91.0226,
+     "min_us": 74.974,
+     "busy_us": 25.6265,
+     "host_us": 75.059,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7317666666666667
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 10.3018
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.020600000000002
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 78.99199999999999,
+     "mean_us": 90.64959999999999,
+     "min_us": 76.416,
+     "busy_us": 26.688,
+     "host_us": 76.094,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7509333333333346
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.2544
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.036800000000001
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 49.4065,
+     "mean_us": 50.341300000000004,
+     "min_us": 49.055,
+     "busy_us": 49.4065,
+     "host_us": 4.35,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 50.341300000000004
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007801055908203125,
+     9.5367431640625e-07
+    ],
+    "triton-fused": [
+     0.007823944091796875,
+     1.239776611328125e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007801055908203125,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b64": [
+     0.007801055908203125,
+     1.1444091796875e-05
+    ],
+    "thunderkittens": [
+     0.007823944091796875,
+     1.239776611328125e-05
+    ]
+   }
+  },
+  "e6b849f2900446148c01d81152efae23": {
+   "T": 2,
+   "valid_per_token": [
+    92,
+    48
+   ],
+   "valid_avg": 70,
+   "last_valid_plus1": [
+    92,
+    48
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 8.015,
+     "mean_us": 8.073,
+     "min_us": 7.968,
+     "busy_us": 8.015,
+     "host_us": 6.0794999999999995,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 8.073
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 6.526,
+     "mean_us": 7.144,
+     "min_us": 6.334,
+     "busy_us": 6.526,
+     "host_us": 21.4,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 7.144
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 82.667,
+     "mean_us": 98.0794,
+     "min_us": 75.779,
+     "busy_us": 26.9795,
+     "host_us": 79.729,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7429666666666668
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.403400000000001
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.042700000000001
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 83.816,
+     "mean_us": 94.3638,
+     "min_us": 78.324,
+     "busy_us": 27.983,
+     "host_us": 79.289,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.8105333333333333
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 12.3854
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.1259999999999994
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 75.97749999999999,
+     "mean_us": 75.9482,
+     "min_us": 75.362,
+     "busy_us": 75.97749999999999,
+     "host_us": 4.165,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 75.9482
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007512807846069336,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.007512807846069336,
+     1.52587890625e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007512807846069336,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.007512807846069336,
+     9.5367431640625e-06
+    ],
+    "thunderkittens": [
+     0.007512807846069336,
+     1.33514404296875e-05
+    ]
+   }
+  },
+  "9f3f891bfbe24776adfcd5a579d093dd": {
+   "T": 2,
+   "valid_per_token": [
+    288,
+    4
+   ],
+   "valid_avg": 146,
+   "last_valid_plus1": [
+    288,
+    4
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 19.0875,
+     "mean_us": 19.0943,
+     "min_us": 19.008,
+     "busy_us": 19.0875,
+     "host_us": 6.02,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 19.094300000000004
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 8.111,
+     "mean_us": 8.2714,
+     "min_us": 7.903,
+     "busy_us": 8.111,
+     "host_us": 20.799500000000002,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 8.2714
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 85.457,
+     "mean_us": 101.7229,
+     "min_us": 79.873,
+     "busy_us": 30.192999999999998,
+     "host_us": 79.699,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.686933333333334
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 15.001900000000001
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.908900000000001
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 86.896,
+     "mean_us": 107.7597,
+     "min_us": 83.264,
+     "busy_us": 31.247999999999998,
+     "host_us": 79.699,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7680000000000007
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 15.769599999999997
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 7.0304
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 63.485,
+     "mean_us": 63.6,
+     "min_us": 63.356,
+     "busy_us": 63.485,
+     "host_us": 4.08,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 63.6
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.0077762603759765625,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.007848739624023438,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.0077762603759765625,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.0077762603759765625,
+     9.5367431640625e-06
+    ],
+    "thunderkittens": [
+     0.007848739624023438,
+     1.1444091796875e-05
+    ]
+   }
+  },
+  "f77df5ce21634f7ca0586af7e3c13434": {
+   "T": 2,
+   "valid_per_token": [
+    18,
+    19
+   ],
+   "valid_avg": 18,
+   "last_valid_plus1": [
+    18,
+    19
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 4.4005,
+     "mean_us": 4.4006,
+     "min_us": 4.257,
+     "busy_us": 4.4005,
+     "host_us": 5.125,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f22mla_sparse_attn_kernelEPK13__nv_bfloat16S2_S2_S2_PKifPS0_Pfll": {
+       "calls": 1.0,
+       "gpu_us": 4.4006
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 4.2085,
+     "mean_us": 4.6952,
+     "min_us": 4.096,
+     "busy_us": 4.2085,
+     "host_us": 21.32,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.695200000000001
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 78.1465,
+     "mean_us": 93.5676,
+     "min_us": 74.691,
+     "busy_us": 25.489,
+     "host_us": 76.509,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7595666666666667
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 10.2563
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.870600000000001
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 78.8125,
+     "mean_us": 86.9342,
+     "min_us": 77.277,
+     "busy_us": 26.6555,
+     "host_us": 75.333,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7337666666666673
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.292300000000001
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.8893
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 49.983,
+     "mean_us": 51.093199999999996,
+     "min_us": 49.567,
+     "busy_us": 49.983,
+     "host_us": 3.7695,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 51.0932
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007808208465576172,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.007808208465576172,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b128": [
+     0.007808208465576172,
+     8.58306884765625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.007808208465576172,
+     8.58306884765625e-06
+    ],
+    "thunderkittens": [
+     0.007808208465576172,
+     9.5367431640625e-06
+    ]
+   }
+  },
+  "385742b2717e4f02b918c7349dde23d8": {
+   "T": 8,
+   "valid_per_token": [
+    92,
+    48,
+    1044,
+    14,
+    411,
+    30,
+    16,
+    8
+   ],
+   "valid_avg": 207,
+   "last_valid_plus1": [
+    92,
+    48,
+    1044,
+    14,
+    411,
+    30,
+    16,
+    8
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 38.175,
+     "mean_us": 38.1785,
+     "min_us": 38.015,
+     "busy_us": 37.9675,
+     "host_us": 6.640000000000001,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f24mla_split_partial_kernelILi4EEEvPK13__nv_bfloat16S3_S3_S3_PKif": {
+       "calls": 1.0,
+       "gpu_us": 35.6409
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi4EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 2.3423999999999996
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 11.0565,
+     "mean_us": 11.3864,
+     "min_us": 10.976,
+     "busy_us": 11.0565,
+     "host_us": 21.11,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.386399999999998
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 99.9195,
+     "mean_us": 116.0318,
+     "min_us": 92.544,
+     "busy_us": 43.760000000000005,
+     "host_us": 79.67349999999999,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7008000000000005
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 28.729600000000005
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.7296
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 101.9135,
+     "mean_us": 113.9705,
+     "min_us": 99.194,
+     "busy_us": 46.7975,
+     "host_us": 78.9985,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7550666666666666
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 31.646000000000004
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.5468
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 83.3095,
+     "mean_us": 83.4596,
+     "min_us": 83.101,
+     "busy_us": 83.3095,
+     "host_us": 4.475,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 83.4596
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.00775909423828125,
+     2.86102294921875e-06
+    ],
+    "triton-fused": [
+     0.007959604263305664,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b128": [
+     0.00775909423828125,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.00775909423828125,
+     9.5367431640625e-06
+    ],
+    "thunderkittens": [
+     0.007959604263305664,
+     9.5367431640625e-06
+    ]
+   }
+  },
+  "4c46a94ba2364dc7ab476286dee8dce3": {
+   "T": 8,
+   "valid_per_token": [
+    18,
+    19,
+    1002,
+    31,
+    11,
+    316,
+    24,
+    2
+   ],
+   "valid_avg": 177,
+   "last_valid_plus1": [
+    18,
+    19,
+    1002,
+    31,
+    11,
+    316,
+    24,
+    2
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 35.613,
+     "mean_us": 35.6417,
+     "min_us": 35.485,
+     "busy_us": 35.405,
+     "host_us": 7.76,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f24mla_split_partial_kernelILi4EEEvPK13__nv_bfloat16S3_S3_S3_PKif": {
+       "calls": 1.0,
+       "gpu_us": 33.09779999999999
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi4EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 2.3422999999999994
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 9.292,
+     "mean_us": 9.3596,
+     "min_us": 9.036,
+     "busy_us": 9.292,
+     "host_us": 20.5545,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 9.359599999999999
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 95.0985,
+     "mean_us": 106.2948,
+     "min_us": 91.643,
+     "busy_us": 42.574,
+     "host_us": 75.934,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.788100000000001
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 27.566300000000002
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.5725
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 95.944,
+     "mean_us": 105.17530000000001,
+     "min_us": 92.696,
+     "busy_us": 43.691,
+     "host_us": 75.75899999999999,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.782566666666667
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 28.4326
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.7346
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 77.4015,
+     "mean_us": 77.5022,
+     "min_us": 76.913,
+     "busy_us": 77.4015,
+     "host_us": 3.815,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 77.5022
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007802724838256836,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.007925987243652344,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007925987243652344,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.007925987243652344,
+     9.5367431640625e-06
+    ],
+    "thunderkittens": [
+     0.007925987243652344,
+     1.1444091796875e-05
+    ]
+   }
+  },
+  "3838996164a94d728710f913477feba8": {
+   "T": 7,
+   "valid_per_token": [
+    33,
+    52,
+    72,
+    17,
+    18,
+    401,
+    1089
+   ],
+   "valid_avg": 240,
+   "last_valid_plus1": [
+    33,
+    52,
+    72,
+    17,
+    18,
+    401,
+    1089
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 50.62,
+     "mean_us": 50.6518,
+     "min_us": 50.236,
+     "busy_us": 50.412,
+     "host_us": 6.45,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 46.6489
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.7980999999999994
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 10.945,
+     "mean_us": 11.152800000000001,
+     "min_us": 10.753,
+     "busy_us": 10.945,
+     "host_us": 19.905,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.152800000000003
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 99.1585,
+     "mean_us": 118.4581,
+     "min_us": 96.564,
+     "busy_us": 44.789500000000004,
+     "host_us": 75.799,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7912000000000003
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 29.4748
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.9609
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 99.34,
+     "mean_us": 111.0681,
+     "min_us": 97.405,
+     "busy_us": 47.2145,
+     "host_us": 75.024,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.6857333333333333
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 32.2933
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.802899999999999
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 83.8275,
+     "mean_us": 83.9234,
+     "min_us": 83.459,
+     "busy_us": 83.8275,
+     "host_us": 4.08,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 83.92339999999999
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007947206497192383,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.007947206497192383,
+     1.33514404296875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007790803909301758,
+     1.049041748046875e-05
+    ],
+    "tilelang-g16-b64": [
+     0.007790803909301758,
+     1.049041748046875e-05
+    ],
+    "thunderkittens": [
+     0.007947206497192383,
+     1.33514404296875e-05
+    ]
+   }
+  },
+  "02d6ae9c64ab42ff93f05c23c53bcb7d": {
+   "T": 8,
+   "valid_per_token": [
+    63,
+    9,
+    2048,
+    212,
+    11,
+    25,
+    6,
+    50
+   ],
+   "valid_avg": 303,
+   "last_valid_plus1": [
+    63,
+    9,
+    2048,
+    212,
+    11,
+    25,
+    6,
+    50
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 51.808,
+     "mean_us": 51.8938,
+     "min_us": 51.263,
+     "busy_us": 51.6155,
+     "host_us": 7.25,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 47.8042
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8879999999999995
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 11.0245,
+     "mean_us": 11.0599,
+     "min_us": 10.881,
+     "busy_us": 11.0245,
+     "host_us": 20.134999999999998,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.059899999999999
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 113.377,
+     "mean_us": 122.7948,
+     "min_us": 106.497,
+     "busy_us": 60.751999999999995,
+     "host_us": 75.35900000000001,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.694433333333334
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 46.151
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.569599999999999
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 115.6245,
+     "mean_us": 122.3283,
+     "min_us": 110.201,
+     "busy_us": 64.459,
+     "host_us": 73.889,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.637666666666667
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 49.7377
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.505199999999999
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 103.9545,
+     "mean_us": 104.1145,
+     "min_us": 103.427,
+     "busy_us": 103.9545,
+     "host_us": 3.79,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 104.11449999999999
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.010151863098144531,
+     2.86102294921875e-06
+    ],
+    "triton-fused": [
+     0.010151863098144531,
+     1.049041748046875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.010151863098144531,
+     8.58306884765625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.010151863098144531,
+     8.58306884765625e-06
+    ],
+    "thunderkittens": [
+     0.010151863098144531,
+     1.049041748046875e-05
+    ]
+   }
+  },
+  "ddfa9e340b264f76abe7418692faa876": {
+   "T": 6,
+   "valid_per_token": [
+    6,
+    9,
+    9,
+    14,
+    1639,
+    71
+   ],
+   "valid_avg": 291,
+   "last_valid_plus1": [
+    6,
+    9,
+    9,
+    14,
+    1639,
+    71
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 50.256,
+     "mean_us": 50.281800000000004,
+     "min_us": 49.825,
+     "busy_us": 50.048,
+     "host_us": 7.28,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 46.397
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.6832000000000003
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 10.864,
+     "mean_us": 11.0847,
+     "min_us": 10.784,
+     "busy_us": 10.864,
+     "host_us": 19.994999999999997,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.084700000000002
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 111.15,
+     "mean_us": 130.529,
+     "min_us": 103.487,
+     "busy_us": 53.1665,
+     "host_us": 81.6685,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7284333333333337
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 38.281
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.572699999999999
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 110.759,
+     "mean_us": 124.9023,
+     "min_us": 109.495,
+     "busy_us": 56.4755,
+     "host_us": 78.729,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.824333333333334
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 41.2097
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.693600000000001
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 94.771,
+     "mean_us": 94.787,
+     "min_us": 94.467,
+     "busy_us": 94.771,
+     "host_us": 4.705,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 94.787
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007782459259033203,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.007782459259033203,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007782459259033203,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.007782459259033203,
+     9.5367431640625e-06
+    ],
+    "thunderkittens": [
+     0.007782459259033203,
+     1.1444091796875e-05
+    ]
+   }
+  },
+  "78b2e11c30004cceb84355722a7c6b0a": {
+   "T": 8,
+   "valid_per_token": [
+    18,
+    11,
+    2048,
+    20,
+    25,
+    45,
+    135,
+    326
+   ],
+   "valid_avg": 328,
+   "last_valid_plus1": [
+    18,
+    11,
+    2048,
+    20,
+    25,
+    45,
+    135,
+    326
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 51.927499999999995,
+     "mean_us": 51.761,
+     "min_us": 50.807,
+     "busy_us": 51.703500000000005,
+     "host_us": 7.5145,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 47.6721
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8841
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 10.977,
+     "mean_us": 11.0314,
+     "min_us": 10.753,
+     "busy_us": 10.977,
+     "host_us": 20.939500000000002,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.0314
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 117.661,
+     "mean_us": 134.1856,
+     "min_us": 114.013,
+     "busy_us": 60.5105,
+     "host_us": 81.15899999999999,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.738033333333334
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 45.7812
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.579000000000001
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 118.32300000000001,
+     "mean_us": 127.7158,
+     "min_us": 115.043,
+     "busy_us": 63.6015,
+     "host_us": 77.70400000000001,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.688033333333334
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 49.1502
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.534700000000001
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 102.6445,
+     "mean_us": 102.6314,
+     "min_us": 101.54,
+     "busy_us": 102.6445,
+     "host_us": 4.275,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 102.63140000000001
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.008049249649047852,
+     3.814697265625e-06
+    ],
+    "triton-fused": [
+     0.008075952529907227,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.008049249649047852,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.008049249649047852,
+     9.5367431640625e-06
+    ],
+    "thunderkittens": [
+     0.008075952529907227,
+     1.1444091796875e-05
+    ]
+   }
+  },
+  "68d6817dcfd1433aa8d2ddeefd54b6ea": {
+   "T": 6,
+   "valid_per_token": [
+    19,
+    20,
+    32,
+    12,
+    25,
+    3
+   ],
+   "valid_avg": 18,
+   "last_valid_plus1": [
+    19,
+    20,
+    32,
+    12,
+    25,
+    3
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 9.632,
+     "mean_us": 9.7442,
+     "min_us": 9.569,
+     "busy_us": 9.44,
+     "host_us": 8.510000000000002,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f24mla_split_partial_kernelILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKi": {
+       "calls": 1.0,
+       "gpu_us": 5.987399999999999
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.5616000000000008
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 4.337,
+     "mean_us": 4.7593,
+     "min_us": 4.224,
+     "busy_us": 4.337,
+     "host_us": 20.4795,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 4.7593
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 79.846,
+     "mean_us": 94.727,
+     "min_us": 77.798,
+     "busy_us": 25.4265,
+     "host_us": 79.1185,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7501000000000007
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 10.4712
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.647
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 81.2425,
+     "mean_us": 91.4401,
+     "min_us": 72.827,
+     "busy_us": 26.2705,
+     "host_us": 77.79849999999999,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.6579333333333337
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 11.330299999999998
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.7097999999999995
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 51.347,
+     "mean_us": 51.9134,
+     "min_us": 50.979,
+     "busy_us": 51.347,
+     "host_us": 7.59,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 51.9134
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.0078008174896240234,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.0078008174896240234,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b128": [
+     0.0078008174896240234,
+     6.67572021484375e-06
+    ],
+    "tilelang-g16-b64": [
+     0.0078008174896240234,
+     6.67572021484375e-06
+    ],
+    "thunderkittens": [
+     0.0078008174896240234,
+     9.5367431640625e-06
+    ]
+   }
+  },
+  "564007ac354e4662a62cc4d6352dc494": {
+   "T": 8,
+   "valid_per_token": [
+    288,
+    4,
+    1884,
+    21,
+    136,
+    2048,
+    42,
+    335
+   ],
+   "valid_avg": 594,
+   "last_valid_plus1": [
+    288,
+    4,
+    1884,
+    21,
+    136,
+    2048,
+    42,
+    335
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 51.2425,
+     "mean_us": 51.3242,
+     "min_us": 51.053,
+     "busy_us": 51.053,
+     "host_us": 7.609999999999999,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 47.2878
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8409
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 11.5855,
+     "mean_us": 11.5921,
+     "min_us": 11.426,
+     "busy_us": 11.5855,
+     "host_us": 22.17,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.592100000000002
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 116.59,
+     "mean_us": 133.5139,
+     "min_us": 111.291,
+     "busy_us": 60.913,
+     "host_us": 79.009,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.724666666666667
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 46.098
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.743
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 119.082,
+     "mean_us": 137.9538,
+     "min_us": 115.37,
+     "busy_us": 64.069,
+     "host_us": 78.8535,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.716
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 49.2136
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.5349
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 104.638,
+     "mean_us": 104.6833,
+     "min_us": 103.832,
+     "busy_us": 104.638,
+     "host_us": 4.324999999999999,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 104.6833
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.009876012802124023,
+     3.814697265625e-06
+    ],
+    "triton-fused": [
+     0.009876012802124023,
+     1.239776611328125e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007811069488525391,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b64": [
+     0.007811069488525391,
+     1.1444091796875e-05
+    ],
+    "thunderkittens": [
+     0.009876012802124023,
+     1.239776611328125e-05
+    ]
+   }
+  },
+  "ae4219a95f044f45bd10e17ab63c6e8f": {
+   "T": 7,
+   "valid_per_token": [
+    19,
+    12,
+    2048,
+    21,
+    26,
+    46,
+    136
+   ],
+   "valid_avg": 329,
+   "last_valid_plus1": [
+    19,
+    12,
+    2048,
+    21,
+    26,
+    46,
+    136
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 51.985,
+     "mean_us": 51.9658,
+     "min_us": 51.633,
+     "busy_us": 51.793,
+     "host_us": 7.470000000000001,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 47.89020000000001
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8772999999999995
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 11.089,
+     "mean_us": 11.159600000000001,
+     "min_us": 10.977,
+     "busy_us": 11.089,
+     "host_us": 21.2095,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.159600000000001
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 112.09450000000001,
+     "mean_us": 122.0646,
+     "min_us": 110.069,
+     "busy_us": 59.821,
+     "host_us": 76.4935,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.700166666666666
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 45.0614
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.652000000000001
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 118.5035,
+     "mean_us": 127.9606,
+     "min_us": 112.104,
+     "busy_us": 63.394999999999996,
+     "host_us": 79.554,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7471333333333336
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 48.2395
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.789199999999999
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 103.242,
+     "mean_us": 103.2131,
+     "min_us": 102.378,
+     "busy_us": 103.242,
+     "host_us": 4.495,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 103.21310000000001
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.007961750030517578,
+     2.86102294921875e-06
+    ],
+    "triton-fused": [
+     0.007883310317993164,
+     1.430511474609375e-05
+    ],
+    "tilelang-g16-b128": [
+     0.00775909423828125,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b64": [
+     0.00775909423828125,
+     1.1444091796875e-05
+    ],
+    "thunderkittens": [
+     0.007883310317993164,
+     1.430511474609375e-05
+    ]
+   }
+  },
+  "232ed014bafc4835b9881bb308c659b0": {
+   "T": 8,
+   "valid_per_token": [
+    35,
+    54,
+    74,
+    19,
+    20,
+    403,
+    1091,
+    1
+   ],
+   "valid_avg": 212,
+   "last_valid_plus1": [
+    35,
+    54,
+    74,
+    19,
+    20,
+    403,
+    1091,
+    1
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 50.797,
+     "mean_us": 50.8703,
+     "min_us": 50.493,
+     "busy_us": 50.605000000000004,
+     "host_us": 6.92,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 46.854699999999994
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8173000000000004
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 11.0245,
+     "mean_us": 11.2455,
+     "min_us": 10.721,
+     "busy_us": 11.0245,
+     "host_us": 20.25,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.245500000000003
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 98.69200000000001,
+     "mean_us": 109.8134,
+     "min_us": 91.295,
+     "busy_us": 43.95,
+     "host_us": 78.7235,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.6951666666666676
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 29.139999999999997
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.571199999999999
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 101.485,
+     "mean_us": 113.0814,
+     "min_us": 99.613,
+     "busy_us": 47.2465,
+     "host_us": 78.41900000000001,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7391666666666667
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 32.4182
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.6688
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 84.118,
+     "mean_us": 84.2076,
+     "min_us": 83.478,
+     "busy_us": 84.118,
+     "host_us": 4.355,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 84.2076
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.00786447525024414,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.008010387420654297,
+     1.33514404296875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007815122604370117,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b64": [
+     0.007815122604370117,
+     1.1444091796875e-05
+    ],
+    "thunderkittens": [
+     0.008010387420654297,
+     1.33514404296875e-05
+    ]
+   }
+  },
+  "7a389715dcc3479e9b0512309f9d1d56": {
+   "T": 8,
+   "valid_per_token": [
+    8,
+    11,
+    11,
+    16,
+    1641,
+    73,
+    1,
+    1
+   ],
+   "valid_avg": 220,
+   "last_valid_plus1": [
+    8,
+    11,
+    11,
+    16,
+    1641,
+    73,
+    1,
+    1
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 50.4945,
+     "mean_us": 50.4659,
+     "min_us": 50.111,
+     "busy_us": 50.271,
+     "host_us": 6.4399999999999995,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 46.3957
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8653999999999997
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 11.296,
+     "mean_us": 11.5007,
+     "min_us": 11.04,
+     "busy_us": 11.296,
+     "host_us": 19.674,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.500699999999998
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 107.8005,
+     "mean_us": 123.8184,
+     "min_us": 103.193,
+     "busy_us": 53.611999999999995,
+     "host_us": 77.279,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7390333333333334
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 38.7235
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.5756
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 108.2185,
+     "mean_us": 114.3773,
+     "min_us": 104.843,
+     "busy_us": 56.453500000000005,
+     "host_us": 74.77850000000001,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.678
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 41.59160000000001
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.530199999999999
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 96.9185,
+     "mean_us": 97.0947,
+     "min_us": 96.374,
+     "busy_us": 96.9185,
+     "host_us": 3.895,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 97.0947
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.008473873138427734,
+     1.9073486328125e-06
+    ],
+    "triton-fused": [
+     0.008473873138427734,
+     1.239776611328125e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007809877395629883,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.007809877395629883,
+     9.5367431640625e-06
+    ],
+    "thunderkittens": [
+     0.008473873138427734,
+     1.239776611328125e-05
+    ]
+   }
+  },
+  "5096e459ce3f4cdf82773ce1a0c73c8a": {
+   "T": 8,
+   "valid_per_token": [
+    17,
+    13,
+    1887,
+    16,
+    180,
+    1986,
+    413,
+    1
+   ],
+   "valid_avg": 564,
+   "last_valid_plus1": [
+    17,
+    13,
+    1887,
+    16,
+    180,
+    1986,
+    413,
+    1
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 47.263,
+     "mean_us": 47.3103,
+     "min_us": 46.955,
+     "busy_us": 47.0865,
+     "host_us": 6.0395,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 43.553399999999996
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.5803999999999996
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 11.630500000000001,
+     "mean_us": 11.6882,
+     "min_us": 11.55,
+     "busy_us": 11.630500000000001,
+     "host_us": 20.634999999999998,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.688199999999998
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 113.381,
+     "mean_us": 126.3601,
+     "min_us": 104.293,
+     "busy_us": 58.772999999999996,
+     "host_us": 78.4485,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.614966666666666
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 43.9765
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.614099999999999
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 117.56,
+     "mean_us": 131.047,
+     "min_us": 114.264,
+     "busy_us": 62.189,
+     "host_us": 80.779,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.6675666666666666
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 47.376
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.6747
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 105.138,
+     "mean_us": 104.8531,
+     "min_us": 103.522,
+     "busy_us": 105.138,
+     "host_us": 3.9899999999999998,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 104.85310000000001
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.008085250854492188,
+     2.86102294921875e-06
+    ],
+    "triton-fused": [
+     0.008085250854492188,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007898807525634766,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.007898807525634766,
+     9.5367431640625e-06
+    ],
+    "thunderkittens": [
+     0.008085250854492188,
+     1.1444091796875e-05
+    ]
+   }
+  },
+  "d57eb9e19f0642e8af9bd76ad0823303": {
+   "T": 6,
+   "valid_per_token": [
+    143,
+    139,
+    2013,
+    142,
+    306,
+    539
+   ],
+   "valid_avg": 547,
+   "last_valid_plus1": [
+    143,
+    139,
+    2013,
+    142,
+    306,
+    539
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 51.43,
+     "mean_us": 51.5568,
+     "min_us": 51.233,
+     "busy_us": 51.234,
+     "host_us": 6.905,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 47.6049
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.7396000000000003
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 10.993,
+     "mean_us": 11.0282,
+     "min_us": 10.785,
+     "busy_us": 10.993,
+     "host_us": 20.665,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.028199999999998
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 113.79400000000001,
+     "mean_us": 121.4576,
+     "min_us": 107.618,
+     "busy_us": 59.409,
+     "host_us": 77.8335,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.644333333333334
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 44.6277
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.5889
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 115.65899999999999,
+     "mean_us": 125.1186,
+     "min_us": 113.276,
+     "busy_us": 62.30200000000001,
+     "host_us": 76.5685,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.748766666666667
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 47.623900000000006
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.5501000000000005
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 104.73,
+     "mean_us": 104.8882,
+     "min_us": 104.335,
+     "busy_us": 104.73,
+     "host_us": 4.355,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 104.88820000000001
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.0077593326568603516,
+     2.86102294921875e-06
+    ],
+    "triton-fused": [
+     0.007865667343139648,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.007865667343139648,
+     7.62939453125e-06
+    ],
+    "tilelang-g16-b64": [
+     0.007865667343139648,
+     7.62939453125e-06
+    ],
+    "thunderkittens": [
+     0.007865667343139648,
+     1.1444091796875e-05
+    ]
+   }
+  },
+  "2207f0fdc96347c59d106e4976cfad57": {
+   "T": 7,
+   "valid_per_token": [
+    415,
+    131,
+    2011,
+    148,
+    263,
+    169,
+    462
+   ],
+   "valid_avg": 514,
+   "last_valid_plus1": [
+    415,
+    131,
+    2011,
+    148,
+    263,
+    169,
+    462
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "cuda": {
+     "median_us": 51.342,
+     "mean_us": 51.3612,
+     "min_us": 51.006,
+     "busy_us": 51.134,
+     "host_us": 7.279999999999999,
+     "kernels": {
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f38mla_sparse_attn_kernel_cta_per_t_mma_vILi16ELi16ELi2EEEvPK13__": {
+       "calls": 1.0,
+       "gpu_us": 47.26539999999999
+      },
+      "_ZN41_GLOBAL__N__f91cf3e0_9_kernel_cu_dd7bf78f23mla_split_reduce_kernelILi16EEEvPKfS2_S2_P13__nv_bfloat16Pfl": {
+       "calls": 1.0,
+       "gpu_us": 3.8878
+      }
+     }
+    },
+    "triton-fused": {
+     "median_us": 11.073,
+     "mean_us": 11.0282,
+     "min_us": 10.849,
+     "busy_us": 11.073,
+     "host_us": 20.5095,
+     "kernels": {
+      "_fused": {
+       "calls": 1.0,
+       "gpu_us": 11.028200000000002
+      }
+     }
+    },
+    "tilelang-g16-b128": {
+     "median_us": 113.90450000000001,
+     "mean_us": 127.2005,
+     "min_us": 108.161,
+     "busy_us": 59.6,
+     "host_us": 77.86850000000001,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.641066666666667
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 44.4768
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.8225
+      }
+     }
+    },
+    "tilelang-g16-b64": {
+     "median_us": 119.0415,
+     "mean_us": 148.48930000000001,
+     "min_us": 114.929,
+     "busy_us": 62.874,
+     "host_us": 82.114,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7514
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 47.8982
+      },
+      "merge_kernel": {
+       "calls": 1.0,
+       "gpu_us": 6.657099999999998
+      }
+     }
+    },
+    "thunderkittens": {
+     "median_us": 102.16300000000001,
+     "mean_us": 102.2621,
+     "min_us": 101.587,
+     "busy_us": 102.16300000000001,
+     "host_us": 4.82,
+     "kernels": {
+      "_ZN45_GLOBAL__N__eacf1359_12_attention_cu_bf1bece510sparse_mlaILi16EEEvPK13__nv_bfloat16S3_S3_S3_PKiPS1_PfS7_S": {
+       "calls": 1.0,
+       "gpu_us": 102.2621
+      }
+     }
+    }
+   },
+   "error": {
+    "cuda": [
+     0.008093118667602539,
+     3.814697265625e-06
+    ],
+    "triton-fused": [
+     0.00777888298034668,
+     1.1444091796875e-05
+    ],
+    "tilelang-g16-b128": [
+     0.00777888298034668,
+     9.5367431640625e-06
+    ],
+    "tilelang-g16-b64": [
+     0.00777888298034668,
+     9.5367431640625e-06
+    ],
+    "thunderkittens": [
+     0.00777888298034668,
+     1.1444091796875e-05
+    ]
+   }
+  }
+ },
+ "errors": {},
+ "triton_version": "3.7.0",
+ "tilelang_version": "0.1.15",
+ "stress": {
+  "tilelang-g16-b128": {
+   "calls": 18,
+   "max_out_err": 0.003931879997253418,
+   "max_lse_err": Infinity,
+   "per_tokens": {
+    "1": [
+     0.001250147819519043,
+     2.86102294921875e-06
+    ],
+    "2": [
+     0.003359675407409668,
+     2.86102294921875e-06
+    ],
+    "3": [
+     0.0038553476333618164,
+     3.814697265625e-06
+    ],
+    "6": [
+     0.003763437271118164,
+     6.67572021484375e-06
+    ],
+    "8": [
+     0.0038938522338867188,
+     3.814697265625e-06
+    ],
+    "9": [
+     0.003870368003845215,
+     3.814697265625e-06
+    ],
+    "12": [
+     0.0038825273513793945,
+     Infinity
+    ],
+    "18": [
+     0.003931879997253418,
+     Infinity
+    ],
+    "20": [
+     0.0038955211639404297,
+     Infinity
+    ]
+   }
+  },
+  "thunderkittens": {
+   "calls": 18,
+   "max_out_err": 1.0643184185028076,
+   "max_lse_err": 3.8644323348999023,
+   "per_tokens": {
+    "1": [
+     0.001250147819519043,
+     2.86102294921875e-06
+    ],
+    "2": [
+     0.003359675407409668,
+     3.814697265625e-06
+    ],
+    "3": [
+     0.005188465118408203,
+     3.814697265625e-06
+    ],
+    "6": [
+     0.003763437271118164,
+     7.62939453125e-06
+    ],
+    "8": [
+     0.004085659980773926,
+     5.245208740234375e-06
+    ],
+    "9": [
+     0.003870368003845215,
+     4.76837158203125e-06
+    ],
+    "12": [
+     0.5215035080909729,
+     1.219803810119629
+    ],
+    "18": [
+     0.989270806312561,
+     1.600480079650879
+    ],
+    "20": [
+     1.0643184185028076,
+     3.8644323348999023
+    ]
+   }
+  }
+ }
+}

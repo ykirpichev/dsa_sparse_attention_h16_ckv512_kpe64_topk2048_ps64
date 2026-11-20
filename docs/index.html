@@ -77,7 +77,9 @@ footer { margin-top: 64px; color: var(--muted); font-size: 14px; }
 <strong>1.86× faster</strong> than the CUDA submission (0.54× its latency).
 A new Triton kernel that splits and merges inside a single launch is <strong>2.70× faster</strong>
 (0.37×). For scale, the kernel that won the contest track is also Triton and runs at <strong>0.45×</strong> in the same run.
-Every version passes all 23 workloads.</p>
+Every version passes all 23 workloads.
+The same kernel in TileLang and ThunderKittens is timed on the same workloads in
+<a href="frameworks/">four frameworks, side by side</a>.</p>
 
 <div class="cards"><div class="card" style="--accent: var(--cuda)"><div class="card-name">CUDA submission</div><div class="card-big">31.6 µs</div><div class="card-small">mean latency, the baseline</div><div class="card-blurb">The contest kernel: hand-written CUDA with WMMA, cp.async and a CUDA-graph cache.</div></div><div class="card" style="--accent: var(--port)"><div class="card-name">Triton, faithful port</div><div class="card-big">2.04×</div><div class="card-small">CUDA latency (geomean) · 63.9 µs mean · faster on 10 of 23</div><div class="card-blurb">The same dispatcher and the same two kernels, translated one to one.</div></div><div class="card" style="--accent: var(--tuned)"><div class="card-name">Triton, tuned</div><div class="card-big">0.54×</div><div class="card-small">CUDA latency (geomean) · 12.5 µs mean · faster on 17 of 23</div><div class="card-blurb">The port&#x27;s per-token kernel with larger tiles, pipelined loads and graph replay.</div></div><div class="card" style="--accent: var(--fused)"><div class="card-name">Triton, fused</div><div class="card-big">0.37×</div><div class="card-small">CUDA latency (geomean) · 8.6 µs mean · faster on 22 of 23</div><div class="card-blurb">A new kernel: one launch, the programs of a token split its keys and merge at a barrier.</div></div><div class="card" style="--accent: var(--ref)"><div class="card-name">Contest first place (Triton)</div><div class="card-big">0.45×</div><div class="card-small">CUDA latency (geomean) · 10.2 µs mean · faster on 18 of 23</div><div class="card-blurb">Doğaç Eldenk&#x27;s winning kernel, run here as a reference.</div></div></div>
 
@@ -209,7 +211,8 @@ python scripts/build_triton_report.py         # rebuild this page</code></pre>
 
 <footer>Source: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/tree/readable">dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64</a>, branch <code>readable</code>.
 Kernels: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/python/kernel.cu">CUDA</a>,
-<a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/triton/kernel.py">Triton</a>.
+<a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/triton/kernel.py">Triton</a>,
+<a href="frameworks/">TileLang and ThunderKittens</a>.
 Data: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/tree/readable/artifacts">artifacts/triton_*.json</a>.</footer>
 </main>
 </body>
