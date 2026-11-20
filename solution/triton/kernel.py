@@ -516,7 +516,9 @@ def _fused(
     slot + 2G, ... and publishes a partial softmax over the whole value. A
     per-token counter is the barrier: when all G partials are in, program
     ``slot`` merges its column range from them. This replaces the second
-    launch of split-K.
+    launch of split-K. Every key-split has to keep the whole value: the
+    columns a program merges are a slice of every key-split's partial, so
+    a key-split that only stored its own columns would have nothing to merge.
 
     Both paths visit every position up to the last valid one, so padding
     may sit anywhere; THRESH only picks the faster path.
