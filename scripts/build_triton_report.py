@@ -2,7 +2,8 @@
 
 Every number on the page is read from the benchmark artifacts:
 
-  artifacts/triton_compare_first_place.json  official flashinfer-bench run
+  artifacts/triton_compare_fused.json        official flashinfer-bench run
+  artifacts/fused_final_profile.json         fused kernel: timing and synthetic checks
   artifacts/triton_profile_sweep.json        Triton configuration sweep
   artifacts/triton_profile_graph.json        the same with CUDA-graph replay
   artifacts/triton_versions.json             Triton releases 3.4.0 to 3.9.0
@@ -32,7 +33,7 @@ SERIES = {
     "triton-tuned": ("Triton, tuned", "tuned", "diamond",
                      "The port's per-token kernel with larger tiles, pipelined loads and graph replay."),
     "triton-fused": ("Triton, fused", "fused", "star",
-                     "Split and merge in one launch, interleaved split."),
+                     "A new kernel: one launch, the programs of a token split its keys and merge at a barrier."),
     "first-place": ("Contest first place (Triton)", "ref", "triangle",
                     "Doğaç Eldenk's winning kernel, run here as a reference."),
 }
@@ -45,6 +46,7 @@ LADDER = [
     ("sweep", "token,16,8,64,2", "+ pipelined loads (num_stages=2)"),
     ("graph", "token,16,8,64,3,graph", "+ both launches replayed from one CUDA graph"),
     ("graph", "token,16,8,128,2,graph", "Same with 128-key tiles"),
+    ("fused", "fn=run_fused", "Fused kernel: split and merge in one launch"),
 ]
 
 RELEASE_CONFIGS = [
@@ -188,7 +190,8 @@ def config_ratio(report, config, cuda_us):
 
 
 def main() -> None:
-    compare = load("triton_compare_first_place.json")
+    compare = load("triton_compare_fused.json")
+    fused_profile = load("fused_final_profile.json")
     sweep = load("triton_profile_sweep.json")
     graph = load("triton_profile_graph.json")
     releases = load("triton_versions.json")
@@ -251,8 +254,10 @@ def main() -> None:
     cuda_sweep = {u: w["latency"]["cuda"]["median_us"] for u, w in sweep["workloads"].items()}
     cuda_graph = {u: w["latency"]["cuda"]["median_us"] for u, w in graph["workloads"].items()}
     ladder = []
+    cuda_fused = {u: w["latency"]["cuda"]["median_us"] for u, w in fused_profile["workloads"].items()}
+    sources = {"sweep": (sweep, cuda_sweep), "graph": (graph, cuda_graph), "fused": (fused_profile, cuda_fused)}
     for source, config, label in LADDER:
-        report, base = (sweep, cuda_sweep) if source == "sweep" else (graph, cuda_graph)
+        report, base = sources[source]
         value = config_ratio(report, config, base)
         if value is not None:
             ladder.append((label, value, config))
@@ -279,7 +284,19 @@ def main() -> None:
         f'<tbody>{"".join(release_rows)}</tbody></table>'
     )
 
-    port, tuned = stats["triton"], stats["triton-tuned"]
+    port, tuned, fused = stats["triton"], stats["triton-tuned"], stats["triton-fused"]
+    # Workloads the fused kernel treats differently from the tuned one.
+    longest = {u: max(w["valid_per_token"]) for u, w in fused_profile["workloads"].items()}
+    mid = [u for u in order if meta[u][0] <= 2 and longest[u] >= 128]
+    short_many = [u for u in order if meta[u][0] > 2 and longest[u] < 128]
+    stress = fused_profile["stress"]["fn=run_fused"]
+
+    def span(name, uuids):
+        values = [latency[name][u] for u in uuids]
+        if max(values) - min(values) < 0.05:
+            return f"{values[0]:.1f}"
+        return f"{min(values):.1f}–{max(values):.1f}"
+
     ref = stats.get("first-place")
     dense = [u for u in order if meta[u][1] >= 210]
     dense_us = {n: sum(latency[n][u] for u in dense) / len(dense) for n in names}
@@ -334,10 +351,10 @@ code {{ font: 14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; bac
 pre {{ background: var(--band); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px;
       overflow-x: auto; }}
 pre code {{ background: none; padding: 0; }}
-.cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin: 28px 0 8px; }}
+.cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(168px, 1fr)); gap: 12px; margin: 28px 0 8px; }}
 .card {{ border: 1px solid var(--line); border-top: 4px solid var(--accent); border-radius: 8px; padding: 14px 16px; }}
 .card-name {{ font-weight: 600; }}
-.card-big {{ font-size: 30px; font-weight: 700; line-height: 1.25; margin-top: 6px; color: var(--accent); }}
+.card-big {{ font-size: 28px; font-weight: 700; line-height: 1.25; margin-top: 6px; color: var(--accent); }}
 .card-small {{ font-size: 13px; color: var(--muted); }}
 .card-blurb {{ font-size: 14px; margin-top: 10px; }}
 figure {{ margin: 20px 0; }}
@@ -376,7 +393,9 @@ footer {{ margin-top: 64px; color: var(--muted); font-size: 14px; }}
 
 <p class="lead">Translating the CUDA submission to Triton line for line makes it
 <strong>{port['geo']:.2f}× slower</strong>. Keeping the same Triton kernels and changing four settings makes it
-<strong>{1 / tuned['geo']:.2f}× faster</strong> than the CUDA submission ({tuned['geo']:.2f}× its latency).{ref_sentence}
+<strong>{1 / tuned['geo']:.2f}× faster</strong> than the CUDA submission ({tuned['geo']:.2f}× its latency).
+A new Triton kernel that splits and merges inside a single launch is <strong>{1 / fused['geo']:.2f}× faster</strong>
+({fused['geo']:.2f}×).{ref_sentence}
 Every version passes all {n_workloads} workloads.</p>
 
 <div class="cards">{"".join(cards)}</div>
@@ -389,9 +408,12 @@ Every version passes all {n_workloads} workloads.</p>
 <figcaption>Median latency per call from the official flashinfer-bench timing (CUPTI kernel span, L2 cache flushed
 before each call, 5 warm-up and 50 timed calls).</figcaption></figure>
 
-<p>The CUDA kernel is still the fastest on the smallest calls ({tiny_us['wombat-cuda'][0]:.1f}–{tiny_us['wombat-cuda'][1]:.1f} µs
-against {tiny_us['triton-tuned'][0]:.1f}–{tiny_us['triton-tuned'][1]:.1f} µs for tuned Triton). On the dense workloads, where
-most of the time goes, tuned Triton averages {dense_us['triton-tuned']:.1f} µs against {dense_us['wombat-cuda']:.1f} µs.</p>
+<p>On the smallest calls the CUDA kernel and the fused Triton kernel are level
+({tiny_us['wombat-cuda'][0]:.1f}–{tiny_us['wombat-cuda'][1]:.1f} µs against
+{tiny_us['triton-fused'][0]:.1f}–{tiny_us['triton-fused'][1]:.1f} µs; tuned Triton takes
+{tiny_us['triton-tuned'][0]:.1f}–{tiny_us['triton-tuned'][1]:.1f} µs). On the dense workloads, where most of the time
+goes, the CUDA kernel averages {dense_us['wombat-cuda']:.1f} µs, tuned Triton {dense_us['triton-tuned']:.1f} µs and
+fused Triton {dense_us['triton-fused']:.1f} µs.</p>
 
 <div class="scroll">{table}</div>
 <p class="sub">Latency in µs; the fastest entry in each row is bold. Largest absolute output error over all workloads:
@@ -427,9 +449,53 @@ The first bar is off the scale at {ladder_value.get('head,1,8,16,1', 0):.2f}×.<
 <code>num_stages=3</code>. One or two tokens run as a single kernel with no split. More tokens split the top-k axis
 16 ways and replay the two launches from a CUDA graph.</p>
 
+<h2>One launch: the fused kernel</h2>
+<p><code>run_fused</code> is a different kernel, not a setting of the port. It launches once, with 16 programs per
+token. Every program first scans its token's index row for the last valid position, and all 16 then take the same
+path:</p>
+<ul>
+<li><strong>Short token</strong> (last valid position below 128): each program scores every key and accumulates 32 of
+the 512 output columns. Nothing is shared between programs.</li>
+<li><strong>Long token</strong>: each program takes every 16th key and publishes a partial softmax. A per-token atomic
+counter is the barrier. When all 16 partials are in, each program merges its 32 columns from them. This replaces the
+second launch of split-K, so there is no gap to hide and no CUDA graph to keep.</li>
+</ul>
+<p>Three things account for the gain over the tuned version:</p>
+<ol>
+<li><strong>The path is chosen per token, not per call.</strong> Workload <code>{short_many[0][:8]}</code> has
+{meta[short_many[0]][0]} tokens with at most {longest[short_many[0]]} keys each. The tuned version and the first-place kernel both split
+it because of its token count and take {latency['triton-tuned'][short_many[0]]:.1f} µs and
+{latency['first-place'][short_many[0]]:.1f} µs. The fused kernel takes {latency['triton-fused'][short_many[0]]:.1f} µs.</li>
+<li><strong>The tile is sized to the work.</strong> A tile costs about as much as its size whether its slots hold
+keys or padding: the smallest call takes 4.2 µs with a 32-slot tile, 5.1 µs with 64 slots and 6.0 µs with 128. Both
+paths therefore pick the smallest of the three that covers the token. The {len(mid)} two-token workloads whose longer
+token has {min(longest[u] for u in mid)}–{max(longest[u] for u in mid)} keys went from 10.5 µs to {span('triton-fused', mid)} µs this way ({span('wombat-cuda', mid)} µs in CUDA,
+{span('first-place', mid)} µs for first place).</li>
+<li><strong>Every tile is written as a loop, even a single one.</strong> Triton pipelines loads only inside a loop.
+The same 64-slot tile as straight-line code took 7.2 µs instead of 5.2 µs.</li>
+</ol>
+<p>On a dense workload the fused kernel takes about 11 µs. Runs with parts of the kernel switched off put roughly
+3 µs in the launch, the query load and the row scan, 4 µs in the 128-key tile, 2 µs in publishing and merging the
+partials, and 1.5 µs in the barrier. These are estimates from differences between runs.</p>
+<p>Limits:</p>
+<ul>
+<li>The barrier only opens if every program of the launch is on the GPU at the same time. The kernel therefore uses
+16 programs per token up to 9 tokens and 8 up to 18 (a B200 has 148 SMs), and <code>run_fused</code> hands larger
+calls to <code>run_tuned</code>. The first-place kernel uses the same kind of barrier with 16 programs per token at
+any token count. On a synthetic 12-token call (192 programs) it did not return before the run's time limit, which is
+consistent with this constraint. The contest workloads stop at 8 tokens.</li>
+<li>The partials live in one workspace per call shape, so concurrent calls from several streams would collide. The
+port's split-K workspace has the same property.</li>
+<li>The benchmark repeats one input, which would hide a merge that read partials left over from the previous call.
+A separate check runs {stress['calls']} synthetic calls with new contents each time, 1 to 20 tokens, padding at the
+tail or scattered through the row: the largest output error is {stress['max_out_err']:.4f} and the largest
+<code>lse</code> error is {stress['max_lse_err']:.1e}.</li>
+</ul>
+
 <h2>Triton releases</h2>
-<p>The same configurations on seven Triton releases, as geomean latency relative to the CUDA kernel
-(the CUDA medians are taken from the sweep run on the same GPU model).</p>
+<p>The port and tuned configurations on seven Triton releases, as geomean latency relative to the CUDA kernel
+(the CUDA medians are taken from the sweep run on the same GPU model). The fused kernel was only run on
+{esc(sweep["triton_version"])}.</p>
 <div class="scroll">{release_table}</div>
 <ul>
 <li>3.4.0 refuses to compile for CUDA 13.2, so it cannot run in the contest image.</li>
@@ -452,10 +518,11 @@ unchanged.</li>
 <li>Both the CUDA kernel and the faithful port cache their dispatch decision on the address of the index tensor. When
 a new workload's tensor reuses a freed address, the previous decision is applied. This sent workload
 <code>78b2e11c</code> through the port's per-head kernel in the official run. The tuned entry point decides on shape
-only.</li>
+only, and the fused kernel decides inside the kernel from the index row itself.</li>
 </ul>
 <pre><code>modal run scripts/compare_cuda_triton.py      # official benchmark, all solutions
 modal run scripts/profile_triton.py           # configuration sweep
+modal run scripts/profile_triton.py --configs "fn=run_fused" --stress 180   # fused kernel, with synthetic checks
 modal run scripts/profile_triton.py --versions "3.6.0,3.9.0" --configs "auto;token,16,8,64,3,graph"
 python scripts/build_triton_report.py         # rebuild this page</code></pre>
 
