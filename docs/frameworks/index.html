@@ -49,6 +49,46 @@ td.num, th.num { text-align: right; }
 caption { caption-side: bottom; text-align: left; color: var(--muted); font-size: 0.85rem; padding-top: 8px; }
 .scroll { overflow-x: auto; }
 @media (max-width: 800px) { .cards { grid-template-columns: 1fr 1fr; } h1 { font-size: 1.55rem; } }
+
+h3 { font-size: 1.05rem; margin: 28px 0 8px; }
+.piece-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 4px; }
+.piece-nav a { font-size: 0.88rem; border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; background: var(--card); }
+.piece { margin: 36px 0; }
+.piece h3 { margin-bottom: 4px; }
+.piece .why { color: var(--muted); margin-top: 0; }
+.editor { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--code-bg); }
+.tabs { display: flex; gap: 0; background: var(--card); border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button {
+  appearance: none; background: transparent; border: 0; border-bottom: 2px solid transparent;
+  margin-bottom: -1px; padding: 10px 16px; font: inherit; font-size: 0.92rem;
+  color: var(--muted); cursor: pointer; white-space: nowrap;
+}
+.tabs button:hover { color: var(--fg); }
+.tabs button:focus-visible { outline: 2px solid var(--t39); outline-offset: -2px; }
+.tabs button.on { color: var(--fg); font-weight: 650; }
+.tabs button.cuda.on { border-bottom-color: var(--cuda); }
+.tabs button.triton.on { border-bottom-color: var(--t39); }
+.tabs button.tilelang.on { border-bottom-color: var(--tl); }
+.tabs button.tk.on { border-bottom-color: var(--tk); }
+.pane { display: none; }
+.pane.on { display: block; }
+.editor pre { margin: 0; border: 0; border-radius: 0; max-height: 32rem; padding: 16px 18px; background: transparent; }
+.editor .src { margin: 0; padding: 8px 16px 10px; border-top: 1px solid var(--line); font-size: 0.82rem; color: var(--muted); background: var(--card); }
+.tok-kw { color: #cf222e; }
+.tok-str { color: #0a3069; }
+.tok-cmt { color: #6e7781; font-style: italic; }
+.tok-num { color: #0550ae; }
+.tok-fn { color: #8250df; }
+.tok-pp { color: #953800; }
+.tok-dec { color: #953800; }
+@media (prefers-color-scheme: dark) {
+  .tok-kw { color: #ff7b72; }
+  .tok-str { color: #a5d6ff; }
+  .tok-cmt { color: #8b949e; }
+  .tok-num { color: #79c0ff; }
+  .tok-fn { color: #d2a8ff; }
+  .tok-pp, .tok-dec { color: #ffa657; }
+}
 </style>
 </head>
 <body>
@@ -56,7 +96,7 @@ caption { caption-side: bottom; text-align: left; color: var(--muted); font-size
 
 <p class="meta"><a href="../">DSA sparse attention, CUDA vs Triton</a></p>
 <h1>Four ways to write the same sparse attention kernel</h1>
-<p class="lede">One operation, four implementations, one B200. CUDA is the contest submission. Triton is the fused kernel from the <a href="../">comparison page</a>. TileLang and ThunderKittens follow the same plan and were tuned on these 23 workloads.</p>
+<p class="lede">One operation, four implementations, one B200. CUDA is the contest submission. Triton is the fused kernel from the <a href="../">comparison page</a>. TileLang and ThunderKittens follow the same plan and were tuned on these 23 workloads. The listings are the source that was timed.</p>
 <p class="meta">November 20, 2026 · NVIDIA B200 on Modal · definition <code>dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64</code> ·
 <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/tree/readable">repository</a></p>
 
@@ -89,6 +129,491 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 <tr><td>Merge</td><td>a second kernel</td><td>same launch, a counter barrier</td><td>same launch, atomicAdd plus a spin</td><td>a second kernel, both replayed from one CUDA graph</td></tr>
 </tbody>
 </table>
+
+<h2 id="code">The same pieces, side by side</h2>
+<p>Each step is below. Pick a language and every step follows. The listing is the source that was timed. A line that says <code>...</code> is a cut between two regions of the same file.</p>
+<nav class="piece-nav">
+<a href="#piece-path">Which path runs</a>
+<a href="#piece-gather">Gather the sparse keys</a>
+<a href="#piece-score">Score, softmax, and the output dot</a>
+<a href="#piece-merge">Merge the partials</a>
+</nav>
+<section class="piece" id="piece-path">
+<h3>Which path runs</h3>
+<p class="why">A short token is scored by one program and never publishes a partial. A long token is split across key-groups. CUDA chooses from the average number of valid keys. The other three choose from how many programs fit on the GPU at once, and Triton also looks at where the last valid index sits.</p>
+<div class="editor">
+<div class="tabs" role="tablist">
+<button type="button" role="tab" aria-selected="true" class="cuda on" data-lang="cuda">CUDA</button>
+<button type="button" role="tab" aria-selected="false" class="triton" data-lang="triton">Triton</button>
+<button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
+<button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
+</div>
+<div class="pane on" data-lang="cuda" role="tabpanel">
+<pre><code class="lang-cpp">  if (H == CPT_H) {
+    const int density_count = g_density_cache.get_or_compute(
+        si_p, T, num_kv_rows, stream);
+    const int density_avg = density_count /
+        static_cast&lt;int&gt;(std::max&lt;int64_t&gt;(T, 1));
+    if (density_avg &gt;= CTA_PER_T_DENSITY_MIN_AVG) {
+      path = 1;
+      G_cpt = static_cast&lt;uint8_t&gt;(pick_split_G_cta_per_t(static_cast&lt;int&gt;(T)));
+    }
+    // else: fall through to legacy dispatch for low-density workloads.
+  }</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/python/kernel.cu#L754-L764">solution/python/kernel.cu, lines 754–764</a></p>
+</div>
+<div class="pane" data-lang="triton" role="tabpanel">
+<pre><code class="lang-python">    pos = tl.arange(0, TOPK)
+    scan = tl.load(row + pos)
+    last = tl.max(tl.where((scan &gt;= 0) &amp; (scan &lt; n_kv), pos, -1), axis=0)
+
+    if last &gt;= THRESH:
+...
+    else:
+        # Names differ from the split branch: Triton merges same-named values
+        # across the arms of a branch and their shapes are not the same.
+        d_m, d_l, d_acc = _span(
+            q, qp, ckv, kpe, row, last + 1, n_kv, sm_log2e, stride_ck, stride_kp, slot * W, m0, l0,
+            H=H, D=D, D_PE=D_PE, W=W, STEP=1, B0=B0, B1=B1, B2=B2,
+        )
+        d_inv = tl.where(d_l &gt; 0, 1.0 / d_l, 0.0)
+        tl.store(out_ptr, (d_acc * d_inv[:, None]).to(tl.bfloat16))
+        if slot == 0:
+            tl.store(lse_ptr, tl.where(d_l &gt; 0, d_m + tl.log2(tl.where(d_l &gt; 0, d_l, 1.0)), float(&quot;-inf&quot;)))</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/triton/kernel.py#L549-L553">solution/triton/kernel.py, lines 549–553 and 601–611</a></p>
+</div>
+<div class="pane" data-lang="tilelang" role="tabpanel">
+<pre><code class="lang-python">    def launch():
+        partial(q_nope, q_pe, ckv, kpe, indices, part_m, part_l, part_acc, scale)
+        merge(part_m, part_l, part_acc, out, lse)
+
+    if not graph:
+        launch()
+        return
+    key = (
+        q_nope.data_ptr(), q_pe.data_ptr(), ckv.data_ptr(), kpe.data_ptr(),
+        indices.data_ptr(), out.data_ptr(), lse.data_ptr(),
+        n_tokens, ckv.shape[0], g, block, float(scale[0]),
+    )
+    _replay(key, q_nope.device, launch)</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tilelang/solution.py#L269-L281">solution/tilelang/solution.py, lines 269–281</a></p>
+</div>
+<div class="pane" data-lang="tk" role="tabpanel">
+<pre><code class="lang-cpp">    int n_sm = 1;
+    cudaDeviceGetAttribute(&amp;n_sm, cudaDevAttrMultiProcessorCount, q_nope.get_device());
+    int g = 16;
+    while (g &gt; 1 &amp;&amp; n_tokens * g &gt; n_sm) g &gt;&gt;= 1;
+    if (g &lt; 8) g = 1;
+...
+    if (g == 16) go(launch_g&lt;16&gt;);
+    else if (g == 8) go(launch_g&lt;8&gt;);
+    else go(launch_g&lt;1&gt;);</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu#L483-L487">solution/tk/attention.cu, lines 483–487 and 505–507</a></p>
+</div>
+</div>
+</section>
+<section class="piece" id="piece-gather">
+<h3>Gather the sparse keys</h3>
+<p class="why">Each program loads the keys named by its slice of the index row. CUDA issues 16-byte <code>cp.async</code> copies. Triton masked-loads inside the tile loop, which is where Triton pipelines. ThunderKittens stores <code>uint4</code> into the swizzled shared tile. TileLang copies one element at a time: a 16-byte load comes back as a vector this frontend cannot index.</p>
+<div class="editor">
+<div class="tabs" role="tablist">
+<button type="button" role="tab" aria-selected="true" class="cuda on" data-lang="cuda">CUDA</button>
+<button type="button" role="tab" aria-selected="false" class="triton" data-lang="triton">Triton</button>
+<button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
+<button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
+</div>
+<div class="pane on" data-lang="cuda" role="tabpanel">
+<pre><code class="lang-cpp">    #pragma unroll
+    for (int c = 0; c &lt; TILE_CHUNKS_PT; ++c) {
+      const int chunk = tid + c * TH;
+      const int r = chunk / (D_CK / 8);
+      const int ch16 = chunk % (D_CK / 8);
+      const int k = k0 + r;
+      const int g_idx = s_gidx[k];
+      uint4* dst = reinterpret_cast&lt;uint4*&gt;(ckv_buf + r * D_CK) + ch16;
+      if (g_idx &gt;= 0) {
+        const uint4* src =
+            reinterpret_cast&lt;const uint4*&gt;(ckv_flat + static_cast&lt;int64_t&gt;(g_idx) * D_CK) + ch16;
+        cp_async_16(__cvta_generic_to_shared(dst), src);
+      } else {
+        const uint4 zero = {0u, 0u, 0u, 0u};
+        *dst = zero;
+      }</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/python/mla_cta.cuh#L196-L211">solution/python/mla_cta.cuh, lines 196–211</a></p>
+</div>
+<div class="pane" data-lang="triton" role="tabpanel">
+<pre><code class="lang-python">    valid = (idx &gt;= 0) &amp; (idx &lt; n_kv)
+    rows = tl.where(valid, idx, 0).to(tl.int64)
+    k = tl.load(
+        ckv + rows[:, None] * stride_ck + tl.arange(0, D)[None, :],
+        mask=valid[:, None], other=0.0,
+    )
+    kp = tl.load(
+        kpe + rows[:, None] * stride_kp + tl.arange(0, D_PE)[None, :],
+        mask=valid[:, None], other=0.0,
+    )
+    score = tl.dot(q, tl.trans(k))
+    score = tl.dot(qp, tl.trans(kp), acc=score)
+    score = tl.where(valid[None, :], score * sm_log2e, float(&quot;-inf&quot;))</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/triton/kernel.py#L410-L422">solution/triton/kernel.py, lines 410–422</a></p>
+</div>
+<div class="pane" data-lang="tilelang" role="tabpanel">
+<pre><code class="lang-python">            for tile in TL.serial(ntiles):
+                for i in TL.Parallel(block):
+                    pos = slot + (tile * block + i) * g
+                    got = indices[token, pos]
+                    ok = (got &gt;= 0) and (got &lt; n_kv)
+                    idx_s[i] = TL.if_then_else(ok, got, 0)
+                    valid_s[i] = TL.if_then_else(ok, 1, 0)
+                if TL.get_thread_binding() == 0:
+                    cnt[0] = 0
+                TL.sync_threads()
+                for i in TL.Parallel(block):
+                    if valid_s[i] == 1:
+                        TL.atomic_add(cnt[0], 1)
+                for i, d in TL.Parallel(block, D):
+                    k_s[i, d] = TL.if_then_else(valid_s[i] == 1, ckv[idx_s[i], d], TL.cast(0, &quot;bfloat16&quot;))
+                for i, d in TL.Parallel(block, D_PE):
+                    kp_s[i, d] = TL.if_then_else(valid_s[i] == 1, kpe[idx_s[i], d], TL.cast(0, &quot;bfloat16&quot;))</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tilelang/solution.py#L86-L102">solution/tilelang/solution.py, lines 86–102</a></p>
+</div>
+<div class="pane" data-lang="tk" role="tabpanel">
+<pre><code class="lang-cpp">    for (int s = 0; s &lt; kSubs; ++s) {
+        for (int v = threadIdx.x; v &lt; kVecs; v += kThreads) {
+            const int row = v &gt;&gt; 3;
+            const int vec = v &amp; 7;
+            uint4 bits = make_uint4(0, 0, 0, 0);
+            if (row &lt; row_limit) {
+                const int src_col = col + s * kChunk + vec * 8;
+                if (gather) {
+                    const int id = idx[row];
+                    if (id &gt;= 0) {
+                        const __nv_bfloat16* src =
+                            cache + static_cast&lt;long long&gt;(id) * stride + src_col;
+                        bits = *reinterpret_cast&lt;const uint4*&gt;(src);
+                    }
+                } else {
+                    const __nv_bfloat16* src =
+                        cache + static_cast&lt;long long&gt;(row) * stride + src_col;
+                    bits = *reinterpret_cast&lt;const uint4*&gt;(src);
+                }
+            }
+            out[s * kVecs + swizzle_16b(v)] = bits;
+        }</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu#L85-L106">solution/tk/attention.cu, lines 85–106</a></p>
+</div>
+</div>
+</section>
+<section class="piece" id="piece-score">
+<h3>Score, softmax, and the output dot</h3>
+<p class="why">The score is <code>q_nope · ckv + q_pe · kpe</code>, scaled into base 2, then an online softmax. The output dot reuses the keys that were just gathered. Invalid positions stay at −∞, so they add nothing.</p>
+<div class="editor">
+<div class="tabs" role="tablist">
+<button type="button" role="tab" aria-selected="true" class="cuda on" data-lang="cuda">CUDA</button>
+<button type="button" role="tab" aria-selected="false" class="triton" data-lang="triton">Triton</button>
+<button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
+<button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
+</div>
+<div class="pane on" data-lang="cuda" role="tabpanel">
+<pre><code class="lang-cpp">    // ---- Logit phase: WMMA GEMM, K-split across 16 warps ----------------
+    {
+      fragment&lt;matrix_a, MMA_M, MMA_N, MMA_K, __nv_bfloat16, row_major&gt; a_frag;
+      fragment&lt;matrix_b, MMA_M, MMA_N, MMA_K, __nv_bfloat16, col_major&gt; b_frag;
+      fragment&lt;accumulator, MMA_M, MMA_N, MMA_K, float&gt; c_frag;
+      fill_fragment(c_frag, 0.f);
+
+      #pragma unroll
+      for (int ks = 0; ks &lt; CK_KT_PER_WARP; ++ks) {
+        const int k_off = (warp_id * CK_KT_PER_WARP + ks) * MMA_K;
+        load_matrix_sync(a_frag, s_qn + k_off, D_CK);
+        load_matrix_sync(b_frag, ckv_buf + k_off, D_CK);
+        mma_sync(c_frag, a_frag, b_frag, c_frag);
+      }
+
+      if (warp_id &lt; KP_KTILES) {
+        const int k_off = warp_id * MMA_K;
+        load_matrix_sync(a_frag, s_qp + k_off, D_KP);
+        load_matrix_sync(b_frag, kpe_buf + k_off, D_KP);
+        mma_sync(c_frag, a_frag, b_frag, c_frag);
+      }
+
+      store_matrix_sync(s_mma_scratch + warp_id * H_ * BK, c_frag, BK, mem_row_major);
+    }
+    __syncthreads();  // SYNC_A2
+
+    // ---- Reduce partials + scale + mask → s_logits_tile -----------------
+    if (tid &lt; H_ * BK) {
+      const int r = tid &amp; (BK - 1);
+      float sum = 0.f;
+      #pragma unroll
+      for (int w = 0; w &lt; WARPS; ++w) {
+        sum += s_mma_scratch[w * (H_ * BK) + tid];
+      }
+      const int k = tile * BK + r;
+      const int g_idx = s_gidx[k];
+      s_logits_tile[tid] = (g_idx &gt;= 0) ? (sum * sm_scale_log2e) : -INFINITY;</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/python/mla_cta.cuh#L259-L295">solution/python/mla_cta.cuh, lines 259–295</a></p>
+</div>
+<div class="pane" data-lang="triton" role="tabpanel">
+<pre><code class="lang-python">    score = tl.dot(q, tl.trans(k))
+    score = tl.dot(qp, tl.trans(kp), acc=score)
+    score = tl.where(valid[None, :], score * sm_log2e, float(&quot;-inf&quot;))
+
+    m_new = tl.maximum(m, tl.max(score, axis=1))
+    m_ref = tl.where(m_new == float(&quot;-inf&quot;), 0.0, m_new)
+    prob = tl.exp2(score - m_ref[:, None])
+    if W == D:
+        k_out = k
+    else:
+        k_out = tl.load(
+            ckv + rows[:, None] * stride_ck + (col0 + tl.arange(0, W))[None, :],
+            mask=valid[:, None], other=0.0,
+        )
+    mix = tl.dot(prob.to(tl.bfloat16), k_out)
+    if FIRST:
+        l_new = tl.sum(prob, axis=1)
+        acc_new = mix
+    else:
+        # exp2(-inf) is 0, so an empty running state drops out by itself.
+        alpha = tl.exp2(m - m_ref)
+        l_new = l * alpha + tl.sum(prob, axis=1)
+        acc_new = acc * alpha[:, None] + mix</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/triton/kernel.py#L420-L442">solution/triton/kernel.py, lines 420–442</a></p>
+</div>
+<div class="pane" data-lang="tilelang" role="tabpanel">
+<pre><code class="lang-python">                TL.clear(score)
+                TL.gemm(q_s, k_s, score, transpose_B=True, policy=TL.GemmWarpPolicy.FullRow)
+                TL.clear(pe)
+                TL.gemm(qp_s, kp_s, pe, transpose_B=True, policy=TL.GemmWarpPolicy.FullRow)
+                for h, i in TL.Parallel(H, block):
+                    total = (score[h, i] + pe[h, i]) * sm
+                    score[h, i] = TL.if_then_else(valid_s[i] == 1, total, -1.0e30)
+
+                # An empty tile must not move the running softmax. cnt is the
+                # same value for every thread of the program.
+                if cnt[0] &gt; 0:
+                    TL.reduce_max(score, m_row, dim=1)
+                    for h in TL.Parallel(H):
+                        m_row[h] = TL.max(m_row[h], m_i[h])
+                        alpha_s[h] = TL.exp2(m_i[h] - m_row[h])
+                        l_i[h] = l_i[h] * alpha_s[h]
+                        m_i[h] = m_row[h]
+                    for h, i in TL.Parallel(H, block):
+                        score[h, i] = TL.exp2(score[h, i] - m_i[h])
+                    TL.reduce_sum(score, row_sum, dim=1)
+                    for h in TL.Parallel(H):
+                        l_i[h] = l_i[h] + row_sum[h]
+                    TL.sync_threads()
+                    for h, i in TL.Parallel(H, block):
+                        p_s[h, i] = TL.cast(score[h, i], &quot;bfloat16&quot;)
+                    # One gemm covers all 512 columns. k_s still holds the keys.
+                    TL.clear(mix)
+                    TL.gemm(p_s, k_s, mix, policy=TL.GemmWarpPolicy.FullRow)
+                    for h, d in TL.Parallel(H, D):
+                        acc_s[h, d] = acc_s[h, d] * alpha_s[h] + mix[h, d]</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tilelang/solution.py#L105-L134">solution/tilelang/solution.py, lines 105–134</a></p>
+</div>
+<div class="pane" data-lang="tk" role="tabpanel">
+<pre><code class="lang-cpp">        for (int chunk = 0; chunk &lt; kScoreChunks; ++chunk) {
+            fill_tile(sk, ckv, kDim, s.idx, chunk * kWide, kTile, true);
+            fill_tile(sq, q, stride_q, nullptr, chunk * kWide, kHeads, false);
+            mma_chunk&lt;false&gt;(acc_tm, sk, sq, sem, phase, chunk == 0);
+        }
+        fill_tile(k_st, kpe, kDimPe, s.idx, 0, kTile, true);
+        fill_tile(q_st, qp, stride_qp, nullptr, 0, kHeads, false);
+        mma_chunk&lt;false&gt;(acc_tm, k_st, q_st, sem, phase, false);
+        dump_acc(acc_tm, c_smem);
+
+        for (int e = tx; e &lt; kTile * kHeads; e += kThreads) {
+            const int r = e / kHeads;
+            const int h = e % kHeads;
+            s.score[r][h] = (s.idx[r] &gt;= 0) ? c_smem[{r, h}] * sm_log2e : -INFINITY;
+        }
+        __syncthreads();
+
+        if (tx &lt; kHeads) {
+            float m_tile = -INFINITY;
+            for (int i = 0; i &lt; kTile; ++i) m_tile = fmaxf(m_tile, s.score[i][tx]);
+            float l_tile = 0.f;
+            for (int i = 0; i &lt; kTile; ++i) {
+                const float s_i = s.score[i][tx];
+                const float p = (m_tile &gt; -1.0e20f &amp;&amp; s_i &gt; -1.0e20f) ? exp2f(s_i - m_tile) : 0.f;
+                s.prob[tx][i] = p;
+                l_tile += p;
+            }
+            float alpha = 1.f;
+            if (m_tile &gt; -1.0e20f) {
+                const float m_new = fmaxf(s.m[tx], m_tile);
+                // Probs were computed against the tile max. The running total
+                // lives at m_new, so both sides have to move there.
+                alpha = (s.m[tx] &gt; -1.0e20f) ? exp2f(s.m[tx] - m_new) : 0.f;
+                const float scale_tile = exp2f(m_tile - m_new);
+                for (int i = 0; i &lt; kTile; ++i) s.prob[tx][i] *= scale_tile;
+                s.l[tx] = s.l[tx] * alpha + l_tile * scale_tile;</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu#L211-L246">solution/tk/attention.cu, lines 211–246</a></p>
+</div>
+</div>
+</section>
+<section class="piece" id="piece-merge">
+<h3>Merge the partials</h3>
+<p class="why">Each key-group keeps a full 512-wide partial. The program that owns a column range rescales every group's partial into one softmax and writes those columns. CUDA does this in a second kernel. Triton and ThunderKittens do it in the same launch, behind a counter. TileLang does it in a second kernel, and the host replays both from one CUDA graph.</p>
+<div class="editor">
+<div class="tabs" role="tablist">
+<button type="button" role="tab" aria-selected="true" class="cuda on" data-lang="cuda">CUDA</button>
+<button type="button" role="tab" aria-selected="false" class="triton" data-lang="triton">Triton</button>
+<button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
+<button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
+</div>
+<div class="pane on" data-lang="cuda" role="tabpanel">
+<pre><code class="lang-cpp">
+  float m_final = -INFINITY;
+  #pragma unroll
+  for (int g = 0; g &lt; G_; ++g) m_final = fmaxf(m_final, s_m[g]);
+
+  if (m_final == -INFINITY) {
+    const __nv_bfloat162 zero =
+        __halves2bfloat162(f_to_bf16(0.f), f_to_bf16(0.f));
+    reinterpret_cast&lt;__nv_bfloat162*&gt;(out + out_off)[tid] = zero;
+    if (tid == 0) lse_out[lse_i] = -INFINITY;
+    return;
+  }
+
+  float l_final = 0.f;
+  #pragma unroll
+  for (int g = 0; g &lt; G_; ++g) {
+    l_final += s_l[g] * exp2f(s_m[g] - m_final);
+  }
+  const float inv_l = 1.f / l_final;
+
+  float o0 = 0.f, o1 = 0.f;
+  const int i = tid;
+  #pragma unroll
+  for (int g = 0; g &lt; G_; ++g) {
+    const float alpha = exp2f(s_m[g] - m_final);
+    // Phase 7i: partials are fp32 (was bf16). Each lane reads 2 fp32 values.
+    const float2* op2 =
+        reinterpret_cast&lt;const float2*&gt;(O_partial + o_part_base + g * D_CK);
+    const float2 of = op2[i];
+    o0 += of.x * alpha;
+    o1 += of.y * alpha;
+  }
+
+  const __nv_bfloat162 packed =
+      __halves2bfloat162(f_to_bf16(o0 * inv_l), f_to_bf16(o1 * inv_l));
+  reinterpret_cast&lt;__nv_bfloat162*&gt;(out + out_off)[i] = packed;
+  if (tid == 0) lse_out[lse_i] = m_final + log2f(l_final);</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/python/mla_legacy.cuh#L612-L648">solution/python/mla_legacy.cuh, lines 612–648</a></p>
+</div>
+<div class="pane" data-lang="triton" role="tabpanel">
+<pre><code class="lang-python">        # Every thread has issued its stores before the arrival is counted.
+        tl.debug_barrier()
+        tl.atomic_add(counter + token, 1, sem=&quot;release&quot;)
+        count = tl.load(counter + token, volatile=True)
+        # The difference stays correct when the counter wraps around.
+        while (count - target) &lt; 0:
+            count = tl.load(counter + token, volatile=True)
+        tl.debug_barrier()
+
+        # Merge columns `cols` of all G partials.
+        m_top = m0
+        for g in tl.static_range(G):
+            m_top = tl.maximum(m_top, tl.load(part_m + (token * G + g) * H + heads, cache_modifier=&quot;.cg&quot;))
+        m_ref = tl.where(m_top == float(&quot;-inf&quot;), 0.0, m_top)
+        l_sum = l0
+        mix = tl.zeros((H, W), tl.float32)
+        for g in tl.static_range(G):
+            src = (token * G + g) * H + heads
+            weight = tl.exp2(tl.load(part_m + src, cache_modifier=&quot;.cg&quot;) - m_ref)
+            l_sum += tl.load(part_l + src, cache_modifier=&quot;.cg&quot;) * weight
+            piece = tl.load(part_acc + src[:, None] * D + cols[None, :], cache_modifier=&quot;.cg&quot;)
+            mix += piece * weight[:, None]
+
+        inv = tl.where(l_sum &gt; 0, 1.0 / l_sum, 0.0)
+        tl.store(out_ptr, (mix * inv[:, None]).to(tl.bfloat16))
+        if slot == 0:
+            tl.store(lse_ptr, tl.where(l_sum &gt; 0, m_top + tl.log2(tl.where(l_sum &gt; 0, l_sum, 1.0)), float(&quot;-inf&quot;)))</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/triton/kernel.py#L574-L600">solution/triton/kernel.py, lines 574–600</a></p>
+</div>
+<div class="pane" data-lang="tilelang" role="tabpanel">
+<pre><code class="lang-python">            for src in TL.serial(g):
+                for h in TL.Parallel(H):
+                    m_top[h] = TL.max(m_top[h], part_m[token, src, h])
+            for h in TL.Parallel(H):
+                # -inf minus -inf is NaN. An empty token has no finite partial.
+                m_top[h] = TL.if_then_else(m_top[h] &lt; -1.0e20, 0, m_top[h])
+            for src in TL.serial(g):
+                for h in TL.Parallel(H):
+                    weight = TL.exp2(part_m[token, src, h] - m_top[h])
+                    l_sum[h] = l_sum[h] + part_l[token, src, h] * weight
+                for h, c in TL.Parallel(H, width):
+                    col = slot * width + c
+                    weight = TL.exp2(part_m[token, src, h] - m_top[h])
+                    merged[h, c] = merged[h, c] + part_acc[token, src, h, col] * weight
+            for h, c in TL.Parallel(H, width):
+                col = slot * width + c
+                out[token, h, col] = TL.cast(
+                    TL.if_then_else(l_sum[h] &gt; 0, merged[h, c] / l_sum[h], 0), &quot;bfloat16&quot;
+                )
+            if slot == 0:
+                for h in TL.Parallel(H):
+                    lse[token, h] = TL.if_then_else(
+                        l_sum[h] &gt; 0, m_top[h] + TL.log2(TL.max(l_sum[h], 1.0e-30)), float(&quot;-inf&quot;)
+                    )</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tilelang/solution.py#L162-L185">solution/tilelang/solution.py, lines 162–185</a></p>
+</div>
+<div class="pane" data-lang="tk" role="tabpanel">
+<pre><code class="lang-cpp">    // Read the counter before this CTA&#x27;s own increment. The next multiple of
+    // G is the value it reaches once every key-group has published.
+    if (tx == 0) target = (counter[token] &amp; -G) + G;
+    __syncthreads();
+    const int slot_base = (token * G + slot) * kHeads;
+    publish(part_acc, part_m, part_l, slot_base, running);
+    __threadfence();
+    __syncthreads();
+    if (tx &lt; 32) tm.deprovision();
+    __syncthreads();
+    if (tx == 0) {
+        atomicAdd(counter + token, 1);
+        int count;
+        do {
+            count = *static_cast&lt;volatile int*&gt;(counter + token);
+        } while (count - target &lt; 0);
+    }
+    __syncthreads();
+
+    constexpr int kWidth = kDim / G;
+    for (int c = tx; c &lt; kWidth; c += kThreads) {
+        const int col = slot * kWidth + c;
+        float m_top[kHeads], l_sum[kHeads], mix[kHeads];
+        for (int h = 0; h &lt; kHeads; ++h) {
+            m_top[h] = -INFINITY;
+            l_sum[h] = 0.f;
+            mix[h] = 0.f;
+        }
+        for (int g = 0; g &lt; G; ++g) {
+            const int base = (token * G + g) * kHeads;
+            for (int h = 0; h &lt; kHeads; ++h) m_top[h] = fmaxf(m_top[h], part_m[base + h]);
+        }
+        for (int g = 0; g &lt; G; ++g) {
+            const int base = (token * G + g) * kHeads;
+            for (int h = 0; h &lt; kHeads; ++h) {
+                const float m_ref = m_top[h] &gt; -1.0e20f ? m_top[h] : 0.f;
+                const float weight = exp2f(part_m[base + h] - m_ref);
+                l_sum[h] += part_l[base + h] * weight;
+                mix[h] += part_acc[(base + h) * kDim + col] * weight;
+            }
+        }
+        for (int h = 0; h &lt; kHeads; ++h) {
+            const float inv = l_sum[h] &gt; 0.f ? 1.f / l_sum[h] : 0.f;
+            out_row[h * stride_oh + col] = __float2bfloat16(mix[h] * inv);
+        }
+        if (c == 0 &amp;&amp; slot == 0) {
+            for (int h = 0; h &lt; kHeads; ++h)
+                lse_row[h] = l_sum[h] &gt; 0.f ? m_top[h] + log2f(l_sum[h]) : -INFINITY;</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu#L370-L417">solution/tk/attention.cu, lines 370–417</a></p>
+</div>
+</div>
+</section>
 
 <h2>Where the code is</h2>
 <ul>
@@ -150,8 +675,151 @@ modal run scripts/profile_frameworks.py --which tk,tilelang --tilelang 16x128,16
 <p>Triton wins because the whole token is one pipelined launch. The score, the online softmax, and the output dot share the K that was just loaded, and the merge is a counter in that same kernel rather than a second launch. On this shape that is worth more than the tensor-core instruction either of the other two frameworks is built around.</p>
 
 <h2>What to ship</h2>
-<p>Ship <code>run_fused</code>. It is faster than the CUDA submission on 22 of the 23 workloads and faster than the contest winner on this suite. TileLang and ThunderKittens are correct, including scattered padding and token counts past the contest range, and they are the right way to read the algorithm in those languages. They are not the fast path for 16 heads and a 512-d latent.</p>
+<p>Ship <code>run_fused</code>. On the official 50-iteration run it averages 8.6 µs, 0.37× the CUDA submission, against 10.2 µs and 0.45× for the contest winner. It is faster than that kernel on every one of the 23 workloads, and faster than the CUDA submission on 22 of them. TileLang and ThunderKittens are correct, including scattered padding and token counts past the contest range, and they are the right way to read the algorithm in those languages. They are not the fast path for 16 heads and a 512-d latent.</p>
 
 </main>
+<script>
+(function () {
+  var CPP = new Set(("if else for while return const constexpr auto void int float bool "
+    + "template class struct namespace enum true false nullptr __global__ __device__ "
+    + "__forceinline__ __restrict__ __shared__ __syncthreads __launch_bounds__ "
+    + "static_cast reinterpret_cast size_t uint32_t uint16_t int32_t unsigned short").split(" "));
+  var PY = new Set(("def return if elif else for while in with as import from and or not "
+    + "lambda None True False class yield pass break continue").split(" "));
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function paint(src, lang) {
+    var kw = lang === "python" ? PY : CPP;
+    var i = 0, n = src.length, out = "";
+    function span(cls, word) {
+      return '<span class="' + cls + '">' + esc(word) + "</span>";
+    }
+    while (i < n) {
+      var c = src.charAt(i);
+      var two = src.slice(i, i + 2);
+      if (lang !== "python" && two === "//") {
+        var j = src.indexOf("\n", i);
+        if (j < 0) j = n;
+        out += span("tok-cmt", src.slice(i, j));
+        i = j;
+        continue;
+      }
+      if (lang !== "python" && two === "/*") {
+        var j2 = src.indexOf("*/", i + 2);
+        j2 = j2 < 0 ? n : j2 + 2;
+        out += span("tok-cmt", src.slice(i, j2));
+        i = j2;
+        continue;
+      }
+      if (lang === "python" && (src.slice(i, i + 3) === '"""' || src.slice(i, i + 3) === "'''")) {
+        var q = src.slice(i, i + 3);
+        var j3 = src.indexOf(q, i + 3);
+        j3 = j3 < 0 ? n : j3 + 3;
+        out += span("tok-str", src.slice(i, j3));
+        i = j3;
+        continue;
+      }
+      if (c === '"' || c === "'") {
+        var k = i + 1;
+        while (k < n && src.charAt(k) !== c) {
+          if (src.charAt(k) === "\\") k++;
+          k++;
+        }
+        if (k < n) k++;
+        out += span("tok-str", src.slice(i, k));
+        i = k;
+        continue;
+      }
+      if (lang === "python" && c === "#") {
+        var j4 = src.indexOf("\n", i);
+        if (j4 < 0) j4 = n;
+        out += span("tok-cmt", src.slice(i, j4));
+        i = j4;
+        continue;
+      }
+      if (lang !== "python" && c === "#") {
+        var j5 = src.indexOf("\n", i);
+        if (j5 < 0) j5 = n;
+        out += span("tok-pp", src.slice(i, j5));
+        i = j5;
+        continue;
+      }
+      if (lang === "python" && c === "@") {
+        var k2 = i + 1;
+        while (k2 < n && /[\w.]/.test(src.charAt(k2))) k2++;
+        if (src.charAt(k2) === "(") {
+          var depth = 0;
+          while (k2 < n) {
+            var ch = src.charAt(k2);
+            if (ch === "(") depth++;
+            else if (ch === ")") {
+              depth--;
+              k2++;
+              if (depth === 0) break;
+              continue;
+            }
+            k2++;
+          }
+        }
+        out += span("tok-dec", src.slice(i, k2));
+        i = k2;
+        continue;
+      }
+      if (/[0-9]/.test(c) && (i === 0 || !/[\w]/.test(src.charAt(i - 1)))) {
+        var k3 = i;
+        var hex = src.slice(i, i + 2);
+        if (hex === "0x" || hex === "0X") k3 = i + 2;
+        while (k3 < n && /[0-9A-Fa-fxX.]/.test(src.charAt(k3))) k3++;
+        var suf = src.charAt(k3);
+        if (suf === "u" || suf === "f") k3++;
+        out += span("tok-num", src.slice(i, k3));
+        i = k3;
+        continue;
+      }
+      if (/[A-Za-z_]/.test(c)) {
+        var k4 = i + 1;
+        while (k4 < n && /[\w]/.test(src.charAt(k4))) k4++;
+        var word = src.slice(i, k4);
+        var cls = kw.has(word) ? "tok-kw" : (src.charAt(k4) === "(" ? "tok-fn" : "");
+        out += cls ? span(cls, word) : esc(word);
+        i = k4;
+        continue;
+      }
+      out += esc(c);
+      i++;
+    }
+    return out;
+  }
+
+  document.querySelectorAll(".piece code").forEach(function (el) {
+    var lang = el.className.indexOf("lang-python") >= 0 ? "python" : "cpp";
+    el.innerHTML = paint(el.textContent.replace(/\n$/, ""), lang);
+  });
+
+  function select(lang) {
+    document.querySelectorAll(".piece").forEach(function (piece) {
+      piece.querySelectorAll(".tabs button").forEach(function (btn) {
+        var on = btn.getAttribute("data-lang") === lang;
+        btn.classList.toggle("on", on);
+        btn.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      piece.querySelectorAll(".pane").forEach(function (pane) {
+        pane.classList.toggle("on", pane.getAttribute("data-lang") === lang);
+      });
+    });
+  }
+
+  document.querySelectorAll(".piece .tabs button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      select(btn.getAttribute("data-lang"));
+    });
+  });
+})();
+
+</script>
+
 </body>
 </html>
