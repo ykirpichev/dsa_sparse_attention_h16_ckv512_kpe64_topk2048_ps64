@@ -19,11 +19,13 @@
  *
  * Dispatch (kernel_fn)
  * --------------------
- *   H == 16 and the token has enough valid indices (average >= 210):
+ *   H == 16 and T >= 8:
  *       CTA-per-token kernel. KV is loaded once and shared by every head.
  *   otherwise:
  *       legacy per-head kernel. Split-K (G in {2,4,16}) is added when
  *       T*H is too small to fill the SMs.
+ *   The choice uses only the call shape. A count of valid indices, and the
+ *   host sync that count required, was measured slower on these workloads.
  *   Both paths are replayed through a CUDA graph keyed on the shape. The
  *   bench clones tensors every call, so the graph is recaptured and its
  *   pointers are patched with cudaGraphExecUpdate.
@@ -178,7 +180,7 @@ static SplitKScratch g_split_scratch;
 //     cached exec and re-instantiate from scratch.
 //
 // Capture safety is guaranteed by running all potentially-syncing or
-// allocating setup (density count, split-K scratch alloc, kernel-attribute
+// allocating setup (split-K scratch alloc, kernel-attribute
 // configuration) OUTSIDE cudaStreamBeginCapture / cudaStreamEndCapture. Only
 // the kernel launches themselves (which during capture are just recorded
 // into the graph) run inside the captured region.
@@ -259,113 +261,6 @@ class GraphCache {
 };
 
 static GraphCache g_graph_cache;
-
-// ---------------------------------------------------------------------------
-// Phase 7h: density-based dispatcher
-//
-// Some workloads have the same (T, H, num_kv_rows) shape as the fastest
-// CPT candidates but a much lower effective K density (many invalid
-// entries in sparse_indices), and for those the legacy kernel is faster
-// than CPT's ~54 µs floor. This module counts the valid entries in
-// sparse_indices once per (si_ptr, T, num_kv_rows) tuple, caches the
-// result for repeat calls on the same tensor, and lets the dispatcher
-// fall back to legacy when the measured avg-valid-K-per-token drops
-// below a tunable threshold.
-// ---------------------------------------------------------------------------
-
-// Density-count kernel: sweep sparse_indices[T*TOPK] and atomicAdd the
-// number of entries in [0, num_kv_rows). One grid-stride loop + two
-// warp/block reductions; typical wall is ~1 µs for TOPK=2048, T<=16.
-__global__ void mla_count_valid_sparse_kernel(
-    const int32_t* __restrict__ si,
-    int64_t total_elems,
-    int64_t num_kv_rows,
-    int* __restrict__ out_count) {
-  int tid    = static_cast<int>(blockIdx.x) * blockDim.x + threadIdx.x;
-  int stride = gridDim.x * blockDim.x;
-  int my = 0;
-  for (int64_t i = tid; i < total_elems; i += stride) {
-    int32_t v = si[i];
-    if (v >= 0 && static_cast<int64_t>(v) < num_kv_rows) ++my;
-  }
-  const unsigned mask = 0xffffffffu;
-  #pragma unroll
-  for (int o = 16; o > 0; o >>= 1) my += __shfl_xor_sync(mask, my, o);
-  __shared__ int s_sum[32];
-  const int lane = threadIdx.x & 31;
-  const int wid  = threadIdx.x >> 5;
-  if (lane == 0) s_sum[wid] = my;
-  __syncthreads();
-  if (wid == 0) {
-    const int W = blockDim.x >> 5;
-    int v = (lane < W) ? s_sum[lane] : 0;
-    #pragma unroll
-    for (int o = 16; o > 0; o >>= 1) v += __shfl_xor_sync(mask, v, o);
-    if (lane == 0) atomicAdd(out_count, v);
-  }
-}
-
-// Host-side result cache keyed by sparse_indices tensor pointer.
-// Repeat calls on the same tensor (as in a benchmark warmup+iter loop)
-// reuse the cached count, amortising the ~3-5 µs scan+sync to 0 µs on
-// the hot path. Unsafe in general (same pointer + different data), but
-// strictly safe in the benchmark's same-tensor-reused pattern; on the
-// common allocator-reuse case the caller's inputs would also typically
-// be re-computed so cache misses are self-correcting.
-struct DensityCache {
-  static constexpr int N = 32;
-  struct Entry {
-    const int32_t* si_ptr = nullptr;
-    int64_t T = 0;
-    int64_t num_kv_rows = 0;
-    int count = -1;
-  };
-  Entry e[N];
-  int head = 0;
-  int* d_count = nullptr;
-  int* h_count = nullptr;
-  std::mutex mu;
-
-  int get_or_compute(const int32_t* si,
-                     int64_t T,
-                     int64_t num_kv_rows,
-                     cudaStream_t stream) {
-    std::lock_guard<std::mutex> lk(mu);
-    for (int i = 0; i < N; ++i) {
-      if (e[i].count >= 0 &&
-          e[i].si_ptr == si &&
-          e[i].T == T &&
-          e[i].num_kv_rows == num_kv_rows) {
-        return e[i].count;
-      }
-    }
-    if (!d_count) {
-      cudaMalloc(reinterpret_cast<void**>(&d_count), sizeof(int));
-      cudaMallocHost(reinterpret_cast<void**>(&h_count), sizeof(int));
-    }
-    cudaMemsetAsync(d_count, 0, sizeof(int), stream);
-    const int64_t total = T * static_cast<int64_t>(TOPK);
-    constexpr int BLOCK = 256;
-    int GRID = static_cast<int>((total + BLOCK - 1) / BLOCK);
-    if (GRID > 144) GRID = 144;
-    mla_count_valid_sparse_kernel<<<GRID, BLOCK, 0, stream>>>(
-        si, total, num_kv_rows, d_count);
-    cudaMemcpyAsync(h_count, d_count, sizeof(int),
-                    cudaMemcpyDeviceToHost, stream);
-    cudaStreamSynchronize(stream);
-    const int c = *h_count;
-    e[head] = {si, T, num_kv_rows, c};
-    head = (head + 1) % N;
-    return c;
-  }
-};
-
-static DensityCache g_density_cache;
-
-// Phase 7h density dispatcher: fall back to legacy when avg-valid-K-per-
-// token is below this threshold. 210 is the empirically optimal cut-off
-// from the 23-workload A/B; always-on in production.
-constexpr int CTA_PER_T_DENSITY_MIN_AVG = 210;
 
 // Pick the split-K factor for the CTA-per-t path. base_ctas in this mode is
 // `T` (one CTA per token per K-slice) rather than `T*H` (one CTA per
@@ -740,27 +635,16 @@ void kernel_fn(
   auto* out_p          = static_cast<__nv_bfloat16*>(out.data_ptr());
   auto* lse_p          = static_cast<float*>(lse.data_ptr());
 
-  // CTA-per-t path (Phase 7g, production default). The cta_per_t_mma_v
-  // kernel (WMMA logit + WMMA V-accum) handles H=CPT_H (=16) workloads
-  // whose sparse-index density passes the Phase 7h pre-scan threshold;
-  // low-density or non-CPT_H workloads fall through to the legacy (t,h)-
-  // grid path below.
-  //
-  // NOTE: the density-count lookup (`g_density_cache.get_or_compute`) may
-  // synchronise the stream on a cold cache, so we resolve the dispatch
-  // verdict BEFORE any potential cudaStreamBeginCapture below.
+  // CTA-per-t when the call is wide enough to fill a B200 with one CTA
+  // per token. T >= 8 is the shape rule measured faster than counting
+  // valid indices: the two dense T=6 calls are faster on the legacy
+  // kernel, and the count itself needed a host sync. Anything else,
+  // including H != 16, stays on the per-head grid.
   uint8_t path = 0;     // 0 = legacy, 1 = CTA-per-t
   uint8_t G_cpt = 0;    // split factor for CTA-per-t path (only valid if path==1)
-  if (H == CPT_H) {
-    const int density_count = g_density_cache.get_or_compute(
-        si_p, T, num_kv_rows, stream);
-    const int density_avg = density_count /
-        static_cast<int>(std::max<int64_t>(T, 1));
-    if (density_avg >= CTA_PER_T_DENSITY_MIN_AVG) {
-      path = 1;
-      G_cpt = static_cast<uint8_t>(pick_split_G_cta_per_t(static_cast<int>(T)));
-    }
-    // else: fall through to legacy dispatch for low-density workloads.
+  if (H == CPT_H && T >= 8) {
+    path = 1;
+    G_cpt = static_cast<uint8_t>(pick_split_G_cta_per_t(static_cast<int>(T)));
   }
 
   // Pre-capture setup: ensure split-K scratch is big enough, and pre-run the

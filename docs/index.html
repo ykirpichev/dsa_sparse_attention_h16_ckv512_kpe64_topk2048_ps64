@@ -110,9 +110,9 @@ Passed: 23/23, 23/23, 23/23, 23/23, 23/23.</p>
 0.9 µs in CUDA. The CUDA kernel double-buffers its gather loads with <code>cp.async</code>; Triton only pipelines
 loads that feed <code>tl.dot</code>, and this kernel's dot products are element-wise sums, so <code>num_stages</code>
 has no effect on it.</li>
-<li><strong>The dispatch thresholds are tuned for CUDA.</strong> Workloads averaging fewer than 210 valid keys per token
+<li><strong>The dispatch thresholds are tuned for CUDA.</strong> In this run, workloads averaging fewer than 210 valid keys per token
 go to the per-head kernel. That is 12 of the 23 workloads: CUDA's cheapest path and Triton's most
-expensive one.</li>
+expensive one. The CUDA source now uses the token count instead (<code>T &gt;= 8</code> takes the per-token kernel); that shape rule was measured slightly faster than the index count.</li>
 <li><strong>The per-token kernel is already faster in Triton.</strong> The 10 dense workloads that
 reach it take 42.2–44.0 µs in the port against
 50.1–52.0 µs in CUDA.</li>

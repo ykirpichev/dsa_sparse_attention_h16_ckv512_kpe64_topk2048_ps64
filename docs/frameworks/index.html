@@ -142,7 +142,7 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 </nav>
 <section class="piece" id="piece-path">
 <h3>Which path runs</h3>
-<p class="why">A short token is scored by one program and never publishes a partial. A long token is split across key-groups. CUDA chooses from the average number of valid keys. The other three choose from how many programs fit on the GPU at once. Triton also looks at where the last valid index sits. First place looks only at the token count: two tokens or fewer never split the keys, and three or more always do. PyTorch does not split at all. One host loop gathers the valid keys and runs one softmax over the row.</p>
+<p class="why">A short token is scored by one program and never publishes a partial. A long token is split across key-groups. CUDA chooses from the token count: eight or more tokens take the per-token kernel. The other three choose from how many programs fit on the GPU at once. Triton also looks at where the last valid index sits. First place looks only at the token count: two tokens or fewer never split the keys, and three or more always do. PyTorch does not split at all. One host loop gathers the valid keys and runs one softmax over the row.</p>
 <div class="editor">
 <div class="tabs" role="tablist">
 <button type="button" role="tab" aria-selected="true" class="cuda on" data-lang="cuda">CUDA</button>
@@ -153,18 +153,11 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 <button type="button" role="tab" aria-selected="false" class="pt" data-lang="pt">PyTorch</button>
 </div>
 <div class="pane on" data-lang="cuda" role="tabpanel">
-<pre><code class="lang-cpp">  if (H == CPT_H) {
-    const int density_count = g_density_cache.get_or_compute(
-        si_p, T, num_kv_rows, stream);
-    const int density_avg = density_count /
-        static_cast&lt;int&gt;(std::max&lt;int64_t&gt;(T, 1));
-    if (density_avg &gt;= CTA_PER_T_DENSITY_MIN_AVG) {
-      path = 1;
-      G_cpt = static_cast&lt;uint8_t&gt;(pick_split_G_cta_per_t(static_cast&lt;int&gt;(T)));
-    }
-    // else: fall through to legacy dispatch for low-density workloads.
+<pre><code class="lang-cpp">  if (H == CPT_H &amp;&amp; T &gt;= 8) {
+    path = 1;
+    G_cpt = static_cast&lt;uint8_t&gt;(pick_split_G_cta_per_t(static_cast&lt;int&gt;(T)));
   }</code></pre>
-<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/python/kernel.cu#L754-L764">solution/python/kernel.cu, lines 754–764</a></p>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/python/kernel.cu#L645-L648">solution/python/kernel.cu, lines 645–648</a></p>
 </div>
 <div class="pane" data-lang="triton" role="tabpanel">
 <pre><code class="lang-python">    pos = tl.arange(0, TOPK)
@@ -845,7 +838,7 @@ modal run scripts/profile_frameworks.py --which tk,tilelang --tilelang 16x128,16
 
 <h2>Why CUDA, ThunderKittens, and TileLang are slower</h2>
 <p>On the dense call (<code>02d6ae9c</code>, 8 tokens, 303 keys) Triton is one kernel and takes 11.0 µs. CUDA takes 51.8 µs in two kernels. ThunderKittens takes 104 µs in one kernel. TileLang's kernels take 46.2 µs and 6.6 µs, plus about 8 µs of small copies, so the GPU is busy for 60.8 µs. The span is 113 µs because the GPU waits between those launches.</p>
-<p><strong>CUDA</strong> was tuned for a 16-key WMMA tile and a second kernel that merges the partials. Twelve of the 23 workloads take that per-head path, which is the submission's fast path and about 0.9 µs per tile. The fused Triton kernel never uses it. It scores 32 to 128 keys in one pipelined tile and merges in the same launch. CUDA still wins the shortest call, 3.4 µs against 4.0. Past a handful of keys the 16-key tile and the second kernel are the whole gap: the dense call is 51.8 µs against 11.0.</p>
+<p><strong>CUDA</strong> was tuned for a 16-key WMMA tile and a second kernel that merges the partials. In the timed build, twelve of the 23 workloads took that per-head path, which is about 0.9 µs per tile. The source now picks the path from the token count: <code>T &gt;= 8</code> uses the per-token kernel, and a smaller call stays per-head. That shape rule was measured slightly faster than counting valid indices, and the decision is a comparison of T. The fused Triton kernel scores 32 to 128 keys in one pipelined tile and merges in the same launch. CUDA still wins the shortest call, 3.4 µs against 4.0. Past a handful of keys the 16-key tile and the second kernel are the whole gap: the dense call is 51.8 µs against 11.0.</p>
 <p><strong>ThunderKittens</strong> pays for the tensor-core tile. <code>mm_ABt</code> consumes 128 rows and a K that is a multiple of 64, and this problem has 16 heads and a 512-d latent, so most of each tile is padding. Scoring 128 keys is four K=128 steps plus the positional key. The output is eight more <code>mm_AB</code>s of 64 columns. Each step gathers into a swizzled tile, one thread issues the MMA, and every thread waits. One such tile is already about 50 µs on a token with two keys, which Triton scores in 4 µs. The 16-byte vector gather removed the scalar shared-memory cost. The number of MMA steps is still there.</p>
 <p><strong>TileLang</strong> pays for the gather and for two launches. A 16-byte load comes back as a vector this frontend cannot index, so a 128 by 512 key tile is copied one element at a time. The gemm itself is one call for the score and one call for all 512 output columns. The reported 95.9 µs geomean is that work plus the idle time between the partial kernel and the merge. Kernel-busy time is 39.6 µs.</p>
 <p>Triton is one pipelined launch. The score, the softmax, and the output dot share the K that was just loaded, and the merge is a counter in that same kernel. On 16 heads by 512 that is worth more than the tensor-core instruction the other two are built around.</p>
