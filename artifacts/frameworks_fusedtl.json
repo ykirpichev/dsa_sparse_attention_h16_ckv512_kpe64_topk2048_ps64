@@ -1,0 +1,199 @@
+{
+ "gpu": "NVIDIA B200",
+ "which": [
+  "tilelang-g16-b128"
+ ],
+ "workloads": {
+  "0c23b10c7b7645719517828c12eaa1d2": {
+   "T": 1,
+   "valid_per_token": [
+    2
+   ],
+   "valid_avg": 2,
+   "last_valid_plus1": [
+    2
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "tilelang-g16-b128": {
+     "median_us": 134.272,
+     "mean_us": 151.5968,
+     "min_us": 113.184,
+     "busy_us": 24.896,
+     "host_us": 161.908,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.8800000000000003
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 16.095999999999997
+      }
+     }
+    }
+   },
+   "error": {
+    "tilelang-g16-b128": [
+     0.007802248001098633,
+     6.67572021484375e-06
+    ]
+   }
+  },
+  "9d4a5f21268e484ea05a2f2af91d9fa7": {
+   "T": 2,
+   "valid_per_token": [
+    18,
+    11
+   ],
+   "valid_avg": 14,
+   "last_valid_plus1": [
+    18,
+    11
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "tilelang-g16-b128": {
+     "median_us": 128.575,
+     "mean_us": 138.7568,
+     "min_us": 117.919,
+     "busy_us": 24.832,
+     "host_us": 163.617,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7860666666666676
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 16.4604
+      }
+     }
+    }
+   },
+   "error": {
+    "tilelang-g16-b128": [
+     0.0078012943267822266,
+     5.7220458984375e-06
+    ]
+   }
+  },
+  "b7668cfd194c4b95ab600feb205ebac6": {
+   "T": 2,
+   "valid_per_token": [
+    33,
+    52
+   ],
+   "valid_avg": 42,
+   "last_valid_plus1": [
+    33,
+    52
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "tilelang-g16-b128": {
+     "median_us": 118.3,
+     "mean_us": 138.0564,
+     "min_us": 115.453,
+     "busy_us": 25.792,
+     "host_us": 142.049,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.8778
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 16.985
+      }
+     }
+    }
+   },
+   "error": {
+    "tilelang-g16-b128": [
+     0.007798194885253906,
+     1.049041748046875e-05
+    ]
+   }
+  },
+  "0a63b87bb2e54e9db1ca3c4c53a1d521": {
+   "T": 2,
+   "valid_per_token": [
+    63,
+    9
+   ],
+   "valid_avg": 36,
+   "last_valid_plus1": [
+    63,
+    9
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "tilelang-g16-b128": {
+     "median_us": 133.664,
+     "mean_us": 142.0606,
+     "min_us": 119.104,
+     "busy_us": 25.344,
+     "host_us": 165.656,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.7328
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 17.1648
+      }
+     }
+    }
+   },
+   "error": {
+    "tilelang-g16-b128": [
+     0.0077648162841796875,
+     8.58306884765625e-06
+    ]
+   }
+  },
+  "05f6de657db543ae9e4c46796522843a": {
+   "T": 2,
+   "valid_per_token": [
+    6,
+    337
+   ],
+   "valid_avg": 171,
+   "last_valid_plus1": [
+    6,
+    337
+   ],
+   "padding_is_tail": true,
+   "latency": {
+    "tilelang-g16-b128": {
+     "median_us": 134.417,
+     "mean_us": 147.786,
+     "min_us": 121.4,
+     "busy_us": 31.724,
+     "host_us": 155.993,
+     "kernels": {
+      "MEMCPY": {
+       "calls": 3.0,
+       "gpu_us": 2.9105333333333334
+      },
+      "partial_kernel": {
+       "calls": 1.0,
+       "gpu_us": 23.0894
+      }
+     }
+    }
+   },
+   "error": {
+    "tilelang-g16-b128": [
+     0.00773930549621582,
+     9.5367431640625e-06
+    ]
+   }
+  }
+ },
+ "errors": {},
+ "triton_version": "3.7.0",
+ "tilelang_version": "0.1.15"
+}
