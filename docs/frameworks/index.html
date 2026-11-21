@@ -8,13 +8,13 @@
 <style>
 :root {
   --bg: #fff; --fg: #1b1f24; --muted: #5d6673; --line: #e6e8eb; --code-bg: #f4f6f8;
-  --cuda: #4d8a00; --t39: #2563eb; --tk: #6d28d9; --tl: #c2410c; --ref: #a16207;
+  --cuda: #4d8a00; --t39: #2563eb; --tk: #6d28d9; --tl: #c2410c; --ref: #a16207; --pt: #ee4c2c;
   --card: #f7f8f9;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #111418; --fg: #e6e8eb; --muted: #9aa3ad; --line: #2a3038; --code-bg: #1b2128;
-    --cuda: #8fd14f; --t39: #60a5fa; --tk: #c4b5fd; --tl: #fdba74; --ref: #fbbf24;
+    --cuda: #8fd14f; --t39: #60a5fa; --tk: #c4b5fd; --tl: #fdba74; --ref: #fbbf24; --pt: #ffb08a;
     --card: #1b2128;
   }
 }
@@ -71,6 +71,7 @@ h3 { font-size: 1.05rem; margin: 28px 0 8px; }
 .tabs button.tilelang.on { border-bottom-color: var(--tl); }
 .tabs button.tk.on { border-bottom-color: var(--tk); }
 .tabs button.first.on { border-bottom-color: var(--ref); }
+.tabs button.pt.on { border-bottom-color: var(--pt); }
 .pane { display: none; }
 .pane.on { display: block; }
 .editor pre { margin: 0; border: 0; border-radius: 0; max-height: 32rem; padding: 16px 18px; background: transparent; }
@@ -132,7 +133,7 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 </table>
 
 <h2 id="code">The same pieces, side by side</h2>
-<p>Each step is below. Pick a language and every step follows. First place is <a href="../">Doğaç Eldenk's winning Triton kernel</a>, timed on the same 23 workloads. A line that says <code>...</code> is a cut between two regions of the same file.</p>
+<p>Each step is below. Pick a language and every step follows. First place is <a href="../">Doğaç Eldenk's winning Triton kernel</a>, timed on the same 23 workloads. PyTorch is the fp32 reference the kernels are checked against. A line that says <code>...</code> is a cut between two regions of the same file.</p>
 <nav class="piece-nav">
 <a href="#piece-path">Which path runs</a>
 <a href="#piece-gather">Gather the sparse keys</a>
@@ -141,7 +142,7 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 </nav>
 <section class="piece" id="piece-path">
 <h3>Which path runs</h3>
-<p class="why">A short token is scored by one program and never publishes a partial. A long token is split across key-groups. CUDA chooses from the average number of valid keys. The other three choose from how many programs fit on the GPU at once. Triton also looks at where the last valid index sits. First place looks only at the token count: two tokens or fewer never split the keys, and three or more always do.</p>
+<p class="why">A short token is scored by one program and never publishes a partial. A long token is split across key-groups. CUDA chooses from the average number of valid keys. The other three choose from how many programs fit on the GPU at once. Triton also looks at where the last valid index sits. First place looks only at the token count: two tokens or fewer never split the keys, and three or more always do. PyTorch does not split at all. One host loop gathers the valid keys and runs one softmax over the row.</p>
 <div class="editor">
 <div class="tabs" role="tablist">
 <button type="button" role="tab" aria-selected="true" class="cuda on" data-lang="cuda">CUDA</button>
@@ -149,6 +150,7 @@ lse   = m + log2(l)             # base-2 log-sum-exp, −∞ when the row is emp
 <button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
 <button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
 <button type="button" role="tab" aria-selected="false" class="first" data-lang="first">First place</button>
+<button type="button" role="tab" aria-selected="false" class="pt" data-lang="pt">PyTorch</button>
 </div>
 <div class="pane on" data-lang="cuda" role="tabpanel">
 <pre><code class="lang-cpp">  if (H == CPT_H) {
@@ -261,6 +263,27 @@ NUM_SPLITS = 16
         num_warps=4, num_stages=2,</code></pre>
 <p class="src">Doğaç Eldenk, contest first place, sparse_fused.py, lines 312–314 and 332–350 and 356–377. Shown for comparison; it is not part of this repository.</p>
 </div>
+<div class="pane" data-lang="pt" role="tabpanel">
+<pre><code class="lang-python">def reference(q_nope, q_pe, ckv_cache, kpe_cache, sparse_indices, sm_scale):
+    &quot;&quot;&quot;fp32 PyTorch form of the definition&#x27;s reference loop.&quot;&quot;&quot;
+    n_tokens, n_heads, dim = q_nope.shape
+    ckv = ckv_cache.reshape(-1, dim)
+    kpe = kpe_cache.reshape(-1, kpe_cache.shape[-1])
+    out = torch.zeros((n_tokens, n_heads, dim), dtype=torch.float32, device=q_nope.device)
+    lse = torch.full((n_tokens, n_heads), float(&quot;-inf&quot;), dtype=torch.float32, device=q_nope.device)
+    for t in range(n_tokens):
+        idx = sparse_indices[t]
+        idx = idx[idx != -1].long()
+        if idx.numel() == 0:
+            continue
+        kc = ckv[idx].float()
+        kp = kpe[idx].float()
+        score = (q_nope[t].float() @ kc.T + q_pe[t].float() @ kp.T) * float(sm_scale)
+        lse[t] = torch.logsumexp(score, dim=-1) / math.log(2.0)
+        out[t] = torch.softmax(score, dim=-1) @ kc
+    return out, lse</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/scripts/triton_profile_worker.py#L110-L127">scripts/triton_profile_worker.py, lines 110–127. The fp32 reference. One host loop, no split and no barrier.</a></p>
+</div>
 </div>
 </section>
 <section class="piece" id="piece-gather">
@@ -273,6 +296,7 @@ NUM_SPLITS = 16
 <button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
 <button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
 <button type="button" role="tab" aria-selected="false" class="first" data-lang="first">First place</button>
+<button type="button" role="tab" aria-selected="false" class="pt" data-lang="pt">PyTorch</button>
 </div>
 <div class="pane on" data-lang="cuda" role="tabpanel">
 <pre><code class="lang-cpp">    #pragma unroll
@@ -372,6 +396,15 @@ NUM_SPLITS = 16
         kp = tl.load(kp_ptrs, mask=valid[:, None], other=0.0, cache_modifier=&quot;.cg&quot;, eviction_policy=&quot;evict_first&quot;)</code></pre>
 <p class="src">Doğaç Eldenk, contest first place, sparse_fused.py, lines 78–92. Shown for comparison; it is not part of this repository.</p>
 </div>
+<div class="pane" data-lang="pt" role="tabpanel">
+<pre><code class="lang-python">        idx = sparse_indices[t]
+        idx = idx[idx != -1].long()
+        if idx.numel() == 0:
+            continue
+        kc = ckv[idx].float()
+        kp = kpe[idx].float()</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/scripts/triton_profile_worker.py#L118-L123">scripts/triton_profile_worker.py, lines 118–123. Boolean index, then one gather of the latent and the positional key.</a></p>
+</div>
 </div>
 </section>
 <section class="piece" id="piece-score">
@@ -384,6 +417,7 @@ NUM_SPLITS = 16
 <button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
 <button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
 <button type="button" role="tab" aria-selected="false" class="first" data-lang="first">First place</button>
+<button type="button" role="tab" aria-selected="false" class="pt" data-lang="pt">PyTorch</button>
 </div>
 <div class="pane on" data-lang="cuda" role="tabpanel">
 <pre><code class="lang-cpp">    // ---- Logit phase: WMMA GEMM, K-split across 16 warps ----------------
@@ -538,6 +572,12 @@ NUM_SPLITS = 16
         acc = tl.dot(p.to(tl.bfloat16), kc, acc=acc)</code></pre>
 <p class="src">Doğaç Eldenk, contest first place, sparse_fused.py, lines 94–105. Shown for comparison; it is not part of this repository.</p>
 </div>
+<div class="pane" data-lang="pt" role="tabpanel">
+<pre><code class="lang-python">        score = (q_nope[t].float() @ kc.T + q_pe[t].float() @ kp.T) * float(sm_scale)
+        lse[t] = torch.logsumexp(score, dim=-1) / math.log(2.0)
+        out[t] = torch.softmax(score, dim=-1) @ kc</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/scripts/triton_profile_worker.py#L124-L126">scripts/triton_profile_worker.py, lines 124–126. Natural-base softmax. The log-sum-exp is divided by ln(2) so lse matches the kernels.</a></p>
+</div>
 </div>
 </section>
 <section class="piece" id="piece-merge">
@@ -550,6 +590,7 @@ NUM_SPLITS = 16
 <button type="button" role="tab" aria-selected="false" class="tilelang" data-lang="tilelang">TileLang</button>
 <button type="button" role="tab" aria-selected="false" class="tk" data-lang="tk">ThunderKittens</button>
 <button type="button" role="tab" aria-selected="false" class="first" data-lang="first">First place</button>
+<button type="button" role="tab" aria-selected="false" class="pt" data-lang="pt">PyTorch</button>
 </div>
 <div class="pane on" data-lang="cuda" role="tabpanel">
 <pre><code class="lang-cpp">
@@ -733,6 +774,11 @@ NUM_SPLITS = 16
 </code></pre>
 <p class="src">Doğaç Eldenk, contest first place, sparse_fused.py, lines 121–127 and 137–159. Shown for comparison; it is not part of this repository.</p>
 </div>
+<div class="pane" data-lang="pt" role="tabpanel">
+<pre><code class="lang-python">        lse[t] = torch.logsumexp(score, dim=-1) / math.log(2.0)
+        out[t] = torch.softmax(score, dim=-1) @ kc</code></pre>
+<p class="src"><a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/scripts/triton_profile_worker.py#L125-L126">scripts/triton_profile_worker.py, lines 125–126. The softmax already covers every gathered key, so there is no partial and no merge.</a></p>
+</div>
 </div>
 </section>
 
@@ -769,6 +815,7 @@ NUM_SPLITS = 16
 <li>Triton: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/triton/kernel.py"><code>solution/triton/kernel.py</code></a>, <code>run_fused</code>. One program per key-group. Below the threshold it writes its own columns and skips the barrier. Above it, every key-group stores the whole value.</li>
 <li>TileLang: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tilelang/solution.py"><code>solution/tilelang/solution.py</code></a>. <code>T.gemm(q_s, k_s, score, transpose_B=True)</code> is the score, and one <code>T.gemm(p_s, k_s, mix)</code> is the whole output. A second kernel merges. Both are captured in one CUDA graph.</li>
 <li>Contest first place: Doğaç Eldenk's Triton kernel, shown in the First place tab. Two tokens or fewer use <code>_small_t_kernel</code> with a fixed block of 64. Three or more use <code>_fused_split_combine_kernel</code> with 16 splits and a block of 128.</li>
+<li>PyTorch: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/scripts/triton_profile_worker.py#L110-L127"><code>reference</code></a> in <code>scripts/triton_profile_worker.py</code>. The fp32 loop the other kernels are checked against. It is not timed with them.</li>
 <li>ThunderKittens: <a href="https://github.com/ykirpichev/dsa_sparse_attention_h16_ckv512_kpe64_topk2048_ps64/blob/readable/solution/tk/attention.cu"><code>solution/tk/attention.cu</code></a>. <code>mm_ABt</code> scores 128 gathered keys by a 128-wide chunk of the latent. <code>mm_AB</code> mixes the softmax weights with the same latent. The loader is <code>solution/tk/solution.py</code>.</li>
 </ul>
 
